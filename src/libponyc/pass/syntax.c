@@ -648,8 +648,15 @@ static ast_result_t syntax_embed(ast_t* ast)
 
 static ast_result_t syntax_type_param(ast_t* ast)
 {
-  if(!check_id_type_param(ast_child(ast)))
+  AST_GET_CHILDREN(ast, id, constraint, default_arg);
+  const char* name = ast_name(id);
+  if(is_type_name(name))
+    return AST_OK;
+
+  if(ast_id(constraint) == TK_NONE) {
+    ast_error(ast, "Value parameter requires a constraint");
     return AST_ERROR;
+  }
 
   return AST_OK;
 }

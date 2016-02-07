@@ -443,6 +443,9 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
       return true;
     }
 
+    case TK_TYPEPARAMVALUE:
+      assert(0);
+
     case TK_INTERFACE:
     case TK_TRAIT:
     case TK_TYPE:

@@ -234,6 +234,9 @@ typedef enum token_id
   TK_BEAPP,
   TK_FUNAPP,
 
+  TK_TYPEPARAMVALUE,
+  TK_TYPEVALUEREF,
+
   // Pseudo tokens that never actually exist
   TK_NEWLINE,  // Used by parser macros
   TK_FLATTEN,  // Used by parser macros for tree building

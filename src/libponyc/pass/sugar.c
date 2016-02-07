@@ -227,9 +227,12 @@ static ast_result_t sugar_entity(typecheck_t* t, ast_t* ast, bool add_create,
 static ast_result_t sugar_typeparam(ast_t* ast)
 {
   AST_GET_CHILDREN(ast, id, constraint);
+  const char* name = ast_name(id);
 
-  if(ast_id(constraint) == TK_NONE)
-  {
+  if(!is_type_name(name)) {
+    ast_setid(ast, TK_TYPEPARAMVALUE);
+
+  } else if(ast_id(constraint) == TK_NONE) {
     REPLACE(&constraint,
       NODE(TK_NOMINAL,
         NONE

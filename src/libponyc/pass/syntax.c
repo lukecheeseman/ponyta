@@ -976,8 +976,8 @@ ast_result_t pass_syntax(ast_t** astp, pass_opt_t* options)
 
     case TK_VALUEFORMALARG:
     case TK_VALUEFORMALPARAM:
-      ast_error(ast, "Value formal parameters not yet supported");
-      r = AST_ERROR;
+      //ast_error(ast, "Value formal parameters not yet supported");
+      //r = AST_ERROR;
       break;
 
     case TK_CONSTANT:

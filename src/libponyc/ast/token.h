@@ -200,7 +200,9 @@ typedef enum token_id
   TK_PARAM,
   TK_TYPEARGS,
   TK_VALUEFORMALPARAM,
+  TK_VALUEFORMALPARAMREF,
   TK_VALUEFORMALARG,
+
   TK_POSITIONALARGS,
   TK_NAMEDARGS,
   TK_NAMEDARG,
@@ -233,9 +235,6 @@ typedef enum token_id
   TK_NEWAPP,
   TK_BEAPP,
   TK_FUNAPP,
-
-  TK_TYPEPARAMVALUE,
-  TK_TYPEVALUEREF,
 
   // Pseudo tokens that never actually exist
   TK_NEWLINE,  // Used by parser macros

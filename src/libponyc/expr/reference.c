@@ -443,11 +443,11 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
       return true;
     }
 
-    case TK_TYPEPARAMVALUE:
+    case TK_VALUEFORMALPARAM:
     {
       ast_t *constraint = ast_childidx(def, 1);
       ast_settype(ast, constraint);
-      ast_setid(ast, TK_TYPEVALUEREF);
+      ast_setid(ast, TK_VALUEFORMALPARAMREF);
       return true;
     }
 

@@ -38,7 +38,7 @@ static bool set_scope(typecheck_t* t, ast_t* scope, ast_t* name, ast_t* value)
     case TK_STRUCT:
     case TK_CLASS:
     case TK_ACTOR:
-    case TK_TYPEPARAMVALUE:
+    case TK_VALUEFORMALPARAM:
     case TK_TYPEPARAM:
     case TK_PACKAGE:
     case TK_NEW:
@@ -211,7 +211,7 @@ ast_result_t pass_scope(ast_t** astp, pass_opt_t* options)
         return AST_ERROR;
       break;
 
-    case TK_TYPEPARAMVALUE:
+    case TK_VALUEFORMALPARAM:
     case TK_TYPEPARAM:
       if(!set_scope(t, ast, ast_child(ast), ast))
         return AST_ERROR;

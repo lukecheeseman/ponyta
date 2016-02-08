@@ -230,7 +230,7 @@ static ast_result_t sugar_typeparam(ast_t* ast)
   const char* name = ast_name(id);
 
   if(!is_type_name(name)) {
-    ast_setid(ast, TK_TYPEPARAMVALUE);
+    ast_setid(ast, TK_VALUEFORMALPARAM);
 
   } else if(ast_id(constraint) == TK_NONE) {
     REPLACE(&constraint,

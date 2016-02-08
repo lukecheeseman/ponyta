@@ -1379,6 +1379,47 @@ static bool is_arrow_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
   return false;
 }
 
+static bool is_typevalue_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
+{
+  ast_t* value = ast_child(sub);
+  switch(ast_id(super)) {
+    case TK_VALUEFORMALARG: {
+      // we hit this case when we are trying to match one instantiated type
+      // agains another
+      // TODO: this is where we need some notion of is_eq_expression
+      ast_t *super_type = ast_type(ast_child(super));
+      ast_t *sub_type = ast_type(value);
+
+      // The type of these should be equal -- we don't have contravariance?
+      if(!is_eqtype(sub_type, super_type, errors))
+        return false;
+
+      // The value of the expressions should be equal
+      // FIXME: Quick hack to play with sutff
+      switch(ast_id(value)) {
+        case TK_INT: {/*
+          ast_t* sub_val = evaluate_integer_expression(value);
+          ast_t* super_val = evaluate_integer_expression(ast_child(super));
+          lexint_t *sub_value = ast_int(sub_val);
+          lexint_t *super_value = ast_int(super_val);
+          return !lexint_cmp(sub_value, super_value);*/
+        }
+
+        default:
+          if(errors)
+            ast_error_frame(errors, value, "Currently only supporting integers as parameter values.");
+          return false;
+      }
+
+      return true;
+    }
+
+    default:
+      assert(0);
+  }
+  return false;
+}
+
 bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
 {
   assert(sub != NULL);
@@ -1416,6 +1457,9 @@ bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
     case TK_BE:
     case TK_FUN:
       return is_fun_sub_fun(sub, super, errors);
+
+    case TK_VALUEFORMALARG:
+      return is_typevalue_subtype(sub, super, errors);
 
     default: {}
   }
@@ -1635,6 +1679,9 @@ bool is_concrete(ast_t* type)
 
     case TK_ARROW:
       return is_concrete(ast_childidx(type, 1));
+
+    case TK_VALUEFORMALARG:
+      return true;
 
     default: {}
   }

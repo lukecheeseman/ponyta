@@ -4,6 +4,7 @@
 #include "assemble.h"
 #include "alias.h"
 #include "../ast/token.h"
+#include "../expr/literal.h"
 #include <assert.h>
 
 static void reify_typeparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
@@ -189,10 +190,27 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
 
     if(bind_constraint != r_constraint)
       ast_free_unattached(bind_constraint);
-
-    // A bound type must be a subtype of the constraint.
     errorframe_t info = NULL;
-    if(!is_subtype(typearg, r_constraint, report_errors ? &info : NULL))
+    if (ast_id(typearg) == TK_VALUEFORMALARG) {
+      ast_t *value = ast_child(typearg);
+      pass_opt_t opts;
+      if(!coerce_literals(&value, r_constraint, &opts))
+        return false;
+
+      if (!is_subtype(ast_type(value), r_constraint, report_errors ? &info : NULL)) {
+        if(report_errors)
+        {
+          ast_error_frame(&frame, orig, "value argument type is outside its constraint");
+          ast_error_frame(&frame, value, "argument type: %s", ast_print_type(ast_type(value)));
+          ast_error_frame(&frame, typeparam, "constraint: %s", ast_print_type(r_constraint));
+        }
+
+        ast_free_unattached(r_constraint);
+        return false;
+      }
+    }
+    // A bound type must be a subtype of the constraint.
+    else if(!is_subtype(typearg, r_constraint, report_errors ? &info : NULL))
     {
       if(report_errors)
       {

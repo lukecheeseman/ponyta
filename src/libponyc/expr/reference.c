@@ -444,7 +444,12 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
     }
 
     case TK_TYPEPARAMVALUE:
-      assert(0);
+    {
+      ast_t *constraint = ast_childidx(def, 1);
+      ast_settype(ast, constraint);
+      ast_setid(ast, TK_TYPEVALUEREF);
+      return true;
+    }
 
     case TK_INTERFACE:
     case TK_TRAIT:

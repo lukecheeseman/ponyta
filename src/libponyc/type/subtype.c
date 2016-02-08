@@ -106,6 +106,8 @@ static bool is_eq_typeargs(ast_t* a, ast_t* b, errorframe_t* errors)
 
   while((a_arg != NULL) && (b_arg != NULL))
   {
+    //TODO: here do we want is_eqexpr(a_arg, b_arg)
+    // for when they are expressions?
     if(!is_eqtype(a_arg, b_arg, errors))
       ret = false;
 
@@ -1379,7 +1381,7 @@ static bool is_arrow_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
   return false;
 }
 
-static bool is_typevalue_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
+static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
 {
   ast_t* value = ast_child(sub);
   switch(ast_id(super)) {
@@ -1397,12 +1399,12 @@ static bool is_typevalue_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
       // The value of the expressions should be equal
       // FIXME: Quick hack to play with sutff
       switch(ast_id(value)) {
-        case TK_INT: {/*
-          ast_t* sub_val = evaluate_integer_expression(value);
-          ast_t* super_val = evaluate_integer_expression(ast_child(super));
+        case TK_INT: {
+          ast_t* sub_val = value;
+          ast_t* super_val = ast_child(super);
           lexint_t *sub_value = ast_int(sub_val);
           lexint_t *super_value = ast_int(super_val);
-          return !lexint_cmp(sub_value, super_value);*/
+          return !lexint_cmp(sub_value, super_value);
         }
 
         default:
@@ -1458,8 +1460,17 @@ bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
     case TK_FUN:
       return is_fun_sub_fun(sub, super, errors);
 
+/*
+    // TODO: Do we want these cases to appear here?
+    // does it make sense, should this not be somewhere
+    // like is_eqexpr
+    case TK_VALUEFORMALPARAMREF:
+      return true;
+//      return is_typevalue_subt_x(sub, super, errors);
+
+*/
     case TK_VALUEFORMALARG:
-      return is_typevalue_subtype(sub, super, errors);
+      return is_typevalue_sub_x(sub, super, errors);
 
     default: {}
   }
@@ -1680,6 +1691,7 @@ bool is_concrete(ast_t* type)
     case TK_ARROW:
       return is_concrete(ast_childidx(type, 1));
 
+    case TK_VALUEFORMALPARAMREF:
     case TK_VALUEFORMALARG:
       return true;
 

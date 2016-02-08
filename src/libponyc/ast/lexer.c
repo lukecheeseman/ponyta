@@ -234,6 +234,7 @@ static const lextoken_t abstract[] =
   { "typeparams", TK_TYPEPARAMS },
   { "typeparam", TK_TYPEPARAM },
   { "valueformalparam", TK_VALUEFORMALPARAM },
+  { "valueformalarg", TK_VALUEFORMALARG },
   { "params", TK_PARAMS },
   { "param", TK_PARAM },
   { "typeargs", TK_TYPEARGS },

@@ -181,6 +181,33 @@ static bool names_typeparam(ast_t** astp, ast_t* def)
   return true;
 }
 
+static bool names_valueparam(ast_t** astp, ast_t* def)
+{
+  ast_t* ast = *astp;
+  AST_GET_CHILDREN(ast, package, id, typeargs, cap, ephemeral);
+  assert(ast_id(package) == TK_NONE);
+
+  if(ast_id(typeargs) != TK_NONE)
+  {
+    ast_error(typeargs, "can't qualify a type parameter with type arguments");
+    return false;
+  }
+
+  // FIXME: make this a typevaluref or a ref
+  // the latter will get swithced out
+  // should be teh second and handled correctly
+  BUILD(ref, ast,
+    NODE(TK_REFERENCE,
+      TREE(id)));
+
+  REPLACE(astp,
+    NODE(TK_VALUEFORMALARG,
+      TREE(ref)));
+
+  ast_setdata(*astp, def);
+  return true;
+}
+
 static bool names_type(pass_opt_t* opt, ast_t** astp, ast_t* def)
 {
   ast_t* ast = *astp;
@@ -308,6 +335,11 @@ bool names_nominal(pass_opt_t* opt, ast_t* scope, ast_t** astp, bool expr)
 
       case TK_TYPEPARAM:
         r = names_typeparam(astp, def);
+        break;
+
+      // We get here when we want to qualify a type
+      case TK_VALUEFORMALPARAM:
+        r = names_valueparam(astp, def);
         break;
 
       case TK_INTERFACE:

@@ -200,9 +200,12 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       if (!is_subtype(ast_type(value), r_constraint, report_errors ? &info : NULL)) {
         if(report_errors)
         {
+          errorframe_t frame = NULL;
           ast_error_frame(&frame, orig, "value argument type is outside its constraint");
           ast_error_frame(&frame, value, "argument type: %s", ast_print_type(ast_type(value)));
           ast_error_frame(&frame, typeparam, "constraint: %s", ast_print_type(r_constraint));
+          errorframe_append(&frame, &info);
+          errorframe_report(&frame);
         }
 
         ast_free_unattached(r_constraint);

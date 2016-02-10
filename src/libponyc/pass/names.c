@@ -193,11 +193,8 @@ static bool names_valueparam(ast_t** astp, ast_t* def)
     return false;
   }
 
-  // FIXME: make this a typevaluref or a ref
-  // the latter will get swithced out
-  // should be teh second and handled correctly
   BUILD(ref, ast,
-    NODE(TK_REFERENCE,
+    NODE(TK_VALUEFORMALPARAMREF,
       TREE(id)));
 
   REPLACE(astp,

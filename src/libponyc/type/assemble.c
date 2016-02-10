@@ -282,7 +282,22 @@ ast_t* type_for_this(pass_opt_t* opt, ast_t* ast, token_id cap,
     while(typeparam != NULL)
     {
       ast_t* typeparam_id = ast_child(typeparam);
-      ast_t* typearg = type_sugar(ast, NULL, ast_name(typeparam_id));
+      ast_t* typearg;
+      if (ast_id(typeparam) == TK_VALUEFORMALPARAM) {
+      // FIXME: this builds the type for when this requires a value
+      // dependent type
+        BUILD(ref, ast,
+          NODE(TK_VALUEFORMALPARAMREF,
+            TREE(typeparam_id)));
+
+        BUILD(arg, ref,
+          NODE(TK_VALUEFORMALARG,
+            TREE(ref)));
+
+        typearg = arg;
+      } else {
+        typearg = type_sugar(ast, NULL, ast_name(typeparam_id));
+      }
       ast_append(typeargs, typearg);
 
       if(defs)

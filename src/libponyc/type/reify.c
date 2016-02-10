@@ -48,6 +48,15 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
   if(ast_name(ref_name) != ast_name(param_name))
     return;
 
+  // FIXME: Setting the type here is not great
+  // we could end up saying that a string is of the type U32 in the
+  // in the reification -- this will be caught later
+  // and the value MUST be of this type for the templating to be
+  // valid -- still not nice
+  // we could carry around the constraint instead
+  // -- we don't really want to replace and allow for type inference etc.
+  // because then we maybe able to coerce things to other values
+  // e.g. U32 -> U64 which is not correct
   ast_replace(astp, ast_child(typearg));
   ast_settype(*astp, ast_childidx(typeparam, 1));
   return;

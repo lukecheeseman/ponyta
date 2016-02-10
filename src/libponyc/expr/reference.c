@@ -651,6 +651,9 @@ bool expr_local(typecheck_t* t, ast_t* ast)
       ast_error(ast, "can't declare a let local without assigning to it");
       return false;
     }
+
+    ast_settype(id, type);
+    ast_settype(ast, type);
   }
 
   return true;
@@ -862,7 +865,18 @@ bool expr_this(pass_opt_t* opt, ast_t* ast)
 
   while(typearg != NULL)
   {
-    if(!expr_nominal(opt, &typearg))
+    if((ast_id(typearg) == TK_VALUEFORMALARG))
+    {
+      // FIXME: this builds the type for when this requires a value
+      // dependent type
+      ast_t *ref = ast_child(typearg);
+      if(!expr_reference(opt, &ref)) {
+        ast_error(ast, "couldn't create a type for 'this'");
+        ast_free(type);
+        return false;
+      }
+    }
+    else if(!expr_nominal(opt, &typearg))
     {
       ast_error(ast, "couldn't create a type for 'this'");
       ast_free(type);

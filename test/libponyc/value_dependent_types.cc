@@ -103,36 +103,6 @@ TEST_F(VDTTest, ClassWithArgumentTypeMismatchValueArgument)
   TEST_ERROR(src);
 }
 
-/*
-TEST_F(VDTTest, FunctionCallWithTypeMismatchValueArgument)
-{
-  const char* src =
-    "class C1[n: U32]\n"
-    "class C2\n"
-    "  fun get(f: C1[let n = 2]) =>\n"
-    "    true\n"
-    "  new create() =>\n"
-    "    let c1: C1[let n = 1] ref = C1[let n = 1]\n"
-    "    get(c1)";
-
-  TEST_ERROR(src);
-}
-
-TEST_F(VDTTest, FunctionCallWithTypeValueArgument)
-{
-  const char* src =
-    "class C1[n: U32]\n"
-    "class C2\n"
-    "  fun get(f: C1[let n = 1]) =>\n"
-    "    true\n"
-    "  new create() =>\n"
-    "    let c1: C1[let n = 1] ref = C1[let n = 1]\n"
-    "    get(c1)";
-
-  TEST_COMPILE(src);
-}
-*/
-
 TEST_F(VDTTest, FunctionCallWithFieldArgumentTypeMismatchValueArgument)
 {
   const char* src =
@@ -244,6 +214,14 @@ TEST_F(VDTTest, ValueDependentTypeOfParameterTypeBadReturn)
   TEST_ERROR(src);
 }
 
+TEST_F(VDTTest, TypeForThisForValueDependentType)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "  new create() => this\n";
+  TEST_COMPILE(src);
+}
+
 TEST_F(VDTTest, CreateValueDependentInClassConstructor)
 {
   const char* src =
@@ -276,6 +254,33 @@ TEST_F(VDTTest, CreateValueDependentTypeInActorConstructor)
   TEST_COMPILE(src);
 }
 
+TEST_F(VDTTest, FunctionCallWithTypeMismatchValueArgument)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "class C2\n"
+    "  fun get(f: C1[2]) =>\n"
+    "    true\n"
+    "  new create() =>\n"
+    "    let c1: C1[1] ref = C1[1]\n"
+    "    get(c1)";
+
+  TEST_ERROR(src);
+}
+
+TEST_F(VDTTest, FunctionCallWithTypeValueArgument)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "class C2\n"
+    "  fun get(f: C1[1]) =>\n"
+    "    true\n"
+    "  new create() =>\n"
+    "    let c1: C1[1] ref = C1[1]\n"
+    "    get(c1)";
+
+  TEST_COMPILE(src);
+}
 
 /*
 this test breaks

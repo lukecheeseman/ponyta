@@ -38,6 +38,21 @@ static void reify_typeparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
   ast_replace(astp, typearg);
 }
 
+static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
+{
+  ast_t* ast = *astp;
+  assert(ast_id(ast) == TK_VALUEFORMALPARAMREF);
+  ast_t* ref_name = ast_child(ast);
+  ast_t* param_name = ast_child(typeparam);
+
+  if(ast_name(ref_name) != ast_name(param_name))
+    return;
+
+  ast_replace(astp, ast_child(typearg));
+  ast_settype(*astp, ast_childidx(typeparam, 1));
+  return;
+}
+
 static void reify_arrow(ast_t** astp)
 {
   ast_t* ast = *astp;
@@ -78,6 +93,10 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
   {
     case TK_TYPEPARAMREF:
       reify_typeparamref(astp, typeparam, typearg);
+      break;
+
+    case TK_VALUEFORMALPARAMREF:
+      reify_valueformalparamref(astp, typeparam, typearg);
       break;
 
     case TK_ARROW:

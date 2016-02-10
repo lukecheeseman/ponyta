@@ -443,14 +443,6 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
       return true;
     }
 
-    case TK_VALUEFORMALPARAM:
-    {
-      ast_t *constraint = ast_childidx(def, 1);
-      ast_settype(ast, constraint);
-      ast_setid(ast, TK_VALUEFORMALPARAMREF);
-      return true;
-    }
-
     case TK_INTERFACE:
     case TK_TRAIT:
     case TK_TYPE:
@@ -612,6 +604,13 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
         r_type = consume_type(type, TK_NONE);
 
       ast_settype(ast, r_type);
+      return true;
+    }
+
+    case TK_VALUEFORMALPARAM:
+    {
+      ast_t *constraint = ast_childidx(def, 1);
+      ast_settype(ast, constraint);
       return true;
     }
 

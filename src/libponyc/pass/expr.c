@@ -230,6 +230,7 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     case TK_CASE:       r = expr_case(options, ast); break;
     case TK_TUPLE:      r = expr_tuple(ast); break;
     case TK_ARRAY:      r = expr_array(options, astp); break;
+    case TK_VALUEFORMALPARAMREF:
     case TK_REFERENCE:  r = expr_reference(options, astp); break;
     case TK_THIS:       r = expr_this(options, ast); break;
     case TK_TRUE:

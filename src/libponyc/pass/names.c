@@ -389,6 +389,27 @@ static bool names_arrow(ast_t** astp)
   return false;
 }
 
+static bool names_reference(ast_t** astp)
+{
+  ast_t *ast = *astp;
+  const char* name = ast_name(ast_child(ast));
+  sym_status_t status;
+  ast_t *def = ast_get(ast, name, &status);
+
+  if(def == NULL)
+    return true;
+
+  if(ast_id(def) == TK_VALUEFORMALPARAM) {
+    REPLACE(astp,
+      NODE(TK_VALUEFORMALPARAMREF,
+        TREE(ast_child(ast))));
+
+    ast_setdata(*astp, def);
+  }
+
+  return true;
+}
+
 ast_result_t pass_names(ast_t** astp, pass_opt_t* options)
 {
   (void)options;
@@ -397,6 +418,11 @@ ast_result_t pass_names(ast_t** astp, pass_opt_t* options)
   {
     case TK_NOMINAL:
       if(!names_nominal(options, *astp, astp, false))
+        return AST_ERROR;
+      break;
+
+    case TK_REFERENCE:
+      if(!names_reference(astp))
         return AST_ERROR;
       break;
 

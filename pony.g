@@ -187,7 +187,7 @@ nextatom
   | LPAREN_NEW (rawseq | '_') tuple? ')'
   | LSQUARE_NEW ('as' type ':')? rawseq (',' rawseq)* ']'
   | 'object' cap? ('is' type)? members 'end'
-  | 'lambda' cap? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
+  | 'lambda' cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
   | '@' (ID | STRING) typeargs? ('(' | LPAREN_NEW) positional? named? ')' '?'?
   ;
 
@@ -198,7 +198,7 @@ atom
   | ('(' | LPAREN_NEW) (rawseq | '_') tuple? ')'
   | ('[' | LSQUARE_NEW) ('as' type ':')? rawseq (',' rawseq)* ']'
   | 'object' cap? ('is' type)? members 'end'
-  | 'lambda' cap? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
+  | 'lambda' cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
   | '@' (ID | STRING) typeargs? ('(' | LPAREN_NEW) positional? named? ')' '?'?
   ;
 
@@ -235,6 +235,11 @@ atomtype
   | cap
   | ('(' | LPAREN_NEW) (infixtype | '_') tupletype? ')'
   | nominal
+  | lambdatype
+  ;
+
+lambdatype
+  : '{' cap? ID? typeparams? ('(' | LPAREN_NEW) (type (',' type)*)? ')' (':' type)? '?'? '}' (cap | gencap)? ('^' | '!')?
   ;
 
 tupletype

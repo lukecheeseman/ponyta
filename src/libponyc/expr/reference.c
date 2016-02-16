@@ -651,9 +651,6 @@ bool expr_local(typecheck_t* t, ast_t* ast)
       ast_error(ast, "can't declare a let local without assigning to it");
       return false;
     }
-
-    ast_settype(id, type);
-    ast_settype(ast, type);
   }
 
   return true;

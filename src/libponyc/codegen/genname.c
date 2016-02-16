@@ -44,6 +44,10 @@ static const char* element_name(ast_t* type, bool use_cap)
     case TK_NOMINAL:
       return nominal_name(type, use_cap);
 
+    // FIXME: write a better element_name
+    case TK_VALUEFORMALARG:
+      return build_name(NULL, "", ast_child(type), NULL, true, false);
+
     default: {}
   }
 

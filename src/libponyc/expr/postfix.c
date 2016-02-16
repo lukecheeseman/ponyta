@@ -418,6 +418,9 @@ bool expr_qualify(pass_opt_t* opt, ast_t** astp)
       }
 
       type = ast_dup(type);
+      if (!check_constraints(type, typeparams, right, true))
+        return false;
+
       ast_t* typeargs = ast_childidx(type, 2);
       ast_replace(&typeargs, right);
       ast_settype(ast, type);

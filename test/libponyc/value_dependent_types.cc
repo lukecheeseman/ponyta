@@ -283,6 +283,13 @@ TEST_F(VDTTest, FunctionCallWithTypeValueArgument)
 }
 
 /*
+TEST_F(VDTTest, FBoundedPolymorphicClass)
+{
+  const char* src =
+    "class Foo[n: Foo[n]]\n";
+  TEST_COMPILE(src);
+}
+
 this test breaks
 
 slightly more advnaced test the call should be typed with the resulting type

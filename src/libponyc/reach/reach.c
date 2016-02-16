@@ -425,6 +425,9 @@ static reachable_type_t* add_type(reachable_method_stack_t** s,
     case TK_NOMINAL:
       return add_nominal(s, r, next_type_id, type);
 
+    case TK_VALUEFORMALARG:
+      return add_type(s, r, next_type_id, ast_type(ast_child(type)));
+
     default:
       assert(0);
   }

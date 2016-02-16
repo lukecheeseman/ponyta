@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <platform.h>
+#include <type/subtype.h>
 #include "util.h"
 
 #define TEST_COMPILE(src) DO(test_compile(src, "expr"))
@@ -282,23 +283,170 @@ TEST_F(VDTTest, FunctionCallWithTypeValueArgument)
   TEST_COMPILE(src);
 }
 
-/*
-TEST_F(VDTTest, FBoundedPolymorphicClass)
-{
-  const char* src =
-    "class Foo[n: Foo[n]]\n";
-  TEST_COMPILE(src);
-}
-
-this test breaks
-
-slightly more advnaced test the call should be typed with the resulting type
-TEST_F(VDTTest, TestU64OutsideU32Constraint)
+TEST_F(VDTTest, IsSubTypeClassTrait)
 {
   const char* src =
     "trait T1[n: U32]\n"
-    "class C1 is T1[let n = U64(2)]";
+
+    "class C1 is T1[4]\n"
+
+    "interface Test\n"
+    "  fun z(c1: C1, t1: T1[4], t2: T1[57])";
+
+  TEST_COMPILE(src);
+
+  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
+  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t2"), NULL));
+}
+
+TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
+{
+  const char* src =
+    "trait T1[A: (U32 | U64), n: A]\n"
+
+    "class C1 is T1[U32, 4]\n"
+
+    "interface Test\n"
+    "  fun z(c1: C1, t1: T1[U32, 4], t2: T1[U64, 4], t3: T1[U32, 78])";
+
+  TEST_COMPILE(src);
+
+  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
+  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t2"), NULL));
+  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t3"), NULL));
+}
+
+// FIXME: These tests currently fail and are therefore disabled
+TEST_F(VDTTest, DISABLED_ExpressionEqualityOfTypeArgs)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  let c: C1[4] = C1[#(1 + 3)]";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_ArbitraryValueDependentType)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n]) : C1[n] =>\n"
+    "    c1";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_MatchingValueDependentType)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "    c1";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_MatchingValueDependentTypeCallSuccess)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "    c1\n"
+
+    "class C3\n"
+    "  let C1[n] = C2.create().apply(C1[4], C1[4])";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_MatchingValueDependentTypeCallFailure)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "    c1\n"
+
+    "class C3\n"
+    "  let C1[n] = C2.create().apply(C1[4], C1[92])";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypes)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[m]) : C1[n + m] =>\n"
+    "    C1[n + m]";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypesCallSuccess)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[m]) : C1[n + m] =>\n"
+    "    C1[n + m]\n"
+
+    "class C3\n"
+    "    let c: C1[6] = C2.create().apply(C1[4], C1[2])";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypesCallError)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply(c1: C1[n], c2: C1[m]) : C1[n + m] =>\n"
+    "    C1[n + m]\n"
+
+    "class C3\n"
+    "    let c: C1[6] = C2.create().apply(C1[4], C1[92])";
 
   TEST_ERROR(src);
 }
-*/
+
+TEST_F(VDTTest, DISABLED_FBoundedPolymorphicClass)
+{
+  const char* src =
+    "class Foo[n: Foo[n]]\n";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
+{
+  const char* src =
+    "class Dictionary[Key, Value, default: Value]\n"
+
+    "class Student\n"
+    "  let name: String\n"
+    "  let class: U32\n"
+
+    "  new create(name': String, class': U32) =>\n"
+    "    name = name'\n"
+    "    class = class'\n"
+
+    "class C1\n"
+    "  dict = Dictionary[String, Student, Student].create(\"Bob\", 1)\n";
+
+  TEST_COMPILE(src);
+}

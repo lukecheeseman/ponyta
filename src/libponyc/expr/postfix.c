@@ -418,7 +418,7 @@ bool expr_qualify(pass_opt_t* opt, ast_t** astp)
       }
 
       type = ast_dup(type);
-      if (!check_constraints(type, typeparams, right, true))
+      if (!check_constraints(type, typeparams, right, true, opt))
         return false;
 
       ast_t* typeargs = ast_childidx(type, 2);
@@ -444,7 +444,7 @@ bool expr_qualify(pass_opt_t* opt, ast_t** astp)
       if(!reify_defaults(typeparams, right, true))
         return false;
 
-      if(!check_constraints(left, typeparams, right, true))
+      if(!check_constraints(left, typeparams, right, true, opt))
         return false;
 
       type = reify(type, typeparams, right);

@@ -204,7 +204,7 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
 }
 
 bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
-  bool report_errors)
+  bool report_errors, pass_opt_t* opt)
 {
   ast_t* typeparam = ast_child(typeparams);
   ast_t* typearg = ast_child(typeargs);
@@ -221,8 +221,7 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
     errorframe_t info = NULL;
     if (ast_id(typearg) == TK_VALUEFORMALARG) {
       ast_t *value = ast_child(typearg);
-      pass_opt_t opts;
-      if(!coerce_literals(&value, r_constraint, &opts))
+      if(!coerce_literals(&value, r_constraint, opt))
         return false;
 
       if (!is_subtype(ast_type(value), r_constraint, report_errors ? &info : NULL)) {

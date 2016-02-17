@@ -74,7 +74,7 @@ bool is_this_incomplete(typecheck_t* t, ast_t* ast)
   return false;
 }
 
-static bool check_type_params(ast_t** astp)
+static bool check_type_params(ast_t** astp, pass_opt_t* opt)
 {
   ast_t* lhs = *astp;
   ast_t* type = ast_type(lhs);
@@ -96,7 +96,7 @@ static bool check_type_params(ast_t** astp)
     return false;
   }
 
-  if(!check_constraints(lhs, typeparams, typeargs, true))
+  if(!check_constraints(lhs, typeparams, typeargs, true, opt))
   {
     ast_free_unattached(typeargs);
     return false;
@@ -449,7 +449,7 @@ static bool method_application(pass_opt_t* opt, ast_t* ast, bool partial)
 {
   AST_GET_CHILDREN(ast, positional, namedargs, lhs);
 
-  if(!check_type_params(&lhs))
+  if(!check_type_params(&lhs, opt))
     return false;
 
   ast_t* type = ast_type(lhs);

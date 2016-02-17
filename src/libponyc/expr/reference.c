@@ -1012,7 +1012,7 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
     }
   }
 
-  return check_constraints(typeargs, typeparams, typeargs, true);
+  return check_constraints(typeargs, typeparams, typeargs, true, opt);
 }
 
 static bool show_partiality(ast_t* ast)

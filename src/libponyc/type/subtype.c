@@ -9,6 +9,7 @@
 #include "../ast/astbuild.h"
 #include "../ast/stringtab.h"
 #include "../expr/literal.h"
+#include "../expr/evaluate.h"
 #include <assert.h>
 
 static bool is_eq_typeargs(ast_t* a, ast_t* b, errorframe_t* errors);
@@ -1387,7 +1388,7 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
   switch(ast_id(super)) {
     case TK_VALUEFORMALARG: {
       // we hit this case when we are trying to match one instantiated type
-      // agains another
+      // against another
       // TODO: this is where we need some notion of is_eq_expression
       ast_t *super_type = ast_type(ast_child(super));
       ast_t *sub_type = ast_type(value);
@@ -1398,22 +1399,9 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
 
       // The value of the expressions should be equal
       // FIXME: Quick hack to play with sutff
-      switch(ast_id(value)) {
-        case TK_INT: {
-          ast_t* sub_val = value;
-          ast_t* super_val = ast_child(super);
-          lexint_t *sub_value = ast_int(sub_val);
-          lexint_t *super_value = ast_int(super_val);
-          return !lexint_cmp(sub_value, super_value);
-        }
-
-        default:
-          if(errors)
-            ast_error_frame(errors, value, "Currently only supporting integers as parameter values.");
-          return false;
-      }
-
-      return true;
+      ast_t* sub_val = evaluate(value, errors);
+      ast_t* super_val = evaluate(ast_child(super), errors);
+      return equal(sub_val, super_val);
     }
 
     default:
@@ -1460,15 +1448,6 @@ bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errors)
     case TK_FUN:
       return is_fun_sub_fun(sub, super, errors);
 
-/*
-    // TODO: Do we want these cases to appear here?
-    // does it make sense, should this not be somewhere
-    // like is_eqexpr
-    case TK_VALUEFORMALPARAMREF:
-      return true;
-//      return is_typevalue_subt_x(sub, super, errors);
-
-*/
     case TK_VALUEFORMALARG:
       return is_typevalue_sub_x(sub, super, errors);
 

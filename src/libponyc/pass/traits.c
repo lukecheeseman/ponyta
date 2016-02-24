@@ -356,10 +356,14 @@ static ast_t* add_method(ast_t* entity, ast_t* trait_ref, ast_t* basis_method,
 
   if(existing != NULL)
   {
-    assert(is_field(existing)); // Should already have checked for methods.
+    if(is_field(existing)) {
+      ast_error(trait_ref, "%s method '%s' clashes with field", adjective, name);
+      ast_error(basis_method, "method is defined here");
 
-    ast_error(trait_ref, "%s method '%s' clashes with field", adjective, name);
-    ast_error(basis_method, "method is defined here");
+    } else {
+      ast_error(trait_ref, "%s method '%s' clashes with type parameter", adjective, name);
+      ast_error(basis_method, "method is defined here");
+    }
     return NULL;
   }
 

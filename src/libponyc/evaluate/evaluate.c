@@ -40,22 +40,34 @@ bool equal(ast_t* expr_a, ast_t* expr_b) {
 typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*, errorframe_t*);
 
 typedef struct method_entry {
+  const char* type;
   const char* name;
   const method_ptr_t method;
 } method_entry_t;
 
-static method_entry_t methods[] = {
-  { "add",    &evaluate_add },
-  { "sub",    &evaluate_sub },
-  { "op_and", &evaluate_and },
-  { "op_or",  &evaluate_or },
-  { NULL, NULL }
+// This table will have to be updated to be in the relevant classes
+static method_entry_t method_table[] = {
+  // u32 operations
+  { "U32", "add",    &evaluate_add_u32 },
+  { "U32", "sub",    &evaluate_sub_u32 },
+
+  // boolean operations
+  { "Bool", "op_and", &evaluate_and_bool },
+  { "Bool", "op_or",  &evaluate_or_bool },
+
+  // no entry in method table
+  { NULL, NULL, NULL }
 };
 
-static method_ptr_t lookup_method(const char* operation) {
-  for (int i = 0; methods[i].name != NULL; ++i) {
-    if (!strcmp(operation, methods[i].name))
-      return methods[i].method;
+static method_ptr_t lookup_method(ast_t* type, const char* operation) {
+  // At this point expressions should have been type and so any missing method_table
+  // or method calls on bad types should have been caught
+  assert(ast_id(type) == TK_NOMINAL);
+  const char* type_name = ast_name(ast_childidx(type, 1));
+
+  for (int i = 0; method_table[i].name != NULL; ++i) {
+    if (!strcmp(type_name, method_table[i].type) && !strcmp(operation, method_table[i].name))
+      return method_table[i].method;
   }
   assert(0);
   return NULL;
@@ -63,6 +75,7 @@ static method_ptr_t lookup_method(const char* operation) {
 
 ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
   switch(ast_id(expression)) {
+    case TK_NONE:
     case TK_TRUE:
     case TK_FALSE:
     case TK_INT:
@@ -106,7 +119,7 @@ ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
 
       AST_GET_CHILDREN(evaluate(lhs, errors), receiver, id);
       assert(ast_id(positional) == TK_POSITIONALARGS);
-      return lookup_method(ast_name(id))(receiver, positional, errors);
+      return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional, errors);
       // will need to evaluate LHS
       assert(0);
     }

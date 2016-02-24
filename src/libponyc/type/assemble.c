@@ -282,30 +282,28 @@ ast_t* type_for_this(pass_opt_t* opt, ast_t* ast, token_id cap,
     while(typeparam != NULL)
     {
       ast_t* typeparam_id = ast_child(typeparam);
-      ast_t* typearg;
       if (ast_id(typeparam) == TK_VALUEFORMALPARAM) {
-      // FIXME: this builds the type for when this requires a value
-      // dependent type
         BUILD(ref, ast,
           NODE(TK_VALUEFORMALPARAMREF,
             TREE(typeparam_id)));
 
-        BUILD(arg, ref,
+        BUILD(typearg, ref,
           NODE(TK_VALUEFORMALARG,
             TREE(ref)));
 
-        typearg = arg;
+        ast_append(typeargs, typearg);
       } else {
-        typearg = type_sugar(ast, NULL, ast_name(typeparam_id));
-      }
-      ast_append(typeargs, typearg);
+        ast_t* typearg = type_sugar(ast, NULL, ast_name(typeparam_id));
 
-      if(defs)
-      {
-        names_nominal(opt, ast, &typearg, false);
+        if(defs)
+        {
+          names_nominal(opt, ast, &typearg, false);
 
-        if(ast_id(typearg) == TK_TYPEPARAMREF)
-          flatten_typeparamref(typearg);
+          if(ast_id(typearg) == TK_TYPEPARAMREF)
+            flatten_typeparamref(typearg);
+        }
+
+        ast_append(typeargs, typearg);
       }
 
       typeparam = ast_sibling(typeparam);
@@ -317,6 +315,16 @@ ast_t* type_for_this(pass_opt_t* opt, ast_t* ast, token_id cap,
 
   return type;
 }
+/* FIXME
+       typearg;
+      if (ast_id(typeparam) == TK_VALUEFORMALPARAM) {
+      // FIXME: this builds the type for when this requires a value
+      // dependent type
+
+        typearg = arg;
+      } else {
+
+*/
 
 ast_t* type_for_fun(ast_t* ast)
 {

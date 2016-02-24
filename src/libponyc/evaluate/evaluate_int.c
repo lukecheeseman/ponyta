@@ -21,3 +21,11 @@ ast_t* evaluate_sub(ast_t* receiver, ast_t* args, errorframe_t* errors)
   lexint_sub(lhs, lhs, rhs);
   return receiver;
 }
+
+ast_t* evaluate_add_u32(ast_t* receiver, ast_t* args, errorframe_t* errors) {
+  return evaluate_add(receiver, args, errors);
+}
+
+ast_t* evaluate_sub_u32(ast_t* receiver, ast_t* args, errorframe_t* errors) {
+  return evaluate_sub(receiver, args, errors);
+}

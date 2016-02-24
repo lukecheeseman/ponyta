@@ -451,7 +451,17 @@ TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
   TEST_COMPILE(src);
 }
 
+TEST_F(VDTTest, VDTClassInheritsFromInterface)
+{
+  // this fails as size will be redeclared
+  const char* src =
+    "class Vector[A, size: USize] is Seq[A]";
+   
+  TEST_ERROR(src);
+}
+
 /*
+
 class C1[A, n: A]
   fun apply(): A => n
 

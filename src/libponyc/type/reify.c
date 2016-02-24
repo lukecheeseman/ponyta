@@ -220,7 +220,15 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       ast_free_unattached(bind_constraint);
     errorframe_t info = NULL;
     if (ast_id(typearg) == TK_VALUEFORMALARG) {
+      // FIXME: this is getting gross --- could sugar make this
+      // more consistent so that we always have just one child
+      // inside a #
       ast_t *value = ast_child(typearg);
+
+      // TODO: this is trying to handle the constant expressions
+      if (ast_id(value) == TK_CONSTANT)
+        value = ast_child(value);
+
       if(!coerce_literals(&value, r_constraint, opt))
         return false;
 

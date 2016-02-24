@@ -450,3 +450,14 @@ TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
 
   TEST_COMPILE(src);
 }
+
+/*
+class C1[A, n: A]
+  fun apply(): A => n
+
+actor Main
+  fun bar(c: C1[Bool, true]) => true
+
+  new create(env: Env) =>
+    bar(C1[Bool, true])
+*/

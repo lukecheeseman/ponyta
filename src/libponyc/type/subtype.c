@@ -9,7 +9,7 @@
 #include "../ast/astbuild.h"
 #include "../ast/stringtab.h"
 #include "../expr/literal.h"
-#include "../expr/evaluate.h"
+#include "../evaluate/evaluate.h"
 #include <assert.h>
 
 static bool is_eq_typeargs(ast_t* a, ast_t* b, errorframe_t* errors);

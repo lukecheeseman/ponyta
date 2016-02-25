@@ -31,8 +31,15 @@ bool equal(ast_t* expr_a, ast_t* expr_b) {
     case TK_FALSE:
       return ast_id(expr_a) == ast_id(expr_b);
 
+    case TK_VALUEFORMALPARAMREF:
+      // FIXME: dicuss this, at this point we know they types are
+      // okay but we won't know if the equality works until we
+      // reify the type
+      // should we even handle this?
+      return true;
+
     default:
-      return 0;
+      assert(0);
   }
   return false;
 }
@@ -75,6 +82,7 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
 
 ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
   switch(ast_id(expression)) {
+    case TK_VALUEFORMALPARAMREF:
     case TK_NONE:
     case TK_TRUE:
     case TK_FALSE:

@@ -1390,7 +1390,8 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
       // we hit this case when we are trying to match one instantiated type
       // against another
       // TODO: this is where we need some notion of is_eq_expression
-      ast_t *super_type = ast_type(ast_child(super));
+      ast_t *super_value = ast_child(super);
+      ast_t *super_type = ast_type(super_value);
       ast_t *sub_type = ast_type(value);
 
       // The type of these should be equal -- we don't have contravariance?
@@ -1399,9 +1400,8 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
 
       // The value of the expressions should be equal
       // FIXME: Quick hack to play with sutff
-      ast_t* sub_val = evaluate(value, errors);
-      ast_t* super_val = evaluate(ast_child(super), errors);
-      return equal(sub_val, super_val);
+      // this evaluate shouldn't be here, it should be another step
+      return equal(value, super_value);
     }
 
     default:

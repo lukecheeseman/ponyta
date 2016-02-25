@@ -9,6 +9,7 @@
 #include "../expr/array.h"
 #include "../expr/ffi.h"
 #include "../expr/lambda.h"
+#include "../evaluate/evaluate.h"
 #include <assert.h>
 
 bool is_result_needed(ast_t* ast)
@@ -271,6 +272,17 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
 
       r = expr_literal(options, ast, "String");
       break;
+
+    case TK_CONSTANT: {
+      // If we see a compile time expression
+      // we first evaluate at then replace this node
+      // essentially term rewriting
+      //FIXME: we want an actual errorframe
+      ast_t* evaluated = evaluate(ast_child(ast));
+      ast_replace(&ast, evaluated);
+      ast_settype(ast, ast_type(evaluated));
+      break;
+    }
 
     case TK_FFICALL:
       return expr_ffi(options, ast);

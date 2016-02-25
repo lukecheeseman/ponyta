@@ -44,7 +44,7 @@ bool equal(ast_t* expr_a, ast_t* expr_b) {
   return false;
 }
 
-typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*, errorframe_t*);
+typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*);
 
 typedef struct method_entry {
   const char* type;
@@ -80,7 +80,7 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   return NULL;
 }
 
-ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
+ast_t* evaluate(ast_t* expression) {
   switch(ast_id(expression)) {
     case TK_VALUEFORMALPARAMREF:
     case TK_NONE:
@@ -89,27 +89,13 @@ ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
     case TK_INT:
       return expression;
 
-    // FIXME: if we ensure everything typevalue is sugar with these
-    // then can just always take child and never care
-    // that this node even exists
-    case TK_CONSTANT:
-    {
-      //TODO: not sure if you really want to rewrite here
-      // or just evaluate -- speak with Sylvan
-      // could pull the constant node out of here and rewrite outside
-      // probably nicer
-      ast_t *evaluated = evaluate(ast_child(expression), errors);
-      ast_replace(&expression, evaluated);
-      return expression;
-    }
-
     // TODO: going to need some concept of state
     case TK_SEQ:
     {
       ast_t * evaluated;
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
-        evaluated = evaluate(p, errors);
+        evaluated = evaluate(p);
       }
       assert(evaluated != NULL);
       return evaluated;
@@ -122,45 +108,20 @@ ast_t* evaluate(ast_t* expression, errorframe_t* errors) {
     {
       AST_GET_CHILDREN(expression, positional, namedargs, lhs);
       if(ast_id(namedargs) != TK_NONE)
-        ast_error_frame(errors, expression,
+        ast_error(expression,
           "No support for compile time expressions with positional arguments");
 
-      AST_GET_CHILDREN(evaluate(lhs, errors), receiver, id);
+      AST_GET_CHILDREN(evaluate(lhs), receiver, id);
       assert(ast_id(positional) == TK_POSITIONALARGS);
-      return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional, errors);
+      return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional);
       // will need to evaluate LHS
       assert(0);
     }
 
     default:
-      if(errors != NULL)
-        ast_error_frame(errors, expression, "Cannot evaluate compile time expression");
+      ast_error(expression, "Cannot evaluate compile time expression");
       break;
   }
   assert(0);
-  return expression;
-}
-
-//TODO: evaluation of integer expression
-ast_t* evaluate_integer_expression(ast_t* expression) {
-  switch(ast_id(expression)) {
-    case TK_INT:
-      return expression;
-
-    case TK_CALL: {
-      // 1 is positional args
-      // 2 is something
-      // 3 is function application
-      AST_GET_CHILDREN(expression, args, something, funapp);
-      assert(0 && "Call");
-    }
-
-    case TK_DOT:
-      return ast_child(expression);
-
-    default:
-      ast_error(expression, "Cannot handle %s", ast_get_print(expression));
-      assert(0);
-  }
   return expression;
 }

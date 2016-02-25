@@ -102,3 +102,8 @@ class Vector[A, _alloc: USize]
     """
     _size = _size.min(len)
     this
+/*TODO: once we can have this evaluation not make this break then this is the 
+  function signature that we want
+  fun append[m: USize](vec: Vector[A, m]): Vector[A, #(_alloc + m)] =>
+    Vector[A, #(_alloc + m)]
+*/

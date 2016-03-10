@@ -5,6 +5,7 @@
 #include "alias.h"
 #include "../ast/token.h"
 #include "../expr/literal.h"
+#include "../evaluate/evaluate.h"
 #include <assert.h>
 
 static void reify_typeparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
@@ -48,18 +49,8 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
   if(ast_name(ref_name) != ast_name(param_name))
     return;
 
-  // FIXME: Setting the type here is not great
-  // we could end up saying that a string is of the type U32 in the
-  // in the reification -- this will be caught later
-  // and the value MUST be of this type for the templating to be
-  // valid -- still not nice
-  // we could carry around the constraint instead
-  // -- we don't really want to replace and allow for type inference etc.
-  // because then we maybe able to coerce things to other values
-  // e.g. U32 -> U64 which is not correct
   ast_replace(astp, ast_child(typearg));
   ast_settype(*astp, ast_childidx(typeparam, 1));
-  return;
 }
 
 static void reify_arrow(ast_t** astp)
@@ -110,6 +101,10 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
 
     case TK_ARROW:
       reify_arrow(astp);
+      break;
+
+    case TK_CONSTANT:
+      expr_constant(ast);
       break;
 
     default: {}
@@ -220,14 +215,7 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       ast_free_unattached(bind_constraint);
     errorframe_t info = NULL;
     if (ast_id(typearg) == TK_VALUEFORMALARG) {
-      // FIXME: this is getting gross --- could sugar make this
-      // more consistent so that we always have just one child
-      // inside a #
       ast_t *value = ast_child(typearg);
-
-      // TODO: this is trying to handle the constant expressions
-      if (ast_id(value) == TK_CONSTANT)
-        value = ast_child(value);
 
       if(!coerce_literals(&value, r_constraint, opt))
         return false;

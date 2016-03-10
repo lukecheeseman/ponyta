@@ -252,6 +252,12 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     case TK_IDENTITY:   r = expr_identityof(options, ast); break;
     case TK_DONTCARE:   r = expr_dontcare(ast); break;
 
+    //FIXME: the issue here is that the assign performs the coercion
+    // however we see constant first
+    // e.g. in let x: U32 = #(1+7) -- 1 and 7 will still be literals
+    // at this point -- in general they will be untyped?
+    case TK_CONSTANT:   r = expr_constant(ast); break;
+
     case TK_LAMBDA:
       if(!expr_lambda(options, astp))
         return AST_FATAL;
@@ -273,16 +279,6 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
       r = expr_literal(options, ast, "String");
       break;
 
-    case TK_CONSTANT: {
-      // If we see a compile time expression
-      // we first evaluate at then replace this node
-      // essentially term rewriting
-      //FIXME: we want an actual errorframe
-      ast_t* evaluated = evaluate(ast_child(ast));
-      ast_replace(&ast, evaluated);
-      ast_settype(ast, ast_type(evaluated));
-      break;
-    }
 
     case TK_FFICALL:
       return expr_ffi(options, ast);

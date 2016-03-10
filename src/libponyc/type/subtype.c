@@ -1398,9 +1398,11 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
       if(!is_eqtype(sub_type, super_type, errors))
         return false;
 
-      // The value of the expressions should be equal
-      // FIXME: Quick hack to play with sutff
-      // this evaluate shouldn't be here, it should be another step
+      // we cannot check equality on valueparamrefs as they have not
+      // yet been reified and symbolic equivalence is hard and unecessary
+      if(contains_valueparamref(value))
+        return true;
+
       return equal(value, super_value);
     }
 

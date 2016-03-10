@@ -460,6 +460,55 @@ TEST_F(VDTTest, VDTClassInheritsFromInterface)
   TEST_ERROR(src);
 }
 
+
+//ADD TESTS FOR COMPILE CONSTATNS
+TEST_F(VDTTest, VDTTypeWithCompileTimeConstant)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "  fun apply(): U32 => n\n"
+    "  fun join[m: U32](): C1[#(n + m)] =>\n"
+    "    C1[#(n + m)]\n"
+    "class C2\n"
+    "  new create() =>\n"
+    "    let c1: C1[82] = C1[82]\n"
+    "    let c2: C1[700] = c1.join[618]()";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, VDTTypeWithCompileTimeConstantError)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "  fun apply(): U32 => n\n"
+    "  fun join[m: U32](): C1[#(n + m)] =>\n"
+    "    C1[#(n + m)]\n"
+    "class C2\n"
+    "  new create() =>\n"
+    "    let c1: C1[82] = C1[82]\n"
+    "    let c2: C1[408] = c1.join[618]()";
+
+  TEST_ERROR(src);
+}
+
+TEST_F(VDTTest, IsSubTypeClassWithCompileConstantGenericValueDependentType)
+
+{
+  const char* src =
+    "trait T1[A: (U32 | U64), n: A]\n"
+
+    "class C1 is T1[U32, 4]\n"
+
+    "interface Test\n"
+    "  fun z(c1: C1, t1: T1[U32, #(1+3)])";
+
+  TEST_COMPILE(src);
+
+  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
+}
+
+
 /*
 
 class C1[A, n: A]

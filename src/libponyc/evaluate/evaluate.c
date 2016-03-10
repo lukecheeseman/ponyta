@@ -4,21 +4,34 @@
 #include "../evaluate/evaluate_int.h"
 #include "../evaluate/evaluate_bool.h"
 
-// TODO: evaluation will have to take place likely before/in reify
-// or do we say:
-// append(v1: Vector[T, # n], v2: Vector[T, # m]) : Vector[T, #(n + m)]
-// reifies to
-// append(v1: Vector[T, # 4], v2: Vector[T, # 2]) : Vector[T, #(4 + 2)]
-// and the when we assign it to a Vector[T, 6] then we check this way
-// may be easier as the evaluation will be available and can be used once
-// typesafe
-// as another point, how do we right the above signature as we don't know
-// m
-// in C++ we have to template this to know what m will be
-// but i guess here we know the type?
+bool contains_valueparamref(ast_t* ast) {
+  while(ast != NULL) {
+    if(ast_id(ast) == TK_VALUEFORMALPARAMREF ||
+       contains_valueparamref(ast_child(ast)))
+      return true;
+    ast = ast_sibling(ast);
+  }
+  return false;
+}
 
-// TODO: research interpreters
+bool expr_constant(ast_t* ast) {
+  // If we see a compile time expression
+  // we first evaluate it then replace this node with the result
+  assert(ast_id(ast) == TK_CONSTANT);
+  ast_t* expression = ast_child(ast);
+  ast_settype(ast, ast_type(expression));
 
+  if(contains_valueparamref(expression))
+    return true;
+
+  ast_t* evaluated = evaluate(expression);
+  ast_replace(&ast, evaluated);
+  // FIXME: things that had a reference to ast may now be broken, check and fix
+  return true;
+}
+
+// TODO: lets move these into methods that can just be found
+// from the method lookup table
 bool equal(ast_t* expr_a, ast_t* expr_b) {
   switch(ast_id(expr_a)) {
     case TK_INT: {
@@ -30,13 +43,6 @@ bool equal(ast_t* expr_a, ast_t* expr_b) {
     case TK_TRUE:
     case TK_FALSE:
       return ast_id(expr_a) == ast_id(expr_b);
-
-    case TK_VALUEFORMALPARAMREF:
-      // FIXME: dicuss this, at this point we know they types are
-      // okay but we won't know if the equality works until we
-      // reify the type
-      // should we even handle this?
-      return true;
 
     default:
       assert(0);
@@ -58,6 +64,10 @@ static method_entry_t method_table[] = {
   { "U32", "add",    &evaluate_add_u32 },
   { "U32", "sub",    &evaluate_sub_u32 },
 
+  // usize operations
+  { "USize", "add",    &evaluate_add_usize },
+  { "USize", "sub",    &evaluate_sub_usize },
+
   // boolean operations
   { "Bool", "op_and", &evaluate_and_bool },
   { "Bool", "op_or",  &evaluate_or_bool },
@@ -67,7 +77,7 @@ static method_entry_t method_table[] = {
 };
 
 static method_ptr_t lookup_method(ast_t* type, const char* operation) {
-  // At this point expressions should have been type and so any missing method_table
+  // At this point expressions should have been typed and so any missing method_table
   // or method calls on bad types should have been caught
   assert(ast_id(type) == TK_NOMINAL);
   const char* type_name = ast_name(ast_childidx(type, 1));
@@ -82,11 +92,11 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
 
 ast_t* evaluate(ast_t* expression) {
   switch(ast_id(expression)) {
-    case TK_VALUEFORMALPARAMREF:
     case TK_NONE:
     case TK_TRUE:
     case TK_FALSE:
     case TK_INT:
+    case TK_FUNREF:
       return expression;
 
     // TODO: going to need some concept of state
@@ -101,21 +111,16 @@ ast_t* evaluate(ast_t* expression) {
       return evaluated;
     }
 
-    case TK_FUNREF:
-      return expression;
-
     case TK_CALL:
     {
       AST_GET_CHILDREN(expression, positional, namedargs, lhs);
       if(ast_id(namedargs) != TK_NONE)
         ast_error(expression,
-          "No support for compile time expressions with positional arguments");
+          "No support for compile time expressions with named arguments");
 
       AST_GET_CHILDREN(evaluate(lhs), receiver, id);
       assert(ast_id(positional) == TK_POSITIONALARGS);
       return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional);
-      // will need to evaluate LHS
-      assert(0);
     }
 
     default:

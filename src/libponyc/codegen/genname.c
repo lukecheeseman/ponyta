@@ -46,7 +46,10 @@ static const char* element_name(ast_t* type, bool use_cap)
 
     // FIXME: write a better element_name
     case TK_VALUEFORMALARG:
-      return build_name(NULL, "", ast_child(type), NULL, true, false);
+      return build_name(NULL, "$value", type, NULL, true, false);
+
+    case TK_INT:
+      return ast_get_print(type);
 
     default: {}
   }

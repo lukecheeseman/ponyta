@@ -97,6 +97,7 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FALSE:
     case TK_INT:
     case TK_FUNREF:
+    case TK_DOT:
       return expression;
 
     // TODO: going to need some concept of state

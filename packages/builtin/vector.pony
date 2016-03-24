@@ -66,7 +66,7 @@ class Vector[A, _alloc: USize]
       error
     end
 
-  fun ref insert(i: USize, value: A, env: Env): Vector[A, _alloc]^ ? =>
+  fun ref insert(i: USize, value: A): Vector[A, _alloc]^ ? =>
     """
     Insert an element into the vector. Elements after this are moved up by one
     index.
@@ -75,7 +75,6 @@ class Vector[A, _alloc: USize]
     The vector is returned to allow call chaining.
     """
     if (i <= _size) and (_size < _alloc) then
-      env.out.print((_size - i).string())
       _ptr._offset(i)._insert(1, _size - i)
       _ptr._update(i, consume value)
       _size = _size + 1
@@ -179,18 +178,26 @@ class Vector[A, _alloc: USize]
     _size = _size + 1
     this
 
-  fun ref append[m: USize](vec: Vector[A, m]): Vector[A, #(_alloc + m)] =>
+*/
+  fun ref append[m: USize](vec: Vector[A, m]): Vector[A, #(_alloc + m)]^ ? =>
     """
     Append the elements from a second vector.
     A new vector whose size is of the two vectors is returned.
     """
     let new_vec = Vector[A, #(_alloc + m)]
     var i: USize = 0
-    while i < _alloc do
-      try
+
+    try
+      while i < _alloc do
         new_vec.insert(i, this(i))
-      else
-        error
+        i = i + 1
       end
+
+      while i < #(_alloc + m) do
+        new_vec.insert(i, vec(i-_alloc))
+        i = i + 1
+      end
+    else
+      error
     end
-*/
+    new_vec

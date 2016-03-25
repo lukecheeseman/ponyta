@@ -4,14 +4,14 @@ class Vector[A, _alloc: USize]
 
   new create() =>
     """
-    Create an vector with zero elements, but space for len elements.
+    Create a vector with zero elements, but space for len elements.
     """
     _ptr = Pointer[A]._alloc(_alloc)
     _size = 0
 
   new init(from: A^) =>
     """
-    Create an vector of len elements, all initialised to the given value.
+    Create a vector of len elements, all initialised to the given value.
     """
     _ptr = Pointer[A]._alloc(_alloc)
     _size = _alloc
@@ -25,8 +25,8 @@ class Vector[A, _alloc: USize]
 
   new undefined[B: (A & Real[B] val & Number) = A]() =>
     """
-    Create an vector of len elements, populating them with random memory. This
-    is only allowed for an vector of numbers.
+    Create a vector of len elements, populating them with random memory. This
+    is only allowed for a vector of numbers.
     """
     _ptr = Pointer[A]._alloc(_alloc)
     _size = _alloc
@@ -53,9 +53,6 @@ class Vector[A, _alloc: USize]
       error
     end
 
-  //TODO: insert does dynamic memory management and creates extra memory
-  // when not necessary, fix this
-
   fun ref update(i: USize, value: A): A^ ? =>
     """
     Change the i-th element, raising an error if the index is out of bounds.
@@ -75,9 +72,58 @@ class Vector[A, _alloc: USize]
     The vector is returned to allow call chaining.
     """
     if (i <= _size) and (_size < _alloc) then
-      _ptr._offset(i)._insert(1, _size - i)
+      var move = i
+      while move < _size do
+        _ptr._update(move + 1, _ptr._apply(move))
+        move = move + 1
+      end
       _ptr._update(i, consume value)
       _size = _size + 1
+      this
+    else
+      error
+    end
+
+  fun ref truncate(len: USize): Vector[A, _alloc]^ =>
+    """
+    Truncate an vector to the given length, discarding excess elements. If the
+    vector is already smaller than len, do nothing.
+    The vector is returned to allow call chaining.
+    """
+    _size = _size.min(len)
+    this
+
+  fun copy_to[m: USize](dst: Vector[this->A!, m], src_idx: USize, dst_idx: USize,
+    len: USize): this->Vector[A, _alloc]^ ?
+  =>
+    """
+    Copy len elements from this(src_idx) to dst(dst_idx).
+    The vector is returned to allow call chaining.
+    """
+    if (dst_idx + len) < m then
+      _ptr._offset(src_idx)._copy_to(dst._ptr._offset(dst_idx), len)
+
+      if dst._size < (dst_idx + len) then
+        dst._size = dst_idx + len
+      end
+      this
+    else
+      error
+    end
+
+  fun ref remove(i: USize, n: USize): Vector[A, _alloc]^ ? =>
+    """
+    Remove n elements from the vector, beginning at index i.
+    The vector is returned to allow call chaining.
+    """
+    if i < _size then
+      let count = n.min(_size - i)
+      var move = i
+      while move < (_size - count) do
+        _ptr._update(move, _ptr._apply(move + count))
+        move = move + 1
+      end
+      _size = _size - count
       this
     else
       error
@@ -91,57 +137,21 @@ class Vector[A, _alloc: USize]
     The deleted element is returned.
     """
     if i < _size then
-      _size = _size - 1
-      _ptr._offset(i)._delete(1, _size - i)
+      let deleted = apply(i)
+      remove(i, 1)
+      deleted
     else
       error
     end
 
-  fun ref truncate(len: USize): Vector[A, _alloc]^ =>
-    """
-    Truncate an vector to the given length, discarding excess elements. If the
-    vector is already smaller than len, do nothing.
-    The vector is returned to allow call chaining.
-    """
-    _size = _size.min(len)
-    this
-/* To implement
 
-  fun copy_to(dst: Vector[this->A!, _alloc], src_idx: USize, dst_idx: USize,
-    len: USize): this->Vector[A, _alloc]^
-  =>
-    """
-    Copy len elements from this(src_idx) to dst(dst_idx).
-    The vector is returned to allow call chaining.
-    """
-    dst.reserve(dst_idx + len)
-    _ptr._offset(src_idx)._copy_to(dst._ptr._offset(dst_idx), len)
-
-    if dst._size < (dst_idx + len) then
-      dst._size = dst_idx + len
-    end
-    this
-
-  fun ref remove(i: USize, n: USize): Array[A]^ =>
-    """
-    Remove n elements from the vector, beginning at index i.
-    The vector is returned to allow call chaining.
-    """
-    if i < _size then
-      let count = n.min(_size - i)
-      _size = _size - count
-      _ptr._offset(i)._delete(count, _size - i)
-    end
-    this
-
-  fun ref clear(): Array[A]^ =>
+  fun ref clear(): Vector[A, _alloc]^ =>
     """
     Remove all elements from the vector.
     The vector is returned to allow call chaining.
     """
     _size = 0
     this
-
 
   fun ref pop(): A^ ? =>
     """
@@ -150,7 +160,7 @@ class Vector[A, _alloc: USize]
     """
     delete(_size - 1)
 
-  fun ref unshift(value: A): Array[A]^ =>
+  fun ref unshift(value: A): Vector[A, _alloc]^ =>
     """
     Add an element to the beginning of the vector.
     The vector is returned to allow call chaining.
@@ -167,37 +177,33 @@ class Vector[A, _alloc: USize]
     """
     delete(0)
 
-
   fun ref push(value: A): Vector[A, _alloc]^ =>
     """
     Add an element to the end of the vector.
     The vector is returned to allow call chaining.
     """
-    reserve(_size + 1)
     _ptr._update(_size, consume value)
     _size = _size + 1
     this
 
-*/
-  fun ref append[m: USize](vec: Vector[A, m]): Vector[A, #(_alloc + m)]^ ? =>
+  fun ref append[m: USize](vector: Vector[A, m]): Vector[A, #(_alloc + m)]^ ? =>
     """
     Append the elements from a second vector.
     A new vector whose size is of the two vectors is returned.
     """
-    let new_vec = Vector[A, #(_alloc + m)]
-    var i: USize = 0
-
+    let new_vector = Vector[A, #(_alloc + m)]
     try
+      var i: USize = 0
       while i < _alloc do
-        new_vec.insert(i, this(i))
+        new_vector.push(apply(i))
         i = i + 1
       end
 
       while i < #(_alloc + m) do
-        new_vec.insert(i, vec(i-_alloc))
+        new_vector.push(vector(i - _alloc))
         i = i + 1
       end
     else
       error
     end
-    new_vec
+    new_vector

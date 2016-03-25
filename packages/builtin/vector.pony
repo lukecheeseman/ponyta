@@ -207,3 +207,70 @@ class Vector[A, _alloc: USize]
       error
     end
     new_vector
+
+  // TODO: more methods required still
+
+  fun keys(): VectorKeys[A, _alloc, this->Vector[A, _alloc]]^ =>
+    """
+    Return an iterator over the indices in the vector.
+    """
+    VectorKeys[A, _alloc, this->Vector[A, _alloc]](this)
+
+  fun values(): VectorValues[A, _alloc, this->Vector[A, _alloc]]^ =>
+    """
+    Return an iterator over the values in the vector.
+    """
+    VectorValues[A, _alloc, this->Vector[A, _alloc]](this)
+
+  fun pairs(): VectorPairs[A, _alloc, this->Vector[A, _alloc]]^ =>
+    """
+    Return an iterator over the (index, value) pairs in the vector.
+    """
+    VectorPairs[A, _alloc, this->Vector[A, _alloc]](this)
+
+class VectorKeys[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[USize]
+  let _vector: B
+  var _i: USize
+
+  new create(vector: B) =>
+    _vector = vector
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < _vector.size()
+
+  fun ref next(): USize =>
+    if _i < _vector.size() then
+      _i = _i + 1
+    else
+      _i
+    end
+
+class VectorValues[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[B->A]
+  let _vector: B
+  var _i: USize
+
+  new create(vector: B) =>
+    _vector = vector
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < _vector.size()
+
+  fun ref next(): B->A ? =>
+    _vector(_i = _i + 1)
+
+class VectorPairs[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[(USize, B->A)]
+  let _vector: B
+  var _i: USize
+
+  new create(vector: B) =>
+    _vector = vector
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < _vector.size()
+
+  fun ref next(): (USize, B->A) ? =>
+    (_i, _vector(_i = _i + 1))
+

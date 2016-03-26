@@ -14,10 +14,12 @@ bool contains_valueparamref(ast_t* ast) {
   return false;
 }
 
-bool expr_constant(ast_t* ast) {
+bool expr_constant(ast_t** astp) {
   // If we see a compile time expression
   // we first evaluate it then replace this node with the result
+  ast_t *ast = *astp;
   assert(ast_id(ast) == TK_CONSTANT);
+
   ast_t* expression = ast_child(ast);
   ast_settype(ast, ast_type(expression));
 
@@ -25,7 +27,7 @@ bool expr_constant(ast_t* ast) {
     return true;
 
   ast_t* evaluated = evaluate(expression);
-  ast_replace(&ast, evaluated);
+  ast_replace(astp, evaluated);
   // FIXME: things that had a reference to ast may now be broken, check and fix
   return true;
 }

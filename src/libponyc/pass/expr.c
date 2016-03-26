@@ -256,7 +256,7 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     // however we see constant first
     // e.g. in let x: U32 = #(1+7) -- 1 and 7 will still be literals
     // at this point -- in general they will be untyped?
-    case TK_CONSTANT:   r = expr_constant(ast); break;
+    case TK_CONSTANT:   r = expr_constant(astp); break;
 
     case TK_LAMBDA:
       if(!expr_lambda(options, astp))

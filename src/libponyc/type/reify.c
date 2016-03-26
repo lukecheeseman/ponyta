@@ -104,7 +104,7 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
       break;
 
     case TK_CONSTANT:
-      expr_constant(ast);
+      expr_constant(astp);
       break;
 
     default: {}

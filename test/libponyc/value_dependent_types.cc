@@ -461,7 +461,7 @@ TEST_F(VDTTest, VDTClassInheritsFromInterface)
 }
 
 
-//ADD TESTS FOR COMPILE CONSTATNS
+// TODO: ADD TESTS FOR COMPILE CONSTANTS
 TEST_F(VDTTest, VDTTypeWithCompileTimeConstant)
 {
   const char* src =

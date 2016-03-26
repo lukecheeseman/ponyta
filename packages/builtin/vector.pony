@@ -57,12 +57,17 @@ class Vector[A, _alloc: USize]
     """
     Change the i-th element, raising an error if the index is out of bounds.
     """
-    if i < _size then
+    if (i <= _size) and (_size < _alloc) then
+      if (i == _size) then
+        _size = _size + 1
+      end
       _ptr._update(i, consume value)
     else
       error
     end
 
+  // TODO: discuss whether we need this in a vector as we aren't managing
+  // memory resizing
   fun ref insert(i: USize, value: A): Vector[A, _alloc]^ ? =>
     """
     Insert an element into the vector. Elements after this are moved up by one
@@ -100,7 +105,7 @@ class Vector[A, _alloc: USize]
     Copy len elements from this(src_idx) to dst(dst_idx).
     The vector is returned to allow call chaining.
     """
-    if (dst_idx + len) < m then
+    if (dst_idx + len) <= m then
       _ptr._offset(src_idx)._copy_to(dst._ptr._offset(dst_idx), len)
 
       if dst._size < (dst_idx + len) then
@@ -194,21 +199,19 @@ class Vector[A, _alloc: USize]
     let new_vector = Vector[A, #(_alloc + m)]
     try
       var i: USize = 0
-      while i < _alloc do
+      while i < _size do
         new_vector.push(apply(i))
         i = i + 1
       end
 
-      while i < #(_alloc + m) do
-        new_vector.push(vector(i - _alloc))
+      while i < (vector.size() + _size) do
+        new_vector.push(vector(i - vector.size()))
         i = i + 1
       end
     else
       error
     end
     new_vector
-
-  // TODO: more methods required still
 
   fun keys(): VectorKeys[A, _alloc, this->Vector[A, _alloc]]^ =>
     """
@@ -273,4 +276,3 @@ class VectorPairs[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[(USi
 
   fun ref next(): (USize, B->A) ? =>
     (_i, _vector(_i = _i + 1))
-

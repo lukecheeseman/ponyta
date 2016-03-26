@@ -115,7 +115,7 @@ static const char* build_name(const char* a, const char* b, ast_t* elements,
     len += strlen(cap_str) + 1;
   }
 
-  char* name = (char*)pool_alloc_size(len);
+  char* name = (char*)ponyint_pool_alloc_size(len);
 
   if(a != NULL)
     strcpy(name, a);
@@ -141,8 +141,10 @@ const char* genname_type(ast_t* ast)
   switch(ast_id(ast))
   {
     case TK_UNIONTYPE:
+      return build_name(NULL, "$union", ast, NULL, false, false);
+
     case TK_ISECTTYPE:
-      return stringtab("$object");
+      return build_name(NULL, "$isect", ast, NULL, false, false);
 
     case TK_TUPLETYPE:
       return build_name(NULL, "$tuple", ast, NULL, false, false);

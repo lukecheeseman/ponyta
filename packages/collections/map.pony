@@ -27,12 +27,8 @@ class HashMap[K, V, H: HashFunction[K] val]
     resize. Defaults to 6.
     """
     let len = (prealloc * 4) / 3
-    let n = len.next_pow2().max(8)
-    _array = _array.create(n)
-
-    for i in Range(0, n) do
-      _array.push(_MapEmpty)
-    end
+    let n = len.ponyint_next_pow2().max(8)
+    _array = _array.init(_MapEmpty, n)
 
   fun size(): USize =>
     """
@@ -86,6 +82,7 @@ class HashMap[K, V, H: HashFunction[K] val]
     """
     try
       (let i, let found) = _search(key)
+      let key' = key
       _array(i) = (consume key, consume value)
 
       if not found then
@@ -93,6 +90,7 @@ class HashMap[K, V, H: HashFunction[K] val]
 
         if (_size * 4) > (_array.size() * 3) then
           _resize(_array.size() * 2)
+          return this(key')
         end
       end
 
@@ -120,6 +118,17 @@ class HashMap[K, V, H: HashFunction[K] val]
       end
     end
     error
+
+  fun contains(k: box->K!): Bool =>
+    """
+    Checks whether the map contains the key k
+    """
+    try
+      apply(k)
+      true
+    else
+      false
+    end
 
   fun ref concat(iter: Iterator[(K^, V^)]) =>
     """
@@ -172,7 +181,7 @@ class HashMap[K, V, H: HashFunction[K] val]
     """
     Minimise the memory used for the map.
     """
-    _resize(((_size * 4) / 3).next_pow2().max(8))
+    _resize(((_size * 4) / 3).ponyint_next_pow2().max(8))
     this
 
   fun clone[H2: HashFunction[this->K!] val = H]():
@@ -196,11 +205,7 @@ class HashMap[K, V, H: HashFunction[K] val]
     _size = 0
     // Our default prealloc of 6 corresponds to an array alloc size of 8.
     let n: USize = 8
-    _array = _array.create(n)
-
-    for i in Range(0, n) do
-      _array.push(_MapEmpty)
-    end
+    _array = _array.init(_MapEmpty, n)
     this
 
   fun _search(key: box->K!): (USize, Bool) =>
@@ -229,7 +234,7 @@ class HashMap[K, V, H: HashFunction[K] val]
           end
         | _MapDeleted =>
           if idx_del > mask then
-            idx_del = i
+            idx_del = idx
           end
         end
 
@@ -246,12 +251,8 @@ class HashMap[K, V, H: HashFunction[K] val]
     let old = _array
     let old_len = old.size()
 
-    _array = _array.create(len)
+    _array = _array.init(_MapEmpty, len)
     _size = 0
-
-    for i in Range(0, len) do
-      _array.push(_MapEmpty)
-    end
 
     try
       for i in Range(0, old_len) do

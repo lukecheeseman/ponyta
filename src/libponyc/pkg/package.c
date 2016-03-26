@@ -189,11 +189,10 @@ static bool parse_files_in_dir(ast_t* package, const char* dir_path,
     return false;
   }
 
-  PONY_DIRINFO dirent;
   PONY_DIRINFO* d;
   bool r = true;
 
-  while(pony_dir_entry_next(dir, &dirent, &d) && (d != NULL))
+  while((d = pony_dir_entry_next(dir)) != NULL)
   {
     // Handle only files with the specified extension that don't begin with
     // a dot. This avoids including UNIX hidden files in a build.
@@ -231,7 +230,13 @@ static const char* try_path(const char* base, const char* path)
   if(pony_realpath(composite, file) != file)
     return NULL;
 
-  return stringtab(file);
+  struct stat s;
+  int err = stat(file, &s);
+
+  if((err != -1) && S_ISDIR(s.st_mode))
+    return stringtab(file);
+
+  return NULL;
 }
 
 
@@ -369,7 +374,7 @@ static const char* id_to_string(const char* prefix, size_t id)
 
   size_t len = strlen(prefix);
   size_t buf_size = len + 32;
-  char* buffer = (char*)pool_alloc_size(buf_size);
+  char* buffer = (char*)ponyint_pool_alloc_size(buf_size);
   snprintf(buffer, buf_size, "%s$" __zu, prefix, id);
   return stringtab_consume(buffer, buf_size);
 }
@@ -406,7 +411,7 @@ static const char* string_to_symbol(const char* string)
 
   size_t len = strlen(string);
   size_t buf_size = len + prefix + 1;
-  char* buf = (char*)pool_alloc_size(buf_size);
+  char* buf = (char*)ponyint_pool_alloc_size(buf_size);
   memcpy(buf + prefix, string, len + 1);
 
   if(prefix)
@@ -438,7 +443,7 @@ static const char* symbol_suffix(const char* symbol, size_t suffix)
 {
   size_t len = strlen(symbol);
   size_t buf_size = len + 32;
-  char* buf = (char*)pool_alloc_size(buf_size);
+  char* buf = (char*)ponyint_pool_alloc_size(buf_size);
   snprintf(buf, buf_size, "%s" __zu, symbol, suffix);
 
   return stringtab_consume(buf, buf_size);
@@ -828,7 +833,7 @@ ast_t* package_load(ast_t* from, const char* path, pass_opt_t* options)
         size_t base_name_len = strlen(base_name);
         size_t path_len = strlen(path);
         size_t len = base_name_len + path_len + 2;
-        char* q_name = (char*)pool_alloc_size(len);
+        char* q_name = (char*)ponyint_pool_alloc_size(len);
         memcpy(q_name, base_name, base_name_len);
         q_name[base_name_len] = '/';
         memcpy(q_name + base_name_len + 1, path, path_len);
@@ -846,8 +851,9 @@ ast_t* package_load(ast_t* from, const char* path, pass_opt_t* options)
 
   package = create_package(program, full_path, qualified_name);
 
-  if(report_build)
-    printf("Building %s -> %s\n", path, full_path);
+  if(report_build) {
+    PONY_LOG(options, VERBOSITY_INFO, ("Building %s -> %s\n", path, full_path));
+  }
 
   if(magic != NULL)
   {

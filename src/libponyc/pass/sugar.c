@@ -292,7 +292,7 @@ static ast_result_t check_params(ast_t* params)
       ast_error(p, "expected parameter name");
       result = AST_ERROR;
     }
-    else if(ast_name(id)[0] != '$' && !check_id_param(id))
+    else if(!is_name_internal_test(ast_name(id)) && !check_id_param(id))
     {
       result = AST_ERROR;
     }
@@ -403,7 +403,7 @@ void fun_defaults(ast_t* ast)
 
     if(ast_id(last_cmd) != TK_ERROR && ast_id(last_cmd) != TK_RETURN)
     {
-      BUILD_NO_DEBUG(ref, body, NODE(TK_REFERENCE, ID("None")));
+      BUILD(ref, body, NODE(TK_REFERENCE, ID("None")));
       ast_append(body, ref);
     }
   }
@@ -428,7 +428,7 @@ static void expand_none(ast_t* ast, bool is_scope)
     ast_scope(ast);
 
   ast_setid(ast, TK_SEQ);
-  BUILD_NO_DEBUG(ref, ast, NODE(TK_REFERENCE, ID("None")));
+  BUILD(ref, ast, NODE(TK_REFERENCE, ID("None")));
   ast_add(ast, ref);
 }
 
@@ -494,7 +494,7 @@ static ast_result_t sugar_for(typecheck_t* t, ast_t** astp)
 
   REPLACE(astp,
     NODE(TK_SEQ,
-      NODE(TK_ASSIGN, AST_NODEBUG
+      NODE(TK_ASSIGN,
         TREE(for_iter)
         NODE(TK_LET, NICE_ID(iter_name, "for loop iterator") NONE))
       NODE(TK_WHILE, AST_SCOPE
@@ -504,7 +504,7 @@ static ast_result_t sugar_for(typecheck_t* t, ast_t** astp)
             NONE
             NODE(TK_DOT, NODE(TK_REFERENCE, ID(iter_name)) ID("has_next"))))
         NODE(TK_SEQ, AST_SCOPE
-          NODE_ERROR_AT(TK_ASSIGN, for_idseq, AST_NODEBUG
+          NODE_ERROR_AT(TK_ASSIGN, for_idseq,
             TREE(try_next)
             TREE(for_idseq))
           TREE(for_body))
@@ -580,12 +580,12 @@ static ast_result_t sugar_with(typecheck_t* t, ast_t** astp)
     const char* init_name = package_hygienic_id(t);
 
     BUILD(assign, idseq,
-      NODE(TK_ASSIGN, AST_NODEBUG
+      NODE(TK_ASSIGN,
         TREE(init)
         NODE(TK_LET, ID(init_name) NONE)));
 
     BUILD(local, idseq,
-      NODE(TK_ASSIGN, AST_NODEBUG
+      NODE(TK_ASSIGN,
         NODE(TK_REFERENCE, ID(init_name))
         TREE(idseq)));
 
@@ -714,7 +714,7 @@ static ast_result_t sugar_update(ast_t** astp)
   ast_setid(named, TK_NAMEDARGS);
 
   // Build a new namedarg.
-  BUILD_NO_DEBUG(namedarg, ast,
+  BUILD(namedarg, ast,
     NODE(TK_UPDATEARG,
       ID("value")
       NODE(TK_SEQ, TREE(value))));
@@ -762,7 +762,7 @@ static ast_result_t sugar_object(pass_opt_t* opt, ast_t** astp)
       NONE));
 
   // We will have a create method in the type.
-  BUILD_NO_DEBUG(create, members,
+  BUILD(create, members,
     NODE(TK_NEW, AST_SCOPE
       NONE
       ID("create")
@@ -835,7 +835,7 @@ static ast_result_t sugar_object(pass_opt_t* opt, ast_t** astp)
             TREE(init)));
 
         // The body of create contains: id = consume $0
-        BUILD_NO_DEBUG(assign, init,
+        BUILD(assign, init,
           NODE(TK_ASSIGN,
             NODE(TK_CONSUME, NODE(TK_NONE) NODE(TK_REFERENCE, TREE(p_id)))
             NODE(TK_REFERENCE, TREE(id))));
@@ -870,7 +870,7 @@ static ast_result_t sugar_object(pass_opt_t* opt, ast_t** astp)
   if(!has_fields)
   {
     // End the constructor with 'true', since it has no parameters.
-    BUILD_NO_DEBUG(true_node, ast, NODE(TK_TRUE));
+    BUILD(true_node, ast, NODE(TK_TRUE));
     ast_append(create_body, true_node);
   }
 
@@ -1081,7 +1081,7 @@ static ast_result_t sugar_ffi(ast_t* ast)
   }
 
   // Prefix '@' to the name
-  char* new_name = (char*)pool_alloc_size(len + 2);
+  char* new_name = (char*)ponyint_pool_alloc_size(len + 2);
   new_name[0] = '@';
   memcpy(new_name + 1, name, len);
   new_name[len + 1] = '\0';
@@ -1207,7 +1207,22 @@ static ast_result_t sugar_lambdatype(pass_opt_t* opt, ast_t** astp)
 
   ast_t* interface_t_params;
   ast_t* t_args;
-  collect_type_params(ast, &interface_t_params, &t_args);
+  collect_type_params(ast, NULL, &t_args);
+
+  // We will replace {..} with $0
+  REPLACE(astp,
+    NODE(TK_NOMINAL,
+      NONE  // Package
+      ID(i_name)
+      TREE(t_args)
+      TREE(interface_cap)
+      TREE(ephemeral)));
+
+  ast = *astp;
+
+  // Fetch the interface type parameters after we replace the ast, so that if
+  // we are an interface type parameter, we get ourselves as the constraint.
+  collect_type_params(ast, &interface_t_params, NULL);
 
   printbuf_t* buf = printbuf_new();
   printbuf(buf, "{(");
@@ -1270,15 +1285,6 @@ static ast_result_t sugar_lambdatype(pass_opt_t* opt, ast_t** astp)
       NONE)); // Doc string
 
   printbuf_free(buf);
-
-  // We will replace {..} with $0
-  REPLACE(astp,
-    NODE(TK_NOMINAL,
-      NONE  // Package
-      ID(i_name)
-      TREE(t_args)
-      TREE(interface_cap)
-      TREE(ephemeral)));
 
   // Add new type to current module and bring it up to date with passes.
   ast_t* module = ast_nearest(ast, TK_MODULE);

@@ -81,21 +81,17 @@ void pony_closedir(PONY_DIR* dir)
 #endif
 }
 
-bool pony_dir_entry_next(PONY_DIR* dir, PONY_DIRINFO* entry, PONY_DIRINFO** res)
+PONY_DIRINFO* pony_dir_entry_next(PONY_DIR* dir)
 {
 #ifdef PLATFORM_IS_WINDOWS
-  if (FindNextFile(dir->ptr, &dir->info) != 0)
-  {
-    *res = &dir->info;
-    return true;
-  }
+  if(FindNextFile(dir->ptr, &dir->info) != 0)
+    return &dir->info;
 
-  *res = NULL;
-  return false;
+  return NULL;
 #elif defined(PLATFORM_IS_POSIX_BASED)
-  return readdir_r(dir, entry, res) == 0;
+  return readdir(dir);
 #else
-  return false;
+  return NULL;
 #endif
 }
 
@@ -104,7 +100,7 @@ void pony_mkdir(const char* path)
   // Copy the given path into a new buffer, one directory at a time, creating
   // each as we go
   size_t path_len = strlen(path);
-  char* buf = (char*)pool_alloc_size(path_len + 1); // + 1 for terminator
+  char* buf = (char*)ponyint_pool_alloc_size(path_len + 1); // +1 for terminator
 
   for(size_t i = 0; i < path_len; i++)
   {
@@ -134,5 +130,5 @@ void pony_mkdir(const char* path)
   mkdir(path, 0777);
 #endif
 
-  pool_free_size(path_len + 1, buf);
+  ponyint_pool_free_size(path_len + 1, buf);
 }

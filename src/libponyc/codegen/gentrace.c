@@ -27,6 +27,8 @@ typedef enum
   TRACE_PRIMITIVE,
   TRACE_MAYBE,
   TRACE_ACTOR,
+  TRACE_KNOWN_VAL,
+  TRACE_UNKNOWN_VAL,
   TRACE_KNOWN,
   TRACE_UNKNOWN,
   TRACE_TAG,
@@ -55,6 +57,10 @@ static trace_t trace_union_primitive(trace_t a)
     case TRACE_KNOWN:
     case TRACE_UNKNOWN:
       return TRACE_UNKNOWN;
+
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
+      return TRACE_UNKNOWN_VAL;
 
     case TRACE_TAG:
       return TRACE_TAG;
@@ -86,6 +92,10 @@ static trace_t trace_union_actor(trace_t a)
     case TRACE_UNKNOWN:
       return TRACE_UNKNOWN;
 
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
+      return TRACE_UNKNOWN_VAL;
+
     case TRACE_TAG:
     case TRACE_TAG_OR_ACTOR:
       return TRACE_TAG_OR_ACTOR;
@@ -111,6 +121,33 @@ static trace_t trace_union_known_or_unknown(trace_t a)
     case TRACE_UNKNOWN:
       return TRACE_UNKNOWN;
 
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
+    case TRACE_TAG:
+    case TRACE_TAG_OR_ACTOR:
+    case TRACE_DYNAMIC:
+    case TRACE_TUPLE:
+      return TRACE_DYNAMIC;
+
+    default: {}
+  }
+
+  assert(0);
+  return TRACE_NONE;
+}
+
+static trace_t trace_union_known_or_unknown_val(trace_t a)
+{
+  assert(a >= TRACE_KNOWN_VAL);
+
+  switch(a)
+  {
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
+      return TRACE_UNKNOWN_VAL;
+
+    case TRACE_KNOWN:
+    case TRACE_UNKNOWN:
     case TRACE_TAG:
     case TRACE_TAG_OR_ACTOR:
     case TRACE_DYNAMIC:
@@ -173,6 +210,10 @@ static trace_t trace_type_combine(trace_t a, trace_t b)
     case TRACE_UNKNOWN:
       return trace_union_known_or_unknown(b);
 
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
+      return trace_union_known_or_unknown_val(b);
+
     case TRACE_TAG:
     case TRACE_TAG_OR_ACTOR:
       return trace_union_tag_or_actor(b);
@@ -196,7 +237,6 @@ static trace_t trace_type_union(ast_t* type)
     child != NULL;
     child = ast_sibling(child))
   {
-    // TODO: if we can't pull the child out, ignore it?
     trace = trace_type_combine(trace, trace_type(child));
   }
 
@@ -223,9 +263,11 @@ static trace_t trace_type_isect(ast_t* type)
 
       case TRACE_PRIMITIVE: // Primitive, any refcap.
       case TRACE_ACTOR: // Actor, tag.
+      case TRACE_KNOWN_VAL:
       case TRACE_KNOWN: // Class or struct, not tag.
         return t;
 
+      case TRACE_UNKNOWN_VAL:
       case TRACE_UNKNOWN: // Trait or interface, not tag.
       case TRACE_TAG: // Class or struct, tag.
       case TRACE_TAG_OR_ACTOR: // Trait or interface, tag.
@@ -248,8 +290,16 @@ static trace_t trace_type_nominal(ast_t* type)
   {
     case TK_INTERFACE:
     case TK_TRAIT:
-      if(cap_single(type) == TK_TAG)
-        return TRACE_TAG_OR_ACTOR;
+      switch(cap_single(type))
+      {
+        case TK_VAL:
+          return TRACE_UNKNOWN_VAL;
+
+        case TK_TAG:
+          return TRACE_TAG_OR_ACTOR;
+
+        default: {}
+      }
 
       return TRACE_UNKNOWN;
 
@@ -261,8 +311,16 @@ static trace_t trace_type_nominal(ast_t* type)
       if(is_maybe(type))
         return TRACE_MAYBE;
 
-      if(cap_single(type) == TK_TAG)
-        return TRACE_TAG;
+      switch(cap_single(type))
+      {
+        case TK_VAL:
+          return TRACE_KNOWN_VAL;
+
+        case TK_TAG:
+          return TRACE_TAG;
+
+        default: {}
+      }
 
       return TRACE_KNOWN;
 
@@ -349,30 +407,21 @@ static void trace_maybe(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
 }
 
 static void trace_known(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
-  ast_t* type)
+  ast_t* type, bool immutable)
 {
-  gentype_t g;
-
-  if(!gentype(c, type, &g))
-  {
-    assert(0);
-    return;
-  }
-
-  // Get the trace function statically.
-  const char* fun = genname_trace(g.type_name);
-  LLVMValueRef trace_fn = LLVMGetNamedFunction(c->module, fun);
+  reachable_type_t* t = reach_type(c->reachable, type);
 
   // If this type has no trace function, don't try to recurse in the runtime.
-  if(trace_fn != NULL)
+  if(t->trace_fn != NULL)
   {
     // Cast the object to an object pointer.
-    LLVMValueRef args[3];
+    LLVMValueRef args[4];
     args[0] = ctx;
     args[1] = LLVMBuildBitCast(c->builder, object, c->object_ptr, "");
-    args[2] = trace_fn;
+    args[2] = t->trace_fn;
+    args[3] = LLVMConstInt(c->i32, immutable, false);
 
-    gencall_runtime(c, "pony_traceobject", args, 3, "");
+    gencall_runtime(c, "pony_traceobject", args, 4, "");
   } else {
     // Cast the object to a void pointer.
     LLVMValueRef args[2];
@@ -382,20 +431,21 @@ static void trace_known(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
   }
 }
 
-static void trace_unknown(compile_t* c, LLVMValueRef ctx, LLVMValueRef object)
+static void trace_unknown(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
+  bool immutable)
 {
   // We're an object.
-  LLVMValueRef args[2];
+  LLVMValueRef args[3];
   args[0] = ctx;
   args[1] = object;
+  args[2] = LLVMConstInt(c->i32, immutable, false);
 
-  gencall_runtime(c, "pony_traceunknown", args, 2, "");
+  gencall_runtime(c, "pony_traceunknown", args, 3, "");
 }
 
-static bool trace_tuple(compile_t* c, LLVMValueRef ctx, LLVMValueRef value,
+static void trace_tuple(compile_t* c, LLVMValueRef ctx, LLVMValueRef value,
   ast_t* type)
 {
-  bool trace = false;
   int i = 0;
 
   // We're a tuple, determined statically.
@@ -405,11 +455,9 @@ static bool trace_tuple(compile_t* c, LLVMValueRef ctx, LLVMValueRef value,
   {
     // Extract each element and trace it.
     LLVMValueRef elem = LLVMBuildExtractValue(c->builder, value, i, "");
-    trace |= gentrace(c, ctx, elem, child);
+    gentrace(c, ctx, elem, child);
     i++;
   }
-
-  return trace;
 }
 
 static void trace_dynamic_union_or_isect(compile_t* c, LLVMValueRef ctx,
@@ -480,6 +528,8 @@ static void trace_dynamic_tuple(compile_t* c, LLVMValueRef ctx,
       case TRACE_ACTOR:
       case TRACE_KNOWN:
       case TRACE_UNKNOWN:
+      case TRACE_KNOWN_VAL:
+      case TRACE_UNKNOWN_VAL:
       case TRACE_TAG:
       case TRACE_TAG_OR_ACTOR:
       case TRACE_DYNAMIC:
@@ -590,6 +640,8 @@ static void trace_dynamic_nominal(compile_t* c, LLVMValueRef ctx,
   {
     case TRACE_KNOWN:
     case TRACE_UNKNOWN:
+    case TRACE_KNOWN_VAL:
+    case TRACE_UNKNOWN_VAL:
     case TRACE_ACTOR:
       LLVMBuildBr(c->builder, next_block);
       break;
@@ -633,7 +685,7 @@ static void trace_dynamic(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
   }
 }
 
-bool gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef value, ast_t* type)
+bool gentrace_needed(ast_t* type)
 {
   switch(trace_type(type))
   {
@@ -644,29 +696,98 @@ bool gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef value, ast_t* type)
     case TRACE_PRIMITIVE:
       return false;
 
+    case TRACE_TUPLE:
+    {
+      for(ast_t* child = ast_child(type);
+        child != NULL;
+        child = ast_sibling(child))
+      {
+        if(gentrace_needed(child))
+          return true;
+      }
+
+      return false;
+    }
+
+    default:
+      break;
+  }
+
+  return true;
+}
+
+void gentrace_prototype(compile_t* c, reachable_type_t* t)
+{
+  switch(t->underlying)
+  {
+    case TK_CLASS:
+    case TK_ACTOR:
+      break;
+
+    default:
+      return;
+  }
+
+  bool need_trace = false;
+
+  for(uint32_t i = 0; i < t->field_count; i++)
+  {
+    if(gentrace_needed(t->fields[i].ast))
+    {
+      need_trace = true;
+      break;
+    }
+  }
+
+  if(!need_trace)
+    return;
+
+  const char* trace_name = genname_trace(t->name);
+  t->trace_fn = codegen_addfun(c, trace_name, c->trace_type);
+}
+
+void gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef value, ast_t* type)
+{
+  switch(trace_type(type))
+  {
+    case TRACE_NONE:
+      assert(0);
+      return;
+
+    case TRACE_PRIMITIVE:
+      return;
+
     case TRACE_MAYBE:
       trace_maybe(c, ctx, value, type);
-      return true;
+      return;
 
     case TRACE_ACTOR:
       trace_actor(c, ctx, value);
-      return true;
+      return;
+
+    case TRACE_KNOWN_VAL:
+      trace_known(c, ctx, value, type, true);
+      return;
+
+    case TRACE_UNKNOWN_VAL:
+      trace_unknown(c, ctx, value, true);
+      return;
 
     case TRACE_KNOWN:
-      trace_known(c, ctx, value, type);
-      return true;
+      trace_known(c, ctx, value, type, false);
+      return;
 
     case TRACE_UNKNOWN:
-      trace_unknown(c, ctx, value);
-      return true;
+      trace_unknown(c, ctx, value, false);
+      return;
 
     case TRACE_TAG:
       trace_tag(c, ctx, value);
-      return true;
+      return;
 
     case TRACE_TAG_OR_ACTOR:
       trace_tag_or_actor(c, ctx, value);
-      return true;
+      return;
 
     case TRACE_DYNAMIC:
     {
@@ -674,13 +795,11 @@ bool gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef value, ast_t* type)
       trace_dynamic(c, ctx, value, type, type, NULL, next_block);
       LLVMBuildBr(c->builder, next_block);
       LLVMPositionBuilderAtEnd(c->builder, next_block);
-      return true;
+      return;
     }
 
     case TRACE_TUPLE:
-      return trace_tuple(c, ctx, value, type);
+      trace_tuple(c, ctx, value, type);
+      return;
   }
-
-  assert(0);
-  return false;
 }

@@ -13,6 +13,7 @@
 #include "../type/reify.h"
 #include "../type/lookup.h"
 #include "../ast/astbuild.h"
+#include "../ast/id.h"
 #include "../../libponyrt/mem/pool.h"
 #include <string.h>
 #include <assert.h>
@@ -369,7 +370,7 @@ static const char* suggest_alt_name(ast_t* ast, const char* name)
 
   size_t name_len = strlen(name);
 
-  if(name[0] == '_')
+  if(is_name_private(name))
   {
     // Try without leading underscore
     const char* try_name = stringtab(name + 1);
@@ -380,7 +381,7 @@ static const char* suggest_alt_name(ast_t* ast, const char* name)
   else
   {
     // Try with a leading underscore
-    char* buf = (char*)pool_alloc_size(name_len + 2);
+    char* buf = (char*)ponyint_pool_alloc_size(name_len + 2);
     buf[0] = '_';
     strncpy(buf + 1, name, name_len + 1);
     const char* try_name = stringtab_consume(buf, name_len + 2);
@@ -393,8 +394,13 @@ static const char* suggest_alt_name(ast_t* ast, const char* name)
   ast_t* case_ast = ast_get_case(ast, name, NULL);
   if(case_ast != NULL)
   {
-    assert(ast_child(case_ast) != NULL);
-    const char* try_name = ast_name(ast_child(case_ast));
+    ast_t* id = case_ast;
+
+    if(ast_id(id) != TK_ID)
+      id = ast_child(id);
+
+    assert(ast_id(id) == TK_ID);
+    const char* try_name = ast_name(id);
 
     if(ast_get(ast, try_name, NULL) != NULL)
       return try_name;
@@ -487,6 +493,12 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
 
     case TK_PARAM:
     {
+      if(t->frame->def_arg != NULL)
+      {
+        ast_error(ast, "can't reference a parameter in a default argument");
+        return false;
+      }
+
       if(!def_before_use(def, ast, name))
         return false;
 
@@ -497,12 +509,6 @@ bool expr_reference(pass_opt_t* opt, ast_t** astp)
 
       if(!valid_reference(opt, ast, type, status))
         return false;
-
-      if(t->frame->def_arg != NULL)
-      {
-        ast_error(ast, "can't reference a parameter in a default argument");
-        return false;
-      }
 
       if(!sendable(type) && (t->frame->recover != NULL))
       {
@@ -708,11 +714,22 @@ bool expr_addressof(pass_opt_t* opt, ast_t* ast)
       return false;
   }
 
-  // Set the type to Pointer[ast_type(expr)].
+  // Set the type to Pointer[ast_type(expr)]. Set to Pointer[None] for function
+  // pointers.
   ast_t* expr_type = ast_type(expr);
 
   if(is_typecheck_error(expr_type))
     return false;
+
+  switch(ast_id(expr))
+  {
+    case TK_FUNREF:
+    case TK_BEREF:
+      expr_type = type_builtin(opt, ast, "None");
+      break;
+
+    default: {}
+  }
 
   ast_t* type = type_pointer_to(opt, expr_type);
   ast_settype(ast, type);
@@ -803,6 +820,12 @@ bool expr_this(pass_opt_t* opt, ast_t* ast)
 {
   typecheck_t* t = &opt->check;
 
+  if(t->frame->def_arg != NULL)
+  {
+    ast_error(ast, "can't reference 'this' in a default argument");
+    return false;
+  }
+
   sym_status_t status;
   ast_get(ast, stringtab("this"), &status);
 
@@ -832,12 +855,6 @@ bool expr_this(pass_opt_t* opt, ast_t* ast)
   {
     BUILD(arrow, ast, NODE(TK_ARROW, NODE(TK_THISTYPE) TREE(type)));
     type = arrow;
-  }
-
-  if(t->frame->def_arg != NULL)
-  {
-    ast_error(ast, "can't reference 'this' in a default argument");
-    return false;
   }
 
   // Get the nominal type, which may be the right side of an arrow type.
@@ -975,9 +992,9 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
   if(!reify_defaults(typeparams, typeargs, true))
     return false;
 
-  if(!strcmp(name, "Maybe"))
+  if(!strcmp(name, "MaybePointer"))
   {
-    // Maybe[A] must be bound to a struct.
+    // MaybePointer[A] must be bound to a struct.
     assert(ast_childcount(typeargs) == 1);
     ast_t* typeparam = ast_child(typeparams);
     ast_t* typearg = ast_child(typeargs);
@@ -1005,7 +1022,7 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
     if(!ok)
     {
       ast_error(ast,
-        "%s is not allowed: the type argument to Maybe must be a struct",
+        "%s is not allowed: the type argument to MaybePointer must be a struct",
         ast_print_type(ast));
 
       return false;
@@ -1380,13 +1397,8 @@ bool expr_fun(pass_opt_t* opt, ast_t* ast)
   return true;
 }
 
-bool expr_compile_intrinsic(typecheck_t* t, ast_t* ast)
+bool expr_compile_intrinsic(ast_t* ast)
 {
-  assert(t->frame->method_body != NULL);
-
-  // Disable debuglocs on calls to this method.
-  ast_setdebug(t->frame->method, false);
-
   ast_settype(ast, ast_from(ast, TK_COMPILE_INTRINSIC));
   return true;
 }

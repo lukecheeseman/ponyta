@@ -52,6 +52,7 @@ bool is_result_needed(ast_t* ast)
     case TK_CASES:
     case TK_TRY:
     case TK_TRY_NO_CHECK:
+    case TK_RECOVER:
       // Only if parent needed.
       return is_result_needed(parent);
 
@@ -159,6 +160,8 @@ bool is_control_type(ast_t* type)
     case TK_TRY:
     case TK_MATCH:
     case TK_CASES:
+    case TK_WHILE:
+    case TK_REPEAT:
     case TK_BREAK:
     case TK_CONTINUE:
     case TK_RETURN:
@@ -242,7 +245,7 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     case TK_COMPILE_ERROR:
                         r = expr_compile_error(ast); break;
     case TK_COMPILE_INTRINSIC:
-                        r = expr_compile_intrinsic(t, ast); break;
+                        r = expr_compile_intrinsic(ast); break;
     case TK_LOCATION:   r = expr_location(options, ast); break;
     case TK_POSITIONALARGS:
     case TK_NAMEDARGS:
@@ -298,12 +301,5 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
   if(symtab != NULL && !symtab_check_all_defined(symtab))
     return AST_ERROR;
 
-  return AST_OK;
-}
-
-ast_result_t pass_nodebug(ast_t** astp, pass_opt_t* options)
-{
-  (void)options;
-  ast_setdebug(*astp, false);
   return AST_OK;
 }

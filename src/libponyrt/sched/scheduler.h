@@ -9,7 +9,8 @@
 
 PONY_EXTERN_C_BEGIN
 
-typedef void (*trace_object_fn)(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+typedef void (*trace_object_fn)(pony_ctx_t* ctx, void* p, pony_trace_fn f,
+  bool immutable);
 
 typedef void (*trace_actor_fn)(pony_ctx_t* ctx, pony_actor_t* actor);
 
@@ -69,17 +70,15 @@ struct scheduler_t
   messageq_t mq;
 };
 
-pony_ctx_t* scheduler_init(uint32_t threads, bool noyield);
+pony_ctx_t* ponyint_sched_init(uint32_t threads, bool noyield);
 
-bool scheduler_start(bool library);
+bool ponyint_sched_start(bool library);
 
-void scheduler_stop();
+void ponyint_sched_stop();
 
-void scheduler_add(pony_ctx_t* ctx, pony_actor_t* actor);
+void ponyint_sched_add(pony_ctx_t* ctx, pony_actor_t* actor);
 
-uint32_t scheduler_cores();
-
-void scheduler_terminate();
+uint32_t ponyint_sched_cores();
 
 PONY_EXTERN_C_END
 

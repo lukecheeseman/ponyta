@@ -1,3 +1,11 @@
+"""
+# Assert package
+
+Contains runtime assertions. If you are looking for assertion that only run
+when your code was compiled with the `debug` flag, check out `Assert`. For
+assertions that are always enabled, check out `Fact`.
+"""
+
 primitive Assert
   """
   This is a debug only assertion. If the test is false, it will print any
@@ -16,7 +24,7 @@ primitive Fact
   fun apply(test: Bool, msg: String = "") ? =>
     if not test then
       if msg.size() > 0 then
-        @fprintf[I32](@os_stderr[Pointer[U8]](), "%s\n".cstring(),
+        @fprintf[I32](@pony_os_stderr[Pointer[U8]](), "%s\n".cstring(),
           msg.cstring())
       end
       error

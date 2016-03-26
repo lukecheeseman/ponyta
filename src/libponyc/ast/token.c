@@ -14,7 +14,6 @@ typedef struct token_t
   size_t line;
   size_t pos;
   char* printed;
-  bool debug_info;
 
   union
   {
@@ -35,7 +34,6 @@ token_t* token_new(token_id id)
   token_t* t = POOL_ALLOC(token_t);
   memset(t, 0, sizeof(token_t));
   t->id = id;
-  t->debug_info = true;
   return t;
 }
 
@@ -63,7 +61,7 @@ void token_free(token_t* token)
     return;
 
   if(token->printed != NULL)
-    pool_free_size(64, token->printed);
+    ponyint_pool_free_size(64, token->printed);
 
   POOL_FREE(token_t, token);
 }
@@ -125,7 +123,7 @@ const char* token_print(token_t* token)
 
     case TK_INT:
       if (token->printed == NULL)
-        token->printed = (char*)pool_alloc_size(64);
+        token->printed = (char*)ponyint_pool_alloc_size(64);
 
       snprintf(token->printed, 64, "%llu",
         (unsigned long long)token->integer.low);
@@ -134,7 +132,7 @@ const char* token_print(token_t* token)
     case TK_FLOAT:
     {
       if(token->printed == NULL)
-        token->printed = (char*)pool_alloc_size(64);
+        token->printed = (char*)ponyint_pool_alloc_size(64);
 
       int r = snprintf(token->printed, 64, "%g", token->real);
 
@@ -156,7 +154,7 @@ const char* token_print(token_t* token)
     return p;
 
   if(token->printed == NULL)
-    token->printed = (char*)pool_alloc_size(64);
+    token->printed = (char*)ponyint_pool_alloc_size(64);
 
   snprintf(token->printed, 64, "Unknown_token_%d", token->id);
   return token->printed;
@@ -203,13 +201,6 @@ size_t token_line_position(token_t* token)
 {
   assert(token != NULL);
   return token->pos;
-}
-
-
-bool token_debug(token_t* token)
-{
-  assert(token != NULL);
-  return token->debug_info;
 }
 
 
@@ -260,10 +251,4 @@ void token_set_pos(token_t* token, source_t* source, size_t line, size_t pos)
 
   token->line = line;
   token->pos = pos;
-}
-
-void token_set_debug(token_t* token, bool state)
-{
-  assert(token != NULL);
-  token->debug_info = state;
 }

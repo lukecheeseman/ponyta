@@ -194,20 +194,20 @@ void pony_triggergc(pony_actor_t* actor);
 /** Start gc tracing for sending.
  *
  * Call this before sending a message if it has anything in it that can be
- * GCed. Then trace all the GCable items, then call pony_gc_done.
+ * GCed. Then trace all the GCable items, then call pony_send_done.
  */
 void pony_gc_send(pony_ctx_t* ctx);
 
 /** Start gc tracing for receiving.
  *
  * Call this when receiving a message if it has anything in it that can be
- * GCed. Then trace all the GCable items, then call pony_gc_done.
+ * GCed. Then trace all the GCable items, then call pony_recv_done.
  */
 void pony_gc_recv(pony_ctx_t* ctx);
 
 /** Finish gc tracing for sending.
  *
- * Call this after tracing the GC-able contents.
+ * Call this after tracing the GCable contents.
  */
 void pony_send_done(pony_ctx_t* ctx);
 
@@ -239,14 +239,14 @@ void pony_traceactor(pony_ctx_t* ctx, pony_actor_t* p);
  * @param p The pointer being traced.
  * @param f The trace function for the object pointed to.
  */
-void pony_traceobject(pony_ctx_t* ctx, void* p, pony_trace_fn f);
+void pony_traceobject(pony_ctx_t* ctx, void* p, pony_trace_fn f, int immutable);
 
 /** Trace unknown.
  *
  * This should be called for fields in an object with an unknown type, but
  * which are not tags.
  */
-void pony_traceunknown(pony_ctx_t* ctx, void* p);
+void pony_traceunknown(pony_ctx_t* ctx, void* p, int immutable);
 
 /** Trace a tag or an actor
  *

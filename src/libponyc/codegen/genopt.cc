@@ -4,15 +4,14 @@
 #  pragma warning(disable:4244)
 #  pragma warning(disable:4800)
 #  pragma warning(disable:4267)
+#  pragma warning(disable:4624)
 #endif
 
 #include "genopt.h"
 #include <string.h>
 
 #include <llvm/IR/Module.h>
-#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/CallSite.h>
-#include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/DebugInfo.h>
@@ -22,6 +21,7 @@
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #else
+#include <llvm/ADT/Triple.h>
 #include <llvm/PassManager.h>
 #include <llvm/Target/TargetLibraryInfo.h>
 #endif
@@ -29,9 +29,7 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
-#include <llvm/ADT/Triple.h>
 #include <llvm/ADT/SmallSet.h>
-#include <llvm/ADT/SmallVector.h>
 
 #include "../../libponyrt/mem/heap.h"
 
@@ -47,49 +45,68 @@ using namespace llvm::legacy;
 
 static __pony_thread_local compile_t* the_compiler;
 
-static void print_transform(compile_t* c, Instruction* inst, const char* s)
+static void print_transform(compile_t* c, Instruction* i, const char* s)
 {
   if((c == NULL) || !c->opt->print_stats)
     return;
 
-  Instruction* i = inst;
-
+  /* Starting with LLVM 3.7.0-final getDebugLog may return a
+   * DebugLoc without a valid underlying MDNode* for instructions
+   * that have no direct source location, instead of returning 0
+   * for getLine().
+   */
+#if PONY_LLVM >= 307
+  while(!i->getDebugLoc())
+#else
   while(i->getDebugLoc().getLine() == 0)
+#endif
   {
-    BasicBlock::iterator iter = i;
+    i = i->getNextNode();
 
-    if(++iter == i->getParent()->end())
+    if(i == nullptr)
       return;
-
-    i = iter;
   }
 
   DebugLoc loc = i->getDebugLoc();
 
 #if PONY_LLVM >= 307
-  DIScope scope = DIScope(cast_or_null<MDScope>(loc.getScope()));
+  DILocation* location = loc.get();
+  DIScope* scope = location->getScope();
+  DILocation* at = location->getInlinedAt();
 #else
   DIScope scope = DIScope(loc.getScope());
-#endif
-
   MDLocation* at = cast_or_null<MDLocation>(loc.getInlinedAt());
+#endif
 
   if(at != NULL)
   {
 #if PONY_LLVM >= 307
-    DIScope scope_at = DIScope(cast_or_null<MDScope>(at->getScope()));
+    DIScope* scope_at = at->getScope();
+
+    errorf(NULL, "[%s] %s:%u:%u@%s:%u:%u: %s",
+      i->getParent()->getParent()->getName().str().c_str(),
+      scope->getFilename().str().c_str(), loc.getLine(), loc.getCol(),
+      scope_at->getFilename().str().c_str(), at->getLine(),
+      at->getColumn(), s);
 #else
     DIScope scope_at = DIScope(cast_or_null<MDNode>(at->getScope()));
-#endif
 
     errorf(NULL, "[%s] %s:%u:%u@%s:%u:%u: %s",
       i->getParent()->getParent()->getName().str().c_str(),
       scope.getFilename().str().c_str(), loc.getLine(), loc.getCol(),
       scope_at.getFilename().str().c_str(), at->getLine(), at->getColumn(), s);
-  } else {
+#endif
+  }
+  else {
+#if PONY_LLVM >= 307
+    errorf(NULL, "[%s] %s:%u:%u: %s",
+      i->getParent()->getParent()->getName().str().c_str(),
+      scope->getFilename().str().c_str(), loc.getLine(), loc.getCol(), s);
+#else
     errorf(NULL, "[%s] %s:%u:%u: %s",
       i->getParent()->getParent()->getName().str().c_str(),
       scope.getFilename().str().c_str(), loc.getLine(), loc.getCol(), s);
+#endif
   }
 }
 
@@ -124,7 +141,7 @@ public:
     {
       for(auto iter = block->begin(), end = block->end(); iter != end; ++iter)
       {
-        Instruction* inst = iter;
+        Instruction* inst = &(*iter);
 
         if(runOnInstruction(builder, inst, dt))
           changed = true;
@@ -193,7 +210,8 @@ public:
       (*iter)->setTailCall(false);
 
     // TODO: for variable size alloca, don't insert at the beginning.
-    Instruction* begin = call.getCaller()->getEntryBlock().begin();
+    Instruction* begin = &(*call.getCaller()->getEntryBlock().begin());
+
     AllocaInst* replace = new AllocaInst(builder.getInt8Ty(), int_size, "",
       begin);
 
@@ -360,19 +378,18 @@ public:
       }
     }
 
-    typedef std::pair<BasicBlock*, BasicBlock::iterator> Work;
+    typedef std::pair<BasicBlock*, Instruction*> Work;
     SmallVector<Work, 16> work;
     SmallSet<BasicBlock*, 16> visited;
 
-    BasicBlock::iterator start = alloc;
-    ++start;
+    Instruction* start = alloc->getNextNode();
     work.push_back(Work(alloc_block, start));
 
     while(!work.empty())
     {
       Work w = work.pop_back_val();
       BasicBlock* bb = w.first;
-      BasicBlock::iterator iter = w.second;
+      Instruction* inst = w.second;
 
       if(user_blocks.count(bb))
       {
@@ -384,20 +401,22 @@ public:
           return true;
         }
 
-        for(auto end = bb->end(); iter != end; ++iter)
+        while(inst != nullptr)
         {
-          if((&(*iter) == def) || (&(*iter) == alloc))
+          if((inst == def) || (inst == alloc))
             break;
 
-          if(users.count(iter))
+          if(users.count(inst))
           {
             print_transform(c, alloc, "captured allocation");
-            print_transform(c, &(*iter), "captured here (reused)");
+            print_transform(c, inst, "captured here (reused)");
             return true;
           }
+
+          inst = inst->getNextNode();
         }
       }
-      else if((bb == def_block) || ((bb == alloc_block) && (iter != start)))
+      else if((bb == def_block) || ((bb == alloc_block) && (inst != start)))
       {
         continue;
       }
@@ -408,29 +427,29 @@ public:
       for(unsigned i = 0; i < count; i++)
       {
         BasicBlock* successor = term->getSuccessor(i);
-        iter = successor->begin();
+        inst = &successor->front();
         bool found = false;
 
-        while(isa<PHINode>(iter))
+        while(isa<PHINode>(inst))
         {
-          if(def == cast<PHINode>(iter)->getIncomingValueForBlock(bb))
+          if(def == cast<PHINode>(inst)->getIncomingValueForBlock(bb))
           {
             print_transform(c, alloc, "captured allocation");
-            print_transform(c, &(*iter), "captured here (phi use)");
+            print_transform(c, inst, "captured here (phi use)");
             return true;
           }
 
-          if(def == &(*iter))
+          if(def == inst)
             found = true;
 
-          ++iter;
+          inst = inst->getNextNode();
         }
 
         if(!found &&
           visited.insert(successor).second &&
           dt.dominates(def_block, successor))
         {
-          work.push_back(Work(successor, iter));
+          work.push_back(Work(successor, inst));
         }
       }
     }
@@ -497,7 +516,8 @@ static void optimise(compile_t* c)
 
   if(c->opt->release)
   {
-    printf("Optimising\n");
+    PONY_LOG(c->opt, VERBOSITY_INFO, ("Optimising\n"));
+
     pmb.OptLevel = 3;
     pmb.Inliner = createFunctionInliningPass(275);
   } else {
@@ -508,7 +528,12 @@ static void optimise(compile_t* c)
   pmb.LoopVectorize = true;
   pmb.SLPVectorize = true;
   pmb.RerollLoops = true;
+
+#if !defined(PLATFORM_IS_MACOSX)
+  // The LoadCombine optimisation can result in IR errors inside LLVM on OSX.
+  // These errors don't occur on Linux or Windows.
   pmb.LoadCombine = true;
+#endif
 
   pmb.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
     addHeapToStackPass);
@@ -517,13 +542,13 @@ static void optimise(compile_t* c)
 
   if(target_is_arm(c->opt->triple))
   {
-  // On ARM, without this, trace functions are being loaded with a double
-  // indirection with a debug binary. An ldr r0, [LABEL] is done, loading
-  // the trace function address, but then ldr r2, [r0] is done to move the
-  // address into the 3rd arg to pony_traceobject. This double indirection
-  // gives a garbage trace function. In release mode, a different path is used
-  // and this error doesn't happen. Forcing an OptLevel of 1 for the MPM
-  // results in the alternate (working) asm being used for a debug build.
+    // On ARM, without this, trace functions are being loaded with a double
+    // indirection with a debug binary. An ldr r0, [LABEL] is done, loading
+    // the trace function address, but then ldr r2, [r0] is done to move the
+    // address into the 3rd arg to pony_traceobject. This double indirection
+    // gives a garbage trace function. In release mode, a different path is
+    // used and this error doesn't happen. Forcing an OptLevel of 1 for the MPM
+    // results in the alternate (working) asm being used for a debug build.
     if(!c->opt->release)
       pmb.OptLevel = 1;
   }
@@ -555,13 +580,14 @@ static void optimise(compile_t* c)
 
 bool genopt(compile_t* c)
 {
-  // Finalise the DWARF info.
-  dwarf_finalise(&c->dwarf);
+  // Finalise the debug info.
+  LLVMDIBuilderFinalize(c->di);
   optimise(c);
 
   if(c->opt->verify)
   {
-    printf("Verifying\n");
+    PONY_LOG(c->opt,VERBOSITY_INFO, ("Verifying\n"));
+    
     char* msg = NULL;
 
     if(LLVMVerifyModule(c->module, LLVMPrintMessageAction, &msg) != 0)
@@ -658,4 +684,3 @@ bool target_is_native128(char* t)
 
   return !triple.isArch32Bit() && !triple.isKnownWindowsMSVCEnvironment();
 }
-

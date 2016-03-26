@@ -15,16 +15,9 @@ LLVMValueRef gen_expr(compile_t* c, ast_t* ast)
 {
   LLVMValueRef ret;
   bool has_scope = ast_has_scope(ast);
-  bool has_source = codegen_hassource(c);
 
   if(has_scope)
-  {
-    codegen_pushscope(c);
-
-    // Dwarf a new lexical scope, if necessary.
-    if(has_source)
-      dwarf_lexicalscope(&c->dwarf, ast);
-  }
+    codegen_pushscope(c, ast);
 
   switch(ast_id(ast))
   {
@@ -179,12 +172,7 @@ LLVMValueRef gen_expr(compile_t* c, ast_t* ast)
   }
 
   if(has_scope)
-  {
     codegen_popscope(c);
-
-    if(has_source)
-      dwarf_finish(&c->dwarf);
-  }
 
   return ret;
 }
@@ -197,7 +185,7 @@ static LLVMValueRef assign_to_tuple(compile_t* c, LLVMTypeRef l_type,
 
   int count = LLVMCountStructElementTypes(l_type);
   size_t buf_size = count * sizeof(LLVMTypeRef);
-  LLVMTypeRef* elements = (LLVMTypeRef*)pool_alloc_size(buf_size);
+  LLVMTypeRef* elements = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
   LLVMGetStructElementTypes(l_type, elements);
 
   LLVMValueRef result = LLVMGetUndef(l_type);
@@ -213,7 +201,7 @@ static LLVMValueRef assign_to_tuple(compile_t* c, LLVMTypeRef l_type,
 
     if(cast_value == NULL)
     {
-      pool_free_size(buf_size, elements);
+      ponyint_pool_free_size(buf_size, elements);
       return NULL;
     }
 
@@ -222,7 +210,7 @@ static LLVMValueRef assign_to_tuple(compile_t* c, LLVMTypeRef l_type,
     i++;
   }
 
-  pool_free_size(buf_size, elements);
+  ponyint_pool_free_size(buf_size, elements);
   return result;
 }
 
@@ -243,6 +231,7 @@ LLVMValueRef gen_assign_cast(compile_t* c, LLVMTypeRef l_type,
     case LLVMHalfTypeKind:
     case LLVMFloatTypeKind:
     case LLVMDoubleTypeKind:
+      assert(LLVMGetTypeKind(r_type) == LLVMPointerTypeKind);
       return gen_unbox(c, type, r_value);
 
     case LLVMPointerTypeKind:
@@ -255,7 +244,10 @@ LLVMValueRef gen_assign_cast(compile_t* c, LLVMTypeRef l_type,
 
     case LLVMStructTypeKind:
       if(LLVMGetTypeKind(r_type) == LLVMPointerTypeKind)
+      {
         r_value = gen_unbox(c, type, r_value);
+        assert(LLVMGetTypeKind(LLVMTypeOf(r_value)) == LLVMStructTypeKind);
+      }
 
       return assign_to_tuple(c, l_type, r_value, type);
 

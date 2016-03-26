@@ -102,7 +102,15 @@ class File
     _fd = -1
     _handle = Pointer[_FileHandle]
 
-    if not from.caps(FileRead) then
+    if
+      not from.caps(FileRead) or
+      try
+        let info' = FileInfo(from)
+        info'.directory or info'.pipe
+      else
+        true
+      end
+    then
       _errno = FileError
     else
       _handle = @fopen[Pointer[_FileHandle]](from.path.cstring(),

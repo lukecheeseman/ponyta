@@ -1,5 +1,6 @@
 #include "mpmcq.h"
 #include "../mem/pool.h"
+#include "../sched/cpu.h"
 
 typedef struct mpmcq_node_t mpmcq_node_t;
 
@@ -9,7 +10,7 @@ struct mpmcq_node_t
   void* volatile data;
 };
 
-void mpmcq_init(mpmcq_t* q)
+void ponyint_mpmcq_init(mpmcq_t* q)
 {
   mpmcq_node_t* node = POOL_ALLOC(mpmcq_node_t);
   node->data = NULL;
@@ -19,14 +20,14 @@ void mpmcq_init(mpmcq_t* q)
   q->tail.node = node;
 }
 
-void mpmcq_destroy(mpmcq_t* q)
+void ponyint_mpmcq_destroy(mpmcq_t* q)
 {
   POOL_FREE(mpmcq_node_t, q->tail.node);
   q->head = NULL;
   q->tail.node = NULL;
 }
 
-void mpmcq_push(mpmcq_t* q, void* data)
+void ponyint_mpmcq_push(mpmcq_t* q, void* data)
 {
   mpmcq_node_t* node = POOL_ALLOC(mpmcq_node_t);
   node->data = data;
@@ -36,7 +37,7 @@ void mpmcq_push(mpmcq_t* q, void* data)
   _atomic_store(&prev->next, node);
 }
 
-void mpmcq_push_single(mpmcq_t* q, void* data)
+void ponyint_mpmcq_push_single(mpmcq_t* q, void* data)
 {
   mpmcq_node_t* node = POOL_ALLOC(mpmcq_node_t);
   node->data = data;
@@ -48,7 +49,7 @@ void mpmcq_push_single(mpmcq_t* q, void* data)
   prev->next = node;
 }
 
-void* mpmcq_pop(mpmcq_t* q)
+void* ponyint_mpmcq_pop(mpmcq_t* q)
 {
   mpmcq_dwcas_t cmp, xchg;
   mpmcq_node_t* next;
@@ -80,7 +81,9 @@ void* mpmcq_pop(mpmcq_t* q)
   // pointer of our new tail to NULL, and we wait until the data pointer of
   // the old tail is NULL.
   _atomic_store(&next->data, NULL);
-  while(_atomic_load(&cmp.node->data) != NULL);
+
+  while(_atomic_load(&cmp.node->data) != NULL)
+    ponyint_cpu_relax();
 
   // Free the old tail. The new tail is the next node.
   POOL_FREE(mpmcq_node_t, cmp.node);

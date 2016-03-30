@@ -1,5 +1,6 @@
 #include "traits.h"
 #include "sugar.h"
+#include "../ast/id.h"
 #include "../ast/token.h"
 #include "../ast/astbuild.h"
 #include "../pkg/package.h"
@@ -989,7 +990,7 @@ static void nominal_types(ast_t *ast)
 
   const char *name = ast_name(type);
 
-  if(!is_type_name(name) || ast_id(typeargs) == TK_NONE)
+  if(!is_name_type(name) || ast_id(typeargs) == TK_NONE)
     return;
 
   sym_status_t status;

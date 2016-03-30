@@ -650,7 +650,7 @@ static ast_result_t syntax_type_param(ast_t* ast)
 {
   AST_GET_CHILDREN(ast, id, constraint, default_arg);
   const char* name = ast_name(id);
-  if(is_type_name(name))
+  if(is_name_type(name))
     return AST_OK;
 
   if(ast_id(constraint) == TK_NONE) {

@@ -231,7 +231,7 @@ static ast_result_t sugar_typeparam(ast_t* ast)
   AST_GET_CHILDREN(ast, id, constraint);
   const char* name = ast_name(id);
 
-  if(!is_type_name(name)) {
+  if(!is_name_type(name)) {
     ast_setid(ast, TK_VALUEFORMALPARAM);
 
   } else if(ast_id(constraint) == TK_NONE) {

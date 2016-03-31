@@ -5,8 +5,6 @@
 // FIXME: These should not overwrite the existing values
 // will probably need to create a new token and a new ast node
 
-// perhaps we could get away with not knowing the type of a literal before we
-// evaluate it....still not great though surely
 static bool is_ast_integer(ast_t* ast)
 {
   return is_integer(ast_type(ast)) || ast_id(ast) == TK_INT;
@@ -20,6 +18,7 @@ ast_t* evaluate_create_int(ast_t* receiver, ast_t* args)
 
 ast_t* evaluate_add_int(ast_t* receiver, ast_t* args)
 {
+  assert(ast_id(args) == TK_POSITIONALARGS);
   ast_t* lhs_arg = evaluate(receiver);
   ast_t* rhs_arg = evaluate(ast_child(args));
 
@@ -35,11 +34,13 @@ ast_t* evaluate_add_int(ast_t* receiver, ast_t* args)
     return NULL;
   }
 
-  lexint_t* lhs = ast_int(lhs_arg);
+  ast_t* result = ast_dup(lhs_arg);
+
+  lexint_t* lhs = ast_int(result);
   lexint_t* rhs = ast_int(rhs_arg);
 
   lexint_add(lhs, lhs, rhs);
-  return receiver;
+  return result;
 }
 
 ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
@@ -51,4 +52,13 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
 
   lexint_sub(lhs, lhs, rhs);
   return receiver;
+}
+
+// casting methods
+ast_t* evaluate_u32_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* result = ast_dup(receiver);
+ // ast_settype(result, );
+  return result;
 }

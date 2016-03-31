@@ -74,6 +74,7 @@ static method_entry_t method_table[] = {
   { "integer", "create", &evaluate_create_int },
   { "integer", "add",    &evaluate_add_int },
   { "integer", "sub",    &evaluate_sub_int },
+  { "integer", "u32",    &evaluate_u32_int },
 
   // boolean operations
   { "Bool", "op_and", &evaluate_and_bool },
@@ -90,7 +91,9 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   // FIXME: I am quite sure this is not the correct solution
 
   const char* type_name =
-    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : "float";
+    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
+    is_float(type) || ast_id(ast_parent(type)) == TK_FLET ? "float" :
+    ast_name(ast_childidx(type, 1));
   //  ast_id(type) == TK_NOMINAL ? ast_name(ast_childidx(type, 1)) : "literal";
 
   for (int i = 0; method_table[i].name != NULL; ++i) {
@@ -149,7 +152,6 @@ ast_t* evaluate(ast_t* expression) {
           "No support for compile time expressions with named arguments");
 
       AST_GET_CHILDREN(evaluate(lhs), receiver, id);
-      assert(ast_id(positional) == TK_POSITIONALARGS);
       return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional);
     }
 

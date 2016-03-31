@@ -2,6 +2,7 @@
 #include "../pass/expr.h"
 #include "../evaluate/evaluate_int.h"
 #include "../evaluate/evaluate_bool.h"
+#include "../type/subtype.h"
 #include "string.h"
 #include <assert.h>
 
@@ -31,6 +32,9 @@ bool expr_constant(ast_t** astp) {
     return true;
 
   ast_t* evaluated = evaluate(expression);
+  if (evaluated == NULL)
+    return false;
+
   ast_replace(astp, evaluated);
   // FIXME: things that had a reference to ast may now be broken, check and fix
   return true;
@@ -67,13 +71,9 @@ typedef struct method_entry {
 // This table will have to be updated to be in the relevant classes
 static method_entry_t method_table[] = {
   // u32 operations
-  { "U32", "create", &evaluate_create_u32 },
-  { "U32", "add",    &evaluate_add_u32 },
-  { "U32", "sub",    &evaluate_sub_u32 },
-
-  // usize operations
-  { "USize", "add",    &evaluate_add_usize },
-  { "USize", "sub",    &evaluate_sub_usize },
+  { "integer", "create", &evaluate_create_int },
+  { "integer", "add",    &evaluate_add_int },
+  { "integer", "sub",    &evaluate_sub_int },
 
   // boolean operations
   { "Bool", "op_and", &evaluate_and_bool },
@@ -87,9 +87,11 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   // TODO: is the following true?
   // At this point expressions should have been typed and so any missing method_table
   // or method calls on bad types should have been caught
-  assert(ast_id(type) == TK_NOMINAL);
   // FIXME: I am quite sure this is not the correct solution
-  const char* type_name = ast_name(ast_childidx(type, 1));
+
+  const char* type_name =
+    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : "float";
+  //  ast_id(type) == TK_NOMINAL ? ast_name(ast_childidx(type, 1)) : "literal";
 
   for (int i = 0; method_table[i].name != NULL; ++i) {
     if (!strcmp(type_name, method_table[i].type) && !strcmp(operation, method_table[i].name))
@@ -136,7 +138,6 @@ ast_t* evaluate(ast_t* expression) {
       {
         evaluated = evaluate(p);
       }
-      assert(evaluated != NULL);
       return evaluated;
     }
 

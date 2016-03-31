@@ -260,6 +260,11 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     // e.g. in let x: U32 = #(1+7) -- 1 and 7 will still be literals
     // at this point -- in general they will be untyped?
     case TK_CONSTANT:   r = expr_constant(astp); break;
+    // we don't have all the information regarding the type yet
+    // so we delay until later to evaluate the expression
+//    case TK_CONSTANT:
+//      ast_settype(ast, ast_type(ast_child(ast)));
+//      break;
 
     case TK_LAMBDA:
       if(!expr_lambda(options, astp))

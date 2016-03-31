@@ -37,7 +37,7 @@ use ssl = "net/ssl"
 use strings = "strings"
 use term = "term"
 use time = "time"
-
+use value_dependent_types_test = "value_dependent_types_test"
 
 actor Main is TestList
   new create(env: Env) => PonyTest(env, this)
@@ -69,3 +69,4 @@ actor Main is TestList
     end
 
     strings.Main.make().tests(test)
+    value_dependent_types_test.Main.make().tests(test)

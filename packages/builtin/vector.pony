@@ -77,10 +77,10 @@ class Vector[A, _alloc: USize]
     The vector is returned to allow call chaining.
     """
     if (i <= _size) and (_size < _alloc) then
-      var move = i
-      while move < _size do
-        _ptr._update(move + 1, _ptr._apply(move))
-        move = move + 1
+      var move = _size
+      while move > i do
+        _ptr._update(move, _ptr._apply(move - 1))
+        move = move - 1
       end
       _ptr._update(i, consume value)
       _size = _size + 1
@@ -204,8 +204,9 @@ class Vector[A, _alloc: USize]
         i = i + 1
       end
 
-      while i < (vector.size() + _size) do
-        new_vector.push(vector(i - vector.size()))
+      i = 0
+      while i < vector.size() do
+        new_vector.push(vector(i))
         i = i + 1
       end
     else

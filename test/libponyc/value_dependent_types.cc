@@ -462,7 +462,7 @@ TEST_F(VDTTest, VDTClassInheritsFromInterface)
 
 
 // TODO: ADD TESTS FOR COMPILE CONSTANTS
-TEST_F(VDTTest, VDTTypeWithCompileTimeConstant)
+TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstant)
 {
   const char* src =
     "class C1[n: U32]\n"
@@ -477,7 +477,7 @@ TEST_F(VDTTest, VDTTypeWithCompileTimeConstant)
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, VDTTypeWithCompileTimeConstantError)
+TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstantError)
 {
   const char* src =
     "class C1[n: U32]\n"
@@ -492,7 +492,7 @@ TEST_F(VDTTest, VDTTypeWithCompileTimeConstantError)
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, IsSubTypeClassWithCompileConstantGenericValueDependentType)
+TEST_F(VDTTest, DISABLED_IsSubTypeClassWithCompileConstantGenericValueDependentType)
 
 {
   const char* src =

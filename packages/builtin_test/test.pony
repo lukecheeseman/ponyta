@@ -787,7 +787,18 @@ class iso _TestVector is UnitTest
   fun name(): String => "builtin/Vector"
 
   fun apply(h: TestHelper) ? =>
+    //let vector1 = Vector[4, String]
     let vector1 = Vector[String, 4]
     vector1.update(0, "A")
-    h.assert_true(false)
-    //let vector1 = Vector[4, String]
+    vector1.update(1, "B")
+    vector1.update(2, "C")
+    vector1.update(3, "D")
+
+    h.assert_eq[USize](vector1.size(), 4)
+
+    let array1 = ["A", "B", "C", "D"]
+    var i: USize = 0
+    while i < vector1.size() do
+      h.assert_eq[String](vector1(i), array1(i))
+      i = i + 1
+    end

@@ -70,11 +70,24 @@ typedef struct method_entry {
 
 // This table will have to be updated to be in the relevant classes
 static method_entry_t method_table[] = {
-  // u32 operations
+  // integer operations
   { "integer", "create", &evaluate_create_int },
   { "integer", "add",    &evaluate_add_int },
   { "integer", "sub",    &evaluate_sub_int },
+  { "integer", "i8",     &evaluate_i8_int },
+  { "integer", "i16",    &evaluate_i16_int },
+  { "integer", "i32",    &evaluate_i32_int },
+  { "integer", "i64",    &evaluate_i64_int },
+  { "integer", "i128",   &evaluate_i128_int },
+  { "integer", "ilong",  &evaluate_ilong_int },
+  { "integer", "isize",  &evaluate_isize_int },
+  { "integer", "u8",     &evaluate_u8_int },
+  { "integer", "u16",    &evaluate_u16_int },
   { "integer", "u32",    &evaluate_u32_int },
+  { "integer", "u64",    &evaluate_u64_int },
+  { "integer", "u128",   &evaluate_u128_int },
+  { "integer", "ulong",  &evaluate_ulong_int },
+  { "integer", "usize",  &evaluate_usize_int },
 
   // boolean operations
   { "Bool", "op_and", &evaluate_and_bool },

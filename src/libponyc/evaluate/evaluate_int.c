@@ -69,6 +69,96 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
+ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  if(lexint_cmp64(rhs, 0xffffffffffffffff) == 1)
+  {
+    // FIXME: can only print 64 bit integers with ast_get_rpint
+    // token method for printing should probably be changed then
+    ast_error(rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+    return NULL;
+  }
+
+  lexint_mul64(lhs, lhs, rhs->low);
+  return result;
+}
+
+ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  if(lexint_cmp64(rhs, 0xffffffffffffffff) == 1)
+  {
+    // FIXME: can only print 64 bit integers with ast_get_rpint
+    // token method for printing should probably be changed then
+    ast_error(rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+    return NULL;
+  }
+
+  lexint_div64(lhs, lhs, rhs->low);
+  return result;
+}
+
+ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* arg = evaluate(receiver);
+  ast_t* result = ast_dup(arg);
+
+  lexint_t* result_int = ast_int(result);
+  lexint_t* arg_int = ast_int(arg);
+
+  lexint_zero(result_int);
+  lexint_sub(result_int, result_int, arg_int);
+  return result;
+}
+
+ast_t* evaluate_and_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  lexint_and(lhs, lhs, rhs);
+  return result;
+}
+
+ast_t* evaluate_or_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  lexint_or(lhs, lhs, rhs);
+  return result;
+}
+
 // casting methods
 static ast_t* cast_to_type(ast_t* receiver, const char* type) {
   ast_t* result = ast_dup(evaluate(receiver));

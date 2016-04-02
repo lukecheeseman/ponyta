@@ -4,6 +4,13 @@
 ast_t* evaluate_create_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_add_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_div_int(ast_t* receiver, ast_t* args);
+
+ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args);
+
+ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);
 
 // casting methods
 ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args);

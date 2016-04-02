@@ -44,6 +44,10 @@ bool lexint_accum(lexint_t* i, uint64_t digit, uint64_t base);
 
 double lexint_double(lexint_t* i);
 
+void lexint_and(lexint_t* dst, lexint_t* a, lexint_t* b);
+
+void lexint_or(lexint_t* dst, lexint_t* a, lexint_t* b);
+
 PONY_EXTERN_C_END
 
 #endif

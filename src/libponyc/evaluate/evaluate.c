@@ -8,8 +8,7 @@
 
 bool contains_valueparamref(ast_t* ast) {
   while(ast != NULL) {
-    if(ast_id(ast) == TK_VALUEFORMALPARAMREF ||
-       contains_valueparamref(ast_child(ast)))
+    if(ast_id(ast) == TK_VALUEFORMALPARAMREF || contains_valueparamref(ast_child(ast)))
       return true;
     ast = ast_sibling(ast);
   }
@@ -74,6 +73,19 @@ static method_entry_t method_table[] = {
   { "integer", "create", &evaluate_create_int },
   { "integer", "add",    &evaluate_add_int },
   { "integer", "sub",    &evaluate_sub_int },
+  { "integer", "mul",    &evaluate_mul_int },
+  { "integer", "div",    &evaluate_div_int },
+
+  // FIXME: negation on literals is currently broken as when we try
+  // to coerce the literal (-1) to a value we see only a large value that
+  // represents -1, however the coercion does not know that this is
+  // negative
+  { "integer", "neg",    &evaluate_neg_int },
+
+  { "integer", "op_and", &evaluate_and_int },
+  { "integer", "op_or",  &evaluate_or_int },
+
+  // integer casting methods
   { "integer", "i8",     &evaluate_i8_int },
   { "integer", "i16",    &evaluate_i16_int },
   { "integer", "i32",    &evaluate_i32_int },

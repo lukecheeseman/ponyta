@@ -309,3 +309,15 @@ double lexint_double(lexint_t* i)
   double* fp_bits = (double*)&raw_bits;
   return *fp_bits;
 }
+
+void lexint_and(lexint_t* dst, lexint_t* a, lexint_t* b)
+{
+  dst->high = a->high & b->high;
+  dst->low = a->low & b->low;
+}
+
+void lexint_or(lexint_t* dst, lexint_t* a, lexint_t* b)
+{
+  dst->high = a->high | b->high;
+  dst->low = a->low | b->low;
+}

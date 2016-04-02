@@ -1,4 +1,7 @@
 class Vector[A, _alloc: USize]
+//FIXME: going to remove many many methods here
+// won't have things like delete
+// going to be more functional
   var _ptr: Pointer[A]
   var _size: USize
 
@@ -13,6 +16,8 @@ class Vector[A, _alloc: USize]
     """
     Create a vector of len elements, all initialised to the given value.
     """
+//FIXME: won't require the allcoate with emebded pointer -- will already be allocated
+//FIXME: won't write to _ptr perhaps
     _ptr = Pointer[A]._alloc(_alloc)
     _size = _alloc
 

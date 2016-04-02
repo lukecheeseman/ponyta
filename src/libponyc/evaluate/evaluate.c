@@ -115,6 +115,7 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   // or method calls on bad types should have been caught
   // FIXME: I am quite sure this is not the correct solution
 
+  // FIXME: this doesn't work for chained calls
   const char* type_name =
     is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
     is_float(type) || ast_id(ast_parent(type)) == TK_FLET ? "float" :
@@ -138,8 +139,8 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FLOAT:
     case TK_NEWREF:
     case TK_FUNREF:
-    case TK_DOT:
       return expression;
+
 
     case TK_VARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
@@ -169,6 +170,15 @@ ast_t* evaluate(ast_t* expression) {
       return evaluated;
     }
 
+    case TK_DOT:
+    {
+      ast_t* evaluated = ast_dup(expression);
+      ast_t* evaluated_receiver = evaluate(ast_child(expression));
+      ast_t* old_receiver = ast_child(evaluated);
+      ast_replace(&old_receiver, evaluated_receiver);
+      return evaluated;
+    }
+
     case TK_CALL:
     {
       AST_GET_CHILDREN(expression, positional, namedargs, lhs);
@@ -176,7 +186,8 @@ ast_t* evaluate(ast_t* expression) {
         ast_error(expression,
           "No support for compile time expressions with named arguments");
 
-      AST_GET_CHILDREN(evaluate(lhs), receiver, id);
+      ast_t* evaluated = evaluate(lhs);
+      AST_GET_CHILDREN(evaluated, receiver, id);
       return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional);
     }
 

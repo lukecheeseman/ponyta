@@ -5,11 +5,14 @@
 
 PONY_EXTERN_C_BEGIN
 
-// Note that lexint_ts are always treated as unsigned.
 typedef struct lexint_t
 {
   uint64_t low;
   uint64_t high;
+
+  // is_negative is used to determine whether a
+  // lexint represents a negative value in the
+  // evaluation of compile time literals.
   bool is_negative;
 } lexint_t;
 

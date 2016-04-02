@@ -65,7 +65,11 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
   lexint_t* lhs = ast_int(result);
   lexint_t* rhs = ast_int(rhs_arg);
 
+  int test = lexint_cmp(lhs, rhs);
   lexint_sub(lhs, lhs, rhs);
+
+  lhs->is_negative = test == -1;
+
   return result;
 }
 
@@ -126,6 +130,7 @@ ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 
   lexint_zero(result_int);
   lexint_sub(result_int, result_int, arg_int);
+  result_int->is_negative = !arg_int->is_negative;
   return result;
 }
 

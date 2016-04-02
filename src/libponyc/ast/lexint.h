@@ -10,6 +10,7 @@ typedef struct lexint_t
 {
   uint64_t low;
   uint64_t high;
+  bool is_negative;
 } lexint_t;
 
 void lexint_zero(lexint_t* i);

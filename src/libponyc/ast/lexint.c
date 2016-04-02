@@ -15,6 +15,7 @@ void lexint_zero(lexint_t* i)
 {
   i->low = 0;
   i->high = 0;
+  i->is_negative = 0;
 }
 
 int lexint_cmp(lexint_t* a, lexint_t* b)

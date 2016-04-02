@@ -62,16 +62,23 @@ class iso _TestChainedArithemtic is UnitTest
 
   fun name(): String => "VDT/ChainedArithmetic"
 
-  fun foo[x: I32, y: I32, z: I32](): I32 =>
+  fun m1[x: I32, y: I32, z: I32](): I32 =>
     #(-x + (y - z))
 
-  fun bar(x: I32, y: I32, z: I32): I32 =>
+  fun m2(x: I32, y: I32, z: I32): I32 =>
     -x + (y - z)
+
+  fun m3[x: I32, y: I32, z: I32](): I32 =>
+    #((-x + y) - z)
+
+  fun m4(x: I32, y: I32, z: I32): I32 =>
+    (-x + y) - z
 
   fun apply(h: TestHelper) =>
     h.assert_eq[U32](#(-2 + (1 - 9)), -2 + (1 - 9))
     h.assert_eq[I32](#(-2 + (1 - 9)), -2 + (1 - 9))
-    h.assert_eq[I32](foo[#(-2),1,9](), bar(-2,1,9))
+    h.assert_eq[I32](m1[#(-2),1,9](), m2(-2,1,9))
+    h.assert_eq[I32](m3[#(-2),1,9](), m4(-2,1,9))
 
 class iso _TestNegation is UnitTest
 

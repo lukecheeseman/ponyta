@@ -58,6 +58,21 @@ class iso _TestU64Bitwise is UnitTest
     h.assert_eq[U32](#(3823890482 and 123931), 3823890482 and 123931)
     h.assert_eq[U32](#(3823890482 or 123931), 3823890482 or 123931)
 
+class iso _TestChainedArithemtic is UnitTest
+
+  fun name(): String => "VDT/ChainedArithmetic"
+
+  fun foo[x: I32, y: I32, z: I32](): I32 =>
+    #(-x + (y - z))
+
+  fun bar(x: I32, y: I32, z: I32): I32 =>
+    -x + (y - z)
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#(-2 + (1 - 9)), -2 + (1 - 9))
+    h.assert_eq[I32](#(-2 + (1 - 9)), -2 + (1 - 9))
+    h.assert_eq[I32](foo[#(-2),1,9](), bar(-2,1,9))
+
 class iso _TestNegation is UnitTest
 
   fun name(): String => "VDT/Negation"

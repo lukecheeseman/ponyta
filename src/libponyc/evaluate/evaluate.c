@@ -78,6 +78,11 @@ static method_entry_t method_table[] = {
 
   { "integer", "neg",    &evaluate_neg_int },
   { "integer", "eq",     &evaluate_eq_int },
+  { "integer", "ne",     &evaluate_ne_int },
+  { "integer", "lt",     &evaluate_lt_int },
+  { "integer", "le",     &evaluate_le_int },
+  { "integer", "gt",     &evaluate_gt_int },
+  { "integer", "ge",     &evaluate_ge_int },
 
   { "integer", "op_and", &evaluate_and_int },
   { "integer", "op_or",  &evaluate_or_int },

@@ -9,6 +9,11 @@ ast_t* evaluate_div_int(ast_t* receiver, ast_t* args);
 
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_ne_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_lt_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_le_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args);
 
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);

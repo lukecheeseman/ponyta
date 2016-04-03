@@ -16,6 +16,14 @@ ast_t* evaluate_create_int(ast_t* receiver, ast_t* args)
   return evaluate(ast_child(args));
 }
 
+static void lexint_negate(lexint_t* lexint)
+{
+  lexint_t t = *lexint;
+  lexint_zero(lexint);
+  lexint_sub(lexint, lexint, &t);
+  lexint->is_negative = !lexint->is_negative;
+}
+
 static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
 {
   assert(ast_id(args) == TK_POSITIONALARGS);
@@ -49,6 +57,19 @@ ast_t* evaluate_add_int(ast_t* receiver, ast_t* args)
   ast_t* result = ast_dup(lhs_arg);
   lexint_t* lhs = ast_int(result);
   lexint_t* rhs = ast_int(rhs_arg);
+
+  if(lhs->is_negative && !rhs->is_negative)
+  {
+    lexint_t t = *lhs;
+    lexint_negate(&t);
+    lhs->is_negative = lexint_cmp(&t, rhs) > 0;
+  }
+  else if(!lhs->is_negative && rhs->is_negative)
+  {
+    lexint_t t = *rhs;
+    lexint_negate(&t);
+    lhs->is_negative = lexint_cmp(&t, lhs) > 0;
+  }
 
   lexint_add(lhs, lhs, rhs);
   return result;
@@ -122,15 +143,11 @@ ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* arg = evaluate(receiver);
-  ast_t* result = ast_dup(arg);
+  ast_t* result = evaluate(receiver);
 
   lexint_t* result_int = ast_int(result);
-  lexint_t* arg_int = ast_int(arg);
 
-  lexint_zero(result_int);
-  lexint_sub(result_int, result_int, arg_int);
-  result_int->is_negative = !arg_int->is_negative;
+  lexint_negate(result_int);
   return result;
 }
 

@@ -79,6 +79,10 @@ class iso _TestChainedArithemtic is UnitTest
     h.assert_eq[I32](#(-2 + (1 - 9)), -2 + (1 - 9))
     h.assert_eq[I32](m1[#(-2),1,9](), m2(-2,1,9))
     h.assert_eq[I32](m3[#(-2),1,9](), m4(-2,1,9))
+    h.assert_eq[I32](#(-2 + 1), -2 + 1)
+    h.assert_eq[I32](#(1 + -2), 1 + -2)
+    h.assert_eq[I32](#(-1 + 2), -1 + 2)
+    h.assert_eq[I32](#(2 + -1), 2 + -1)
 
 class iso _TestNegation is UnitTest
 

@@ -1,3 +1,4 @@
+#include "../ast/astbuild.h"
 #include "../evaluate/evaluate_int.h"
 #include "../type/subtype.h"
 #include <assert.h>
@@ -86,11 +87,17 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
   lexint_t* lhs = ast_int(result);
   lexint_t* rhs = ast_int(rhs_arg);
 
-  int test = lexint_cmp(lhs, rhs);
+
+  if(lhs->is_negative && rhs->is_negative)
+  {
+    lhs->is_negative = lexint_cmp(lhs, rhs) > 0;
+  }
+  else if(!lhs->is_negative && !rhs->is_negative)
+  {
+    lhs->is_negative = lexint_cmp(lhs, rhs) < 0;
+  }
+
   lexint_sub(lhs, lhs, rhs);
-
-  lhs->is_negative = test == -1;
-
   return result;
 }
 
@@ -148,6 +155,32 @@ ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
   lexint_t* result_int = ast_int(result);
 
   lexint_negate(result_int);
+  return result;
+}
+
+ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  lexint_t* lhs = ast_int(lhs_arg);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  bool eq = lexint_cmp(lhs, rhs) == 0;
+  BUILD(result, lhs_arg, NODE(eq ? TK_TRUE : TK_FALSE));
+
+  ast_t* new_type_data = ast_get_case(receiver, "Bool", NULL);
+  assert(new_type_data);
+
+  // FIXME: probably better to build the type
+  ast_t* new_type = ast_dup(ast_type(lhs_arg));
+  ast_t* id = ast_childidx(new_type, 1);
+  ast_replace(&id, ast_from_string(id,"Bool"));
+  ast_setdata(new_type, new_type_data);
+
+  ast_settype(result, new_type);
   return result;
 }
 

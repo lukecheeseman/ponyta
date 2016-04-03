@@ -16,6 +16,8 @@ actor Main is TestList
     test(_TestU64Bitwise)
     test(_TestIntegerToIntegerTypeCast)
     test(_TestNegation)
+    test(_TestChainedArithemtic)
+    test(_TestIntegerEquivalence)
     test(_TestBool)
 
 class C1[n: U32]
@@ -83,6 +85,8 @@ class iso _TestChainedArithemtic is UnitTest
     h.assert_eq[I32](#(1 + -2), 1 + -2)
     h.assert_eq[I32](#(-1 + 2), -1 + 2)
     h.assert_eq[I32](#(2 + -1), 2 + -1)
+    h.assert_eq[I32](#(-1 - -1), -1 - -1)
+    h.assert_eq[I32](#(-1 - 1), -1 - 1)
 
 class iso _TestNegation is UnitTest
 
@@ -92,6 +96,17 @@ class iso _TestNegation is UnitTest
     h.assert_eq[U32](#(-1), -1)
     h.assert_eq[I32](#(-1), -1)
     h.assert_eq[I32](#(42 - 78), 42 - 78)
+
+class iso _TestIntegerEquivalence is UnitTest
+
+  fun name(): String => "VDT/IntegerEquivalence"
+
+  fun apply(h: TestHelper) =>
+    h.assert_true(#(U32(1) == U32(1)))
+    h.assert_false(#(U32(1) == U32(7)))
+    h.assert_true(#(I32(-1) == I32(-1)))
+    h.assert_false(#(I32(-1) == I32(-7)))
+    h.assert_true(#(I32(1) == -I32(-1)))
 
 class iso _TestIntegerToIntegerTypeCast is UnitTest
   """

@@ -8,6 +8,7 @@ ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_div_int(ast_t* receiver, ast_t* args);
 
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args);
 
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);

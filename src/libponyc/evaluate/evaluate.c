@@ -76,11 +76,8 @@ static method_entry_t method_table[] = {
   { "integer", "mul",    &evaluate_mul_int },
   { "integer", "div",    &evaluate_div_int },
 
-  // FIXME: negation on literals is currently broken as when we try
-  // to coerce the literal (-1) to a value we see only a large value that
-  // represents -1, however the coercion does not know that this is
-  // negative
   { "integer", "neg",    &evaluate_neg_int },
+  { "integer", "eq",     &evaluate_eq_int },
 
   { "integer", "op_and", &evaluate_and_int },
   { "integer", "op_or",  &evaluate_or_int },

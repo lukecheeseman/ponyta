@@ -22,7 +22,7 @@ static void lexint_negate(lexint_t* lexint)
   lexint_t t = *lexint;
   lexint_zero(lexint);
   lexint_sub(lexint, lexint, &t);
-  lexint->is_negative = !lexint->is_negative;
+  lexint->is_negative = !t.is_negative;
 }
 
 static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
@@ -185,34 +185,45 @@ static ast_t* evaluate_inequality(ast_t* receiver, ast_t* args, test_equality_t 
   return result;
 }
 
+static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
+{
+  if(lhs->is_negative && !rhs->is_negative)
+    return -1;
+
+  if(!lhs->is_negative && rhs->is_negative)
+    return 1;
+
+  return lexint_cmp(lhs, rhs);
+}
+
 static bool test_eq(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) == 0;
+  return lexint_cmp_with_negative(lhs, rhs) == 0;
 }
 
 static bool test_ne(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) != 0;
+  return lexint_cmp_with_negative(lhs, rhs) != 0;
 }
 
 static bool test_lt(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) < 0;
+  return lexint_cmp_with_negative(lhs, rhs) < 0;
 }
 
 static bool test_le(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) <= 0;
+  return lexint_cmp_with_negative(lhs, rhs) <= 0;
 }
 
 static bool test_gt(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) > 0;
+  return lexint_cmp_with_negative(lhs, rhs) > 0;
 }
 
 static bool test_ge(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp(lhs, rhs) >= 0;
+  return lexint_cmp_with_negative(lhs, rhs) >= 0;
 }
 
 ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args)
@@ -243,6 +254,36 @@ ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args)
 ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args)
 {
   return evaluate_inequality(receiver, args, &test_gt);
+}
+
+ast_t* evaluate_min_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  lexint_t* lhs = ast_int(lhs_arg);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  if (lexint_cmp_with_negative(lhs, rhs) < 0)
+    return ast_dup(lhs_arg);
+  return ast_dup(rhs_arg);
+}
+
+ast_t* evaluate_max_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  lexint_t* lhs = ast_int(lhs_arg);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  if (lexint_cmp_with_negative(lhs, rhs) < 0)
+    return ast_dup(rhs_arg);
+  return ast_dup(lhs_arg);
 }
 
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args)

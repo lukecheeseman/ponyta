@@ -84,6 +84,9 @@ static method_entry_t method_table[] = {
   { "integer", "gt",     &evaluate_gt_int },
   { "integer", "ge",     &evaluate_ge_int },
 
+  { "integer", "min",    &evaluate_min_int },
+  { "integer", "max",    &evaluate_max_int },
+
   { "integer", "op_and", &evaluate_and_int },
   { "integer", "op_or",  &evaluate_or_int },
 

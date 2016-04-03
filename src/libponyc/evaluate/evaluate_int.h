@@ -15,6 +15,9 @@ ast_t* evaluate_le_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args);
 
+ast_t* evaluate_min_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_max_int(ast_t* receiver, ast_t* args);
+
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);
 

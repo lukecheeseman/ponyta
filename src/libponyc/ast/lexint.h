@@ -52,6 +52,10 @@ void lexint_and(lexint_t* dst, lexint_t* a, lexint_t* b);
 
 void lexint_or(lexint_t* dst, lexint_t* a, lexint_t* b);
 
+void lexint_xor(lexint_t* dst, lexint_t* a, lexint_t* b);
+
+void lexint_not(lexint_t* dst, lexint_t* src);
+
 PONY_EXTERN_C_END
 
 #endif

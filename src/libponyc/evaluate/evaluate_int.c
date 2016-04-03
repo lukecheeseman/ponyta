@@ -150,7 +150,7 @@ ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* result = evaluate(receiver);
+  ast_t* result = ast_dup(evaluate(receiver));
 
   lexint_t* result_int = ast_int(result);
 
@@ -182,6 +182,17 @@ static ast_t* evaluate_inequality(ast_t* receiver, ast_t* args, test_equality_t 
   ast_setdata(new_type, new_type_data);
 
   ast_settype(result, new_type);
+  return result;
+}
+
+ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* result = ast_dup(evaluate(receiver));
+
+  lexint_t* result_int = ast_int(result);
+
+  lexint_not(result_int, result_int);
   return result;
 }
 
@@ -313,6 +324,21 @@ ast_t* evaluate_or_int(ast_t* receiver, ast_t* args)
   lexint_t* rhs = ast_int(rhs_arg);
 
   lexint_or(lhs, lhs, rhs);
+  return result;
+}
+
+ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  lexint_xor(lhs, lhs, rhs);
   return result;
 }
 

@@ -20,6 +20,8 @@ ast_t* evaluate_max_int(ast_t* receiver, ast_t* args);
 
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_not_int(ast_t* receiver, ast_t* args);
 
 // casting methods
 ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args);

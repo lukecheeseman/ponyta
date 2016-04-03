@@ -89,6 +89,8 @@ static method_entry_t method_table[] = {
 
   { "integer", "op_and", &evaluate_and_int },
   { "integer", "op_or",  &evaluate_or_int },
+  { "integer", "op_xor", &evaluate_xor_int },
+  { "integer", "op_not", &evaluate_not_int },
 
   // integer casting methods
   { "integer", "i8",     &evaluate_i8_int },

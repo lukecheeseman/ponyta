@@ -322,3 +322,15 @@ void lexint_or(lexint_t* dst, lexint_t* a, lexint_t* b)
   dst->high = a->high | b->high;
   dst->low = a->low | b->low;
 }
+
+void lexint_xor(lexint_t* dst, lexint_t* a, lexint_t* b)
+{
+  dst->high = a->high ^ b->high;
+  dst->low = a->low ^ b->low;
+}
+
+void lexint_not(lexint_t* dst, lexint_t* src)
+{
+  dst->high =~ src->high;
+  dst->low =~ src->low;
+}

@@ -565,6 +565,12 @@ double ast_float(ast_t* ast)
   return token_float(ast->t);
 }
 
+void ast_set_float(ast_t* ast, double value)
+{
+  assert(ast != NULL);
+  token_set_float(ast->t, value);
+}
+
 lexint_t* ast_int(ast_t* ast)
 {
   assert(ast != NULL);

@@ -1,7 +1,8 @@
 #include "evaluate.h"
 #include "../pass/expr.h"
-#include "../evaluate/evaluate_int.h"
 #include "../evaluate/evaluate_bool.h"
+#include "../evaluate/evaluate_float.h"
+#include "../evaluate/evaluate_int.h"
 #include "../type/subtype.h"
 #include "string.h"
 #include <assert.h>
@@ -70,51 +71,55 @@ typedef struct method_entry {
 // This table will have to be updated to be in the relevant classes
 static method_entry_t method_table[] = {
   // integer operations
-  { "integer", "create", &evaluate_create_int },
-  { "integer", "add",    &evaluate_add_int    },
-  { "integer", "sub",    &evaluate_sub_int    },
-  { "integer", "mul",    &evaluate_mul_int    },
-  { "integer", "div",    &evaluate_div_int    },
+  { "integer" , "create"  , &evaluate_create_int },
+  { "integer" , "add"     , &evaluate_add_int    },
+  { "integer" , "sub"     , &evaluate_sub_int    },
+  { "integer" , "mul"     , &evaluate_mul_int    },
+  { "integer" , "div"     , &evaluate_div_int    },
 
-  { "integer", "neg",    &evaluate_neg_int    },
-  { "integer", "eq",     &evaluate_eq_int     },
-  { "integer", "ne",     &evaluate_ne_int     },
-  { "integer", "lt",     &evaluate_lt_int     },
-  { "integer", "le",     &evaluate_le_int     },
-  { "integer", "gt",     &evaluate_gt_int     },
-  { "integer", "ge",     &evaluate_ge_int     },
+  { "integer" , "neg"     , &evaluate_neg_int    },
+  { "integer" , "eq"      , &evaluate_eq_int     },
+  { "integer" , "ne"      , &evaluate_ne_int     },
+  { "integer" , "lt"      , &evaluate_lt_int     },
+  { "integer" , "le"      , &evaluate_le_int     },
+  { "integer" , "gt"      , &evaluate_gt_int     },
+  { "integer" , "ge"      , &evaluate_ge_int     },
 
-  { "integer", "min",    &evaluate_min_int    },
-  { "integer", "max",    &evaluate_max_int    },
+  { "integer" , "min"     , &evaluate_min_int    },
+  { "integer" , "max"     , &evaluate_max_int    },
 
-  { "integer", "hash",   &evaluate_hash_int   },
+  { "integer" , "hash"    , &evaluate_hash_int   },
 
-  { "integer", "op_and", &evaluate_and_int    },
-  { "integer", "op_or",  &evaluate_or_int     },
-  { "integer", "op_xor", &evaluate_xor_int    },
-  { "integer", "op_not", &evaluate_not_int    },
-  { "integer", "shl",    &evaluate_shl_int    },
-  { "integer", "shr",    &evaluate_shr_int    },
+  { "integer" , "op_and"  , &evaluate_and_int    },
+  { "integer" , "op_or"   , &evaluate_or_int     },
+  { "integer" , "op_xor"  , &evaluate_xor_int    },
+  { "integer" , "op_not"  , &evaluate_not_int    },
+  { "integer" , "shl"     , &evaluate_shl_int    },
+  { "integer" , "shr"     , &evaluate_shr_int    },
 
   // integer casting methods
-  { "integer", "i8",     &evaluate_i8_int     },
-  { "integer", "i16",    &evaluate_i16_int    },
-  { "integer", "i32",    &evaluate_i32_int    },
-  { "integer", "i64",    &evaluate_i64_int    },
-  { "integer", "i128",   &evaluate_i128_int   },
-  { "integer", "ilong",  &evaluate_ilong_int  },
-  { "integer", "isize",  &evaluate_isize_int  },
-  { "integer", "u8",     &evaluate_u8_int     },
-  { "integer", "u16",    &evaluate_u16_int    },
-  { "integer", "u32",    &evaluate_u32_int    },
-  { "integer", "u64",    &evaluate_u64_int    },
-  { "integer", "u128",   &evaluate_u128_int   },
-  { "integer", "ulong",  &evaluate_ulong_int  },
-  { "integer", "usize",  &evaluate_usize_int  },
+  { "integer" , "i8"      , &evaluate_i8_int     },
+  { "integer" , "i16"     , &evaluate_i16_int    },
+  { "integer" , "i32"     , &evaluate_i32_int    },
+  { "integer" , "i64"     , &evaluate_i64_int    },
+  { "integer" , "i128"    , &evaluate_i128_int   },
+  { "integer" , "ilong"   , &evaluate_ilong_int  },
+  { "integer" , "isize"   , &evaluate_isize_int  },
+  { "integer" , "u8"      , &evaluate_u8_int     },
+  { "integer" , "u16"     , &evaluate_u16_int    },
+  { "integer" , "u32"     , &evaluate_u32_int    },
+  { "integer" , "u64"     , &evaluate_u64_int    },
+  { "integer" , "u128"    , &evaluate_u128_int   },
+  { "integer" , "ulong"   , &evaluate_ulong_int  },
+  { "integer" , "usize"   , &evaluate_usize_int  },
+
+  //float operations
+
+  { "float"   , "add"     , &evaluate_add_float  },
 
   // boolean operations
-  { "Bool", "op_and", &evaluate_and_bool      },
-  { "Bool", "op_or",  &evaluate_or_bool       },
+  { "Bool"    , "op_and"  , &evaluate_and_bool   },
+  { "Bool"    , "op_or"   , &evaluate_or_bool    },
 
   // no entry in method table
   { NULL, NULL, NULL }
@@ -123,7 +128,7 @@ static method_entry_t method_table[] = {
 static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   const char* type_name =
     is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
-    is_float(type) || ast_id(ast_parent(type)) == TK_FLET ? "float" :
+    is_float(type) || ast_id(ast_parent(type)) == TK_FLOAT ? "float" :
     ast_name(ast_childidx(type, 1));
   //  ast_id(type) == TK_NOMINAL ? ast_name(ast_childidx(type, 1)) : "literal";
 

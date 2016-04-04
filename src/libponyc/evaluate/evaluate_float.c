@@ -33,3 +33,14 @@ ast_t* evaluate_add_float(ast_t* receiver, ast_t* args)
   ast_set_float(result, lhs+rhs); 
   return result; 
 }
+
+
+ast_t* evaluate_neg_float(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* result = ast_dup(evaluate(receiver));
+
+  ast_set_float(result, -ast_float(result));
+
+  return result;
+}

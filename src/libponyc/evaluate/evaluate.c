@@ -119,6 +119,8 @@ static method_entry_t method_table[] = {
 
   { "float"   , "add"     , &evaluate_add_float  },
 
+  { "float"   , "neg"     , &evaluate_neg_float  },
+
   // boolean operations
   { "Bool"    , "op_and"  , &evaluate_and_bool   },
   { "Bool"    , "op_or"   , &evaluate_or_bool    },

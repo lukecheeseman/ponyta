@@ -516,9 +516,19 @@ ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args)
 
 static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
 {
+  //FIXME
   ast_t* evaluated = evaluate(receiver);
+  lexint_t* evaluated_int = ast_int(evaluated);
 
-  double result_double = lexint_double(ast_int(evaluated));
+  double result_double;
+  if(evaluated_int->is_negative && is_signed(evaluated))
+  {
+    lexint_t t = *evaluated_int;
+    lexint_negate(&t);
+    result_double = -lexint_double(&t);
+  } else {
+    result_double = lexint_double(evaluated_int);
+  }
 
   ast_t* result = ast_from(evaluated, TK_FLOAT);
   ast_set_float(result, result_double);

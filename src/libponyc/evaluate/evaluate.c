@@ -112,6 +112,8 @@ static method_entry_t method_table[] = {
   { "integer" , "u128"    , &evaluate_u128_int   },
   { "integer" , "ulong"   , &evaluate_ulong_int  },
   { "integer" , "usize"   , &evaluate_usize_int  },
+  { "integer" , "f32"     , &evaluate_f32_int    },
+  { "integer" , "f64"     , &evaluate_f64_int    },
 
   //float operations
 
@@ -207,8 +209,7 @@ ast_t* evaluate(ast_t* expression) {
 
     default:
       ast_error(expression, "Cannot evaluate compile time expression");
-      break;
+      return NULL;
   }
-  //assert(0);
-  return expression;
+  return NULL;
 }

@@ -42,3 +42,6 @@ ast_t* evaluate_u64_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_u128_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_ulong_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args);
+
+ast_t* evaluate_f32_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_f64_int(ast_t* receiver, ast_t* args);

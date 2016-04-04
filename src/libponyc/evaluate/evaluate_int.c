@@ -513,3 +513,31 @@ ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args)
   assert(ast_id(args) == TK_NONE);
   return cast_to_type(receiver, "USize");
 }
+
+static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
+{
+  ast_t* evaluated = evaluate(receiver);
+
+  double result_double = lexint_double(ast_int(evaluated));
+
+  ast_t* result = ast_from(evaluated, TK_FLOAT);
+  ast_set_float(result, result_double);
+  ast_settype(result, ast_type(evaluated));
+
+  ast_t* final_result = cast_to_type(result, type);
+  ast_free(result);
+
+  return final_result;
+}
+
+ast_t* evaluate_f32_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  return cast_int_to_float(receiver, "F32");
+}
+
+ast_t* evaluate_f64_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  return cast_int_to_float(receiver, "F64");
+}

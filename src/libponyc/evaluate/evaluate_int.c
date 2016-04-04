@@ -1,5 +1,6 @@
 #include "../ast/astbuild.h"
 #include "../evaluate/evaluate_int.h"
+#include "../expr/literal.h"
 #include "../type/subtype.h"
 #include <assert.h>
 
@@ -23,6 +24,17 @@ static void lexint_negate(lexint_t* lexint)
   lexint_zero(lexint);
   lexint_sub(lexint, lexint, &t);
   lexint->is_negative = !t.is_negative;
+}
+
+static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
+{
+  if(lhs->is_negative && !rhs->is_negative)
+    return -1;
+
+  if(!lhs->is_negative && rhs->is_negative)
+    return 1;
+
+  return lexint_cmp(lhs, rhs);
 }
 
 static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
@@ -101,8 +113,12 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
+typedef void (*lexint_method64_t)(lexint_t*, lexint_t*, uint64_t);
+
+static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args, lexint_method64_t operation)
 {
+  // First make both arguments postive, perform the operation and then
+  // negate the result if necessary
   ast_t* lhs_arg;
   ast_t* rhs_arg;
   if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
@@ -112,7 +128,15 @@ ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
   lexint_t* lhs = ast_int(result);
   lexint_t* rhs = ast_int(rhs_arg);
 
-  if(lexint_cmp64(rhs, 0xffffffffffffffff) == 1)
+  lexint_t rt = *rhs;
+  lexint_t lt = *lhs;
+  if(rt.is_negative)
+    lexint_negate(&rt);
+
+  if(lt.is_negative)
+    lexint_negate(&lt);
+
+  if(lexint_cmp64(&rt, 0xffffffffffffffff) == 1)
   {
     // FIXME: can only print 64 bit integers with ast_get_rpint
     // token method for printing should probably be changed then
@@ -120,31 +144,24 @@ ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
     return NULL;
   }
 
-  lexint_mul64(lhs, lhs, rhs->low);
+  operation(lhs, &lt, rt.low);
+
+  bool is_negative = lhs->is_negative ^ rhs->is_negative;
+  if(is_negative)
+    lexint_negate(lhs);
+  lhs->is_negative = is_negative;
+
   return result;
+}
+
+ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
+{
+  return evaluate_div_mul_int(receiver, args, &lexint_mul64);
 }
 
 ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  if(lexint_cmp64(rhs, 0xffffffffffffffff) == 1)
-  {
-    // FIXME: can only print 64 bit integers with ast_get_rpint
-    // token method for printing should probably be changed then
-    ast_error(rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
-    return NULL;
-  }
-
-  lexint_div64(lhs, lhs, rhs->low);
-  return result;
+  return evaluate_div_mul_int(receiver, args, &lexint_div64);
 }
 
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
@@ -183,28 +200,6 @@ static ast_t* evaluate_inequality(ast_t* receiver, ast_t* args, test_equality_t 
 
   ast_settype(result, new_type);
   return result;
-}
-
-ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
-{
-  assert(ast_id(args) == TK_NONE);
-  ast_t* result = ast_dup(evaluate(receiver));
-
-  lexint_t* result_int = ast_int(result);
-
-  lexint_not(result_int, result_int);
-  return result;
-}
-
-static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
-{
-  if(lhs->is_negative && !rhs->is_negative)
-    return -1;
-
-  if(!lhs->is_negative && rhs->is_negative)
-    return 1;
-
-  return lexint_cmp(lhs, rhs);
 }
 
 static bool test_eq(lexint_t* lhs, lexint_t* rhs)
@@ -267,7 +262,7 @@ ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args)
   return evaluate_inequality(receiver, args, &test_gt);
 }
 
-ast_t* evaluate_min_int(ast_t* receiver, ast_t* args)
+static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args, test_equality_t test)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
@@ -277,24 +272,20 @@ ast_t* evaluate_min_int(ast_t* receiver, ast_t* args)
   lexint_t* lhs = ast_int(lhs_arg);
   lexint_t* rhs = ast_int(rhs_arg);
 
-  if (lexint_cmp_with_negative(lhs, rhs) < 0)
+  if (test(lhs, rhs))
     return ast_dup(lhs_arg);
+
   return ast_dup(rhs_arg);
+}
+
+ast_t* evaluate_min_int(ast_t* receiver, ast_t* args)
+{
+  return evaluate_min_max_int(receiver, args, &test_lt);
 }
 
 ast_t* evaluate_max_int(ast_t* receiver, ast_t* args)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
-    return NULL;
-
-  lexint_t* lhs = ast_int(lhs_arg);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  if (lexint_cmp_with_negative(lhs, rhs) < 0)
-    return ast_dup(rhs_arg);
-  return ast_dup(lhs_arg);
+  return evaluate_min_max_int(receiver, args, &test_gt);
 }
 
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args)
@@ -342,6 +333,47 @@ ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
+ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* result = ast_dup(evaluate(receiver));
+
+  lexint_t* result_int = ast_int(result);
+
+  lexint_not(result_int, result_int);
+  return result;
+}
+
+ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  lexint_shl(lhs, lhs, rhs->low);
+  return result;
+}
+
+ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args)
+{
+  ast_t* lhs_arg;
+  ast_t* rhs_arg;
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  lexint_shr(lhs, lhs, rhs->low);
+  return result;
+}
+
 // casting methods
 static ast_t* cast_to_type(ast_t* receiver, const char* type) {
   ast_t* result = ast_dup(evaluate(receiver));
@@ -356,6 +388,46 @@ static ast_t* cast_to_type(ast_t* receiver, const char* type) {
 
   ast_settype(result, new_type);
   return result;
+}
+
+ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
+{
+  assert(ast_id(args) == TK_NONE);
+  ast_t* result = ast_dup(evaluate(receiver));
+  lexint_t* result_int = ast_int(result);
+
+  lexint_t lt;
+  lexint_t rt;
+  lexint_not(&lt, result_int);
+  lexint_shl(&rt, result_int, 21);
+  lexint_add(result_int, &lt, &rt);
+
+  lexint_shr(&lt, result_int, 24);
+  lexint_xor(result_int, result_int, &lt);
+
+  lexint_shl(&lt, result_int, 3);
+  lexint_add(&lt, result_int, &lt);
+  lexint_shl(&rt, result_int, 8);
+  lexint_add(result_int, &lt, &rt);
+
+  lexint_shr(&lt, result_int, 14);
+  lexint_xor(result_int, result_int, &lt);
+
+  lexint_shl(&lt, result_int, 2);
+  lexint_add(&lt, result_int, &lt);
+  lexint_shl(&rt, result_int, 4);
+  lexint_add(result_int, &lt, &rt);
+
+  lexint_shr(&lt, result_int, 28);
+  lexint_xor(result_int, result_int, &lt);
+
+  lexint_shl(&lt, result_int, 31);
+  lexint_add(result_int, result_int, &lt);
+
+  // result will get duplicated in the cast method
+  ast_t* final_result = cast_to_type(result, "U64");
+  ast_free(result);
+  return final_result;
 }
 
 ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args)

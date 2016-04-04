@@ -18,10 +18,14 @@ ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_min_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_max_int(ast_t* receiver, ast_t* args);
 
+ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args);
+
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_or_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args);
 ast_t* evaluate_not_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args);
+ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args);
 
 // casting methods
 ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args);

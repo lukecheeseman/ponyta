@@ -71,58 +71,56 @@ typedef struct method_entry {
 static method_entry_t method_table[] = {
   // integer operations
   { "integer", "create", &evaluate_create_int },
-  { "integer", "add",    &evaluate_add_int },
-  { "integer", "sub",    &evaluate_sub_int },
-  { "integer", "mul",    &evaluate_mul_int },
-  { "integer", "div",    &evaluate_div_int },
+  { "integer", "add",    &evaluate_add_int    },
+  { "integer", "sub",    &evaluate_sub_int    },
+  { "integer", "mul",    &evaluate_mul_int    },
+  { "integer", "div",    &evaluate_div_int    },
 
-  { "integer", "neg",    &evaluate_neg_int },
-  { "integer", "eq",     &evaluate_eq_int },
-  { "integer", "ne",     &evaluate_ne_int },
-  { "integer", "lt",     &evaluate_lt_int },
-  { "integer", "le",     &evaluate_le_int },
-  { "integer", "gt",     &evaluate_gt_int },
-  { "integer", "ge",     &evaluate_ge_int },
+  { "integer", "neg",    &evaluate_neg_int    },
+  { "integer", "eq",     &evaluate_eq_int     },
+  { "integer", "ne",     &evaluate_ne_int     },
+  { "integer", "lt",     &evaluate_lt_int     },
+  { "integer", "le",     &evaluate_le_int     },
+  { "integer", "gt",     &evaluate_gt_int     },
+  { "integer", "ge",     &evaluate_ge_int     },
 
-  { "integer", "min",    &evaluate_min_int },
-  { "integer", "max",    &evaluate_max_int },
+  { "integer", "min",    &evaluate_min_int    },
+  { "integer", "max",    &evaluate_max_int    },
 
-  { "integer", "op_and", &evaluate_and_int },
-  { "integer", "op_or",  &evaluate_or_int },
-  { "integer", "op_xor", &evaluate_xor_int },
-  { "integer", "op_not", &evaluate_not_int },
+  { "integer", "hash",   &evaluate_hash_int   },
+
+  { "integer", "op_and", &evaluate_and_int    },
+  { "integer", "op_or",  &evaluate_or_int     },
+  { "integer", "op_xor", &evaluate_xor_int    },
+  { "integer", "op_not", &evaluate_not_int    },
+  { "integer", "shl",    &evaluate_shl_int    },
+  { "integer", "shr",    &evaluate_shr_int    },
 
   // integer casting methods
-  { "integer", "i8",     &evaluate_i8_int },
-  { "integer", "i16",    &evaluate_i16_int },
-  { "integer", "i32",    &evaluate_i32_int },
-  { "integer", "i64",    &evaluate_i64_int },
-  { "integer", "i128",   &evaluate_i128_int },
-  { "integer", "ilong",  &evaluate_ilong_int },
-  { "integer", "isize",  &evaluate_isize_int },
-  { "integer", "u8",     &evaluate_u8_int },
-  { "integer", "u16",    &evaluate_u16_int },
-  { "integer", "u32",    &evaluate_u32_int },
-  { "integer", "u64",    &evaluate_u64_int },
-  { "integer", "u128",   &evaluate_u128_int },
-  { "integer", "ulong",  &evaluate_ulong_int },
-  { "integer", "usize",  &evaluate_usize_int },
+  { "integer", "i8",     &evaluate_i8_int     },
+  { "integer", "i16",    &evaluate_i16_int    },
+  { "integer", "i32",    &evaluate_i32_int    },
+  { "integer", "i64",    &evaluate_i64_int    },
+  { "integer", "i128",   &evaluate_i128_int   },
+  { "integer", "ilong",  &evaluate_ilong_int  },
+  { "integer", "isize",  &evaluate_isize_int  },
+  { "integer", "u8",     &evaluate_u8_int     },
+  { "integer", "u16",    &evaluate_u16_int    },
+  { "integer", "u32",    &evaluate_u32_int    },
+  { "integer", "u64",    &evaluate_u64_int    },
+  { "integer", "u128",   &evaluate_u128_int   },
+  { "integer", "ulong",  &evaluate_ulong_int  },
+  { "integer", "usize",  &evaluate_usize_int  },
 
   // boolean operations
-  { "Bool", "op_and", &evaluate_and_bool },
-  { "Bool", "op_or",  &evaluate_or_bool },
+  { "Bool", "op_and", &evaluate_and_bool      },
+  { "Bool", "op_or",  &evaluate_or_bool       },
 
   // no entry in method table
   { NULL, NULL, NULL }
 };
 
 static method_ptr_t lookup_method(ast_t* type, const char* operation) {
-  // TODO: is the following true?
-  // At this point expressions should have been typed and so any missing method_table
-  // or method calls on bad types should have been caught
-  // FIXME: I am quite sure this is not the correct solution
-
-  // FIXME: this doesn't work for chained calls
   const char* type_name =
     is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
     is_float(type) || ast_id(ast_parent(type)) == TK_FLET ? "float" :
@@ -133,7 +131,6 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
     if (!strcmp(type_name, method_table[i].type) && !strcmp(operation, method_table[i].name))
       return method_table[i].method;
   }
-  assert(0);
   return NULL;
 }
 
@@ -180,7 +177,7 @@ ast_t* evaluate(ast_t* expression) {
     case TK_DOT:
     {
       ast_t* evaluated = ast_dup(expression);
-      ast_t* evaluated_receiver = evaluate(ast_child(expression));
+      ast_t* evaluated_receiver = evaluate(ast_child(evaluated));
       ast_t* old_receiver = ast_child(evaluated);
       ast_replace(&old_receiver, evaluated_receiver);
       return evaluated;
@@ -195,7 +192,12 @@ ast_t* evaluate(ast_t* expression) {
 
       ast_t* evaluated = evaluate(lhs);
       AST_GET_CHILDREN(evaluated, receiver, id);
-      return lookup_method(ast_type(receiver), ast_name(id))(receiver, positional);
+      method_ptr_t method = lookup_method(ast_type(receiver), ast_name(id));
+      if(method)
+        return method(receiver, positional);
+
+      ast_error(expression, "Method not supported for compile time expressions");
+      return NULL;
     }
 
     default:

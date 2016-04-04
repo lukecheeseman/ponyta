@@ -317,16 +317,34 @@ void lexint_and(lexint_t* dst, lexint_t* a, lexint_t* b)
   dst->low = a->low & b->low;
 }
 
+void lexint_and64(lexint_t* dst, lexint_t* a, uint64_t b)
+{
+  dst->high = 0;
+  dst->low = a->low & b;
+}
+
 void lexint_or(lexint_t* dst, lexint_t* a, lexint_t* b)
 {
   dst->high = a->high | b->high;
   dst->low = a->low | b->low;
 }
 
+void lexint_or64(lexint_t* dst, lexint_t* a, uint64_t b)
+{
+  dst->high = a->high;
+  dst->low = a->low | b;
+}
+
 void lexint_xor(lexint_t* dst, lexint_t* a, lexint_t* b)
 {
   dst->high = a->high ^ b->high;
   dst->low = a->low ^ b->low;
+}
+
+void lexint_xor64(lexint_t* dst, lexint_t* a, uint64_t b)
+{
+  dst->high = a->high;
+  dst->low = a->low ^ b;
 }
 
 void lexint_not(lexint_t* dst, lexint_t* src)

@@ -788,12 +788,7 @@ class iso _TestVector is UnitTest
 
   fun apply(h: TestHelper) ? =>
     //let vector1 = Vector[4, String]
-    let vector1 = Vector[String, 4]
-    vector1.update(0, "A")
-    vector1.update(1, "B")
-    vector1.update(2, "C")
-    vector1.update(3, "D")
-
+    let vector1 = Vector[String, 4].init(["A", "B", "C", "D"])
     h.assert_eq[USize](vector1.size(), 4)
 
     let array1 = ["A", "B", "C", "D"]
@@ -803,10 +798,7 @@ class iso _TestVector is UnitTest
       i = i + 1
     end
 
-    let vector2 = Vector[String, 2]
-    vector2.update(0, "E")
-    vector2.update(1, "F")
-
+    let vector2 = Vector[String, 2].init(["E", "F"])
     h.assert_eq[USize](vector2.size(), 2)
 
     let array2 = ["E", "F"]

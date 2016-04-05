@@ -12,7 +12,7 @@ class Vector[A, _alloc: USize]
     _ptr = Pointer[A]._alloc(_alloc)
     _size = 0
 
-  new init(from: A^) =>
+  new init(from: Seq[A^]) ? =>
     """
     Create a vector of len elements, all initialised to the given value.
     """
@@ -24,7 +24,7 @@ class Vector[A, _alloc: USize]
     var i: USize = 0
 
     while i < _alloc do
-      _ptr._update(i, from)
+      _ptr._update(i, from(i))
       i = i + 1
     end
 

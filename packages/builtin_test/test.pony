@@ -802,3 +802,26 @@ class iso _TestVector is UnitTest
       h.assert_eq[String](vector1(i), array1(i))
       i = i + 1
     end
+
+    let vector2 = Vector[String, 2]
+    vector2.update(0, "E")
+    vector2.update(1, "F")
+
+    h.assert_eq[USize](vector2.size(), 2)
+
+    let array2 = ["E", "F"]
+    i = 0
+    while i < vector2.size() do
+      h.assert_eq[String](vector2(i), array2(i))
+      i = i + 1
+    end
+
+    let vector3: Vector[String, 6] = vector1.append[2](vector2)
+    h.assert_eq[USize](vector3.size(), 6)
+
+    let array3 = ["A", "B", "C", "D", "E", "F"]
+    i = 0
+    while i < vector3.size() do
+      h.assert_eq[String](vector3(i), array3(i))
+      i = i + 1
+    end

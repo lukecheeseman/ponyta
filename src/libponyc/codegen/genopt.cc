@@ -5,6 +5,7 @@
 #  pragma warning(disable:4800)
 #  pragma warning(disable:4267)
 #  pragma warning(disable:4624)
+#  pragma warning(disable:4141)
 #endif
 
 #include "genopt.h"
@@ -192,7 +193,7 @@ public:
     {
       // Convert a heap index to a size.
       int_size = ConstantInt::get(builder.getInt64Ty(),
-        1 << (alloc_size + HEAP_MINBITS));
+        ((int64_t)1) << (alloc_size + HEAP_MINBITS));
     } else {
       if(alloc_size > 1024)
       {
@@ -516,7 +517,7 @@ static void optimise(compile_t* c)
 
   if(c->opt->release)
   {
-    PONY_LOG(c->opt, VERBOSITY_INFO, ("Optimising\n"));
+    PONY_LOG(c->opt, VERBOSITY_MINIMAL, ("Optimising\n"));
 
     pmb.OptLevel = 3;
     pmb.Inliner = createFunctionInliningPass(275);
@@ -586,7 +587,7 @@ bool genopt(compile_t* c)
 
   if(c->opt->verify)
   {
-    PONY_LOG(c->opt,VERBOSITY_INFO, ("Verifying\n"));
+    PONY_LOG(c->opt, VERBOSITY_MINIMAL, ("Verifying\n"));
     
     char* msg = NULL;
 

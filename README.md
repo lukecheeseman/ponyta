@@ -4,6 +4,7 @@
 * Use the [mailing list](mailto:pony+user@groups.io).
 * Join ```#ponylang``` on [freenode](http://freenode.net/irc_servers.shtml).
 * A tutorial is available [here](http://tutorial.ponylang.org).
+* A [cookbook style book of patterns](http://patterns.ponylang.org) is in progress
 * Standard library docs are available [here](http://ponylang.github.io/ponyc/).
 
 # Editor support
@@ -61,7 +62,7 @@ First, install LLVM 3.6.2, 3.7.1 or 3.8 using your package manager. You may
 need to install zlib, ncurses, pcre2, and ssl as well. Instructions for some
 specific distributions follow.
 
-### Debian Jesse
+### Debian Jessie
 
 Add the following to `/etc/apt/sources`:
 
@@ -70,12 +71,17 @@ deb http://llvm.org/apt/jessie/ llvm-toolchain-jessie-3.8 main
 deb-src http://llvm.org/apt/jessie/ llvm-toolchain-jessie-3.8 main
 ```
 
+Install the LLVM toolchain public GPG key, update `apt` and install
+packages:
+
 ```bash
-$ sudo apt-get install make gcc g++ git zlib1g-dev libncurses5-dev libssl-dev
-llvm-3.8-dev
+$ wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+$ sudo apt-get update
+$ sudo apt-get install make gcc g++ git zlib1g-dev libncurses5-dev \
+                       libssl-dev llvm-3.8-dev
 ```
 
-Debian Jesse and some other Linux distributions don't include pcre2 in their
+Debian Jessie and some other Linux distributions don't include pcre2 in their
 package manager. pcre2 is used by the Pony regex package. To download and
 build pcre2 from source:
 
@@ -141,7 +147,7 @@ sudo pkg install libunwind
 This will build ponyc and compile helloworld:
 
 ```bash
-$ make config=release
+$ gmake config=release
 $ ./build/release/ponyc examples/helloworld
 ```
 
@@ -180,13 +186,58 @@ tools and libraries. Instead, you will have to build and install LLVM 3.7 or
 3.8 from source. You will need to make sure that the path to LLVM/bin (location 
 of llvm-config) is in your PATH variable.
 
-You will also need to build and install premake5 (not premake4) from source. We 
-need premake5 in order to support current versions of Visual Studio.
+LLVM recommends using the GnuWin32 unix tools; your mileage may vary using 
+MSYS or Cygwin.
 
-You may also need to install zlib and ncurses.
+- Install GnuWin32 using the [GetGnuWin32](http://getgnuwin32.sourceforge.net/) 
+  tool.
+- Install [Python](https://www.python.org/downloads/release/python-351/) (3.5 or 
+  2.7).
+- Install [CMake](https://cmake.org/download/).
+- Get the LLVM source (e.g. 3.7.1 is 
+  at [3.7.1](http://llvm.org/releases/3.7.1/llvm-3.7.1.src.tar.xz)).
+- Make sure you have VS2015 with the C++ tools installed.
+- Generate LLVM VS2015 configuration with CMake. You can use the GUI to 
+  configure and generate the VS projects; make sure you use the 64-bit 
+  generator (**Visual Studio 14 2015 Win64**), and set the 
+  `CMAKE_INSTALL_PREFIX` to where you want LLVM to live.
+- Open the LLVM.sln in Visual Studio 2015 and build the INSTALL project in 
+  the LLVM solution in Release mode.
+
+Building Pony requires [Premake 5](https://premake.github.io).
+
+- Get the [PreMake 5](https://premake.github.io/download.html#v5) executable.
+- Get the [PonyC source](https://github.com/ponylang/ponyc).
+- Run `premake5.exe --with-tests --to=..\vs vs2015` to generate the PonyC
+  solution.
+- Change the **Character Set** property of each project in the PonyC solution
+  to **Not Set**.
+- Build ponyc.sln in Release mode.
+
+In order to run the pony compiler, you'll need a few libraries in your 
+environment (pcre2, libssl, libcrypto). 
+
+There is a third-party utility that will get the libraries and set up your 
+environment:
+
+- Install [7-Zip](http://www.7-zip.org/a/7z1514-x64.exe), make sure it's in 
+  your PATH.
+- Open a **VS2015 x64 Native Tools Command Prompt** (things will not work 
+  correctly otherwise!) and run:
 
 ```
-$ premake5 vs2013
-$ Release build with Visual Studio (ponyc.sln)
-$ ./build/release/ponyc examples/helloworld
+> git clone git@github.com:kulibali/ponyc-windows-libs.git
+> cd ponyc-windows-libs
+> .\getlibs.bat
+> .\setenv.bat
+```
+
+Now you can run the pony compiler and tests:
+
+```
+> cd path_to_pony_source
+> build\release\testc.exe
+> build\release\testrt.exe
+> build\release\ponyc.exe -d -s packages\stdlib
+> .\stdlib
 ```

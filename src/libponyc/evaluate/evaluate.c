@@ -25,8 +25,12 @@ bool expr_constant(ast_t** astp) {
   ast_t* expression = ast_child(ast);
   ast_settype(ast, ast_type(expression));
 
-  if(is_typecheck_error(ast_type(expression)))
-    return false;
+  // FIXME: referencing classes which are defined later than this class
+  // means that referenced class has not had types assigned
+  // as such the following will report a typecheck error
+
+  //if(is_typecheck_error(ast_type(expression)))
+  //  return false;
 
   if(contains_valueparamref(expression))
     return true;

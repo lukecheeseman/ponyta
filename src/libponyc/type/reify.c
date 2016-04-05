@@ -106,6 +106,7 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
       reify_arrow(astp);
       break;
 
+    // FIXME: failures can occur here
     case TK_CONSTANT:
       expr_constant(astp);
       break;

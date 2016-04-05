@@ -37,7 +37,10 @@ bool expr_constant(ast_t** astp) {
 
   ast_t* evaluated = evaluate(expression);
   if (evaluated == NULL)
+  {
+    ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
     return false;
+  }
 
   ast_replace(astp, evaluated);
   // FIXME: things that had a reference to ast may now be broken, check and fix
@@ -48,10 +51,18 @@ bool expr_constant(ast_t** astp) {
 // from the method lookup table
 bool equal(ast_t* expr_a, ast_t* expr_b) {
   switch(ast_id(expr_a)) {
-    case TK_INT: {
+    case TK_INT:
+    {
       lexint_t *sub_value = ast_int(expr_a);
       lexint_t *super_value = ast_int(expr_b);
       return !lexint_cmp(sub_value, super_value);
+    }
+
+    case TK_FLOAT:
+    {
+      double sub_value = ast_float(expr_a);
+      double super_value = ast_float(expr_b);
+      return sub_value == super_value;
     }
 
     case TK_TRUE:
@@ -122,8 +133,17 @@ static method_entry_t method_table[] = {
   //float operations
 
   { "float"   , "add"     , &evaluate_add_float  },
+  { "float"   , "sub"     , &evaluate_sub_float  },
+  { "float"   , "mul"     , &evaluate_mul_float  },
+  { "float"   , "div"     , &evaluate_div_float  },
 
   { "float"   , "neg"     , &evaluate_neg_float  },
+  { "float"   , "eq"      , &evaluate_eq_float   },
+  { "float"   , "ne"      , &evaluate_ne_float   },
+  { "float"   , "lt"      , &evaluate_lt_float   },
+  { "float"   , "le"      , &evaluate_le_float   },
+  { "float"   , "gt"      , &evaluate_gt_float   },
+  { "float"   , "ge"      , &evaluate_ge_float   },
 
   // boolean operations
   { "Bool"    , "op_and"  , &evaluate_and_bool   },

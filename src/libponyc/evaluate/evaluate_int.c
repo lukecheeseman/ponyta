@@ -177,7 +177,7 @@ ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 
 typedef bool (*test_equality_t)(lexint_t*, lexint_t*);
 
-static ast_t* evaluate_inequality(ast_t* receiver, ast_t* args, test_equality_t test)
+static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args, test_equality_t test)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
@@ -234,32 +234,32 @@ static bool test_ge(lexint_t* lhs, lexint_t* rhs)
 
 ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_eq);
+  return evaluate_inequality_int(receiver, args, &test_eq);
 }
 
 ast_t* evaluate_ne_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_ne);
+  return evaluate_inequality_int(receiver, args, &test_ne);
 }
 
 ast_t* evaluate_lt_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_lt);
+  return evaluate_inequality_int(receiver, args, &test_lt);
 }
 
 ast_t* evaluate_le_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_le);
+  return evaluate_inequality_int(receiver, args, &test_le);
 }
 
 ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_ge);
+  return evaluate_inequality_int(receiver, args, &test_ge);
 }
 
 ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args)
 {
-  return evaluate_inequality(receiver, args, &test_gt);
+  return evaluate_inequality_int(receiver, args, &test_gt);
 }
 
 static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args, test_equality_t test)

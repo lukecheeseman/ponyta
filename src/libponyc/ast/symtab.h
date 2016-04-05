@@ -25,6 +25,11 @@ typedef struct symbol_t
   ast_t* def;
   sym_status_t status;
   size_t branch_count;
+
+  // Used to track the value of a value
+  // for the evaluation of compile time
+  // expression
+  ast_t* value;
 } symbol_t;
 
 DECLARE_HASHMAP(symtab, symtab_t, symbol_t);

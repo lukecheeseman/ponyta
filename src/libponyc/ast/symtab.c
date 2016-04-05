@@ -88,7 +88,7 @@ bool symtab_add(symtab_t* symtab, const char* name, ast_t* def,
 
   if(no_case != name)
   {
-    symbol_t s1 = {no_case, def, SYM_NOCASE, 0};
+    symbol_t s1 = {no_case, def, SYM_NOCASE, 0, NULL};
     symbol_t* s2 = symtab_get(symtab, &s1);
 
     if(s2 != NULL)
@@ -97,7 +97,7 @@ bool symtab_add(symtab_t* symtab, const char* name, ast_t* def,
     symtab_put(symtab, sym_dup(&s1));
   }
 
-  symbol_t s1 = {name, def, status, 0};
+  symbol_t s1 = {name, def, status, 0, NULL};
   symbol_t* s2 = symtab_get(symtab, &s1);
 
   if(s2 != NULL)
@@ -109,7 +109,7 @@ bool symtab_add(symtab_t* symtab, const char* name, ast_t* def,
 
 ast_t* symtab_find(symtab_t* symtab, const char* name, sym_status_t* status)
 {
-  symbol_t s1 = {name, NULL, SYM_NONE, 0};
+  symbol_t s1 = {name, NULL, SYM_NONE, 0, NULL};
   symbol_t* s2 = symtab_get(symtab, &s1);
 
   if(s2 != NULL)
@@ -134,7 +134,7 @@ ast_t* symtab_find_case(symtab_t* symtab, const char* name,
 {
   // Same as symtab_get, but is partially case insensitive. That is, type names
   // are compared as uppercase and other symbols are compared as lowercase.
-  symbol_t s1 = {name, NULL, SYM_NONE, 0};
+  symbol_t s1 = {name, NULL, SYM_NONE, 0, NULL};
   symbol_t* s2 = symtab_get(symtab, &s1);
 
   if(s2 != NULL)
@@ -158,7 +158,7 @@ ast_t* symtab_find_case(symtab_t* symtab, const char* name,
 
 void symtab_set_status(symtab_t* symtab, const char* name, sym_status_t status)
 {
-  symbol_t s1 = {name, NULL, status, 0};
+  symbol_t s1 = {name, NULL, status, 0, NULL};
   symbol_t* s2 = symtab_get(symtab, &s1);
 
   if(s2 != NULL)

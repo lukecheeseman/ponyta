@@ -107,7 +107,7 @@ bool symtab_add(symtab_t* symtab, const char* name, ast_t* def,
   return true;
 }
 
-ast_t* symtab_find(symtab_t* symtab, const char* name, sym_status_t* status)
+static symbol_t* symtab_find_symbol(symtab_t* symtab, const char* name, sym_status_t* status)
 {
   symbol_t s1 = {name, NULL, SYM_NONE, 0, NULL};
   symbol_t* s2 = symtab_get(symtab, &s1);
@@ -120,13 +120,35 @@ ast_t* symtab_find(symtab_t* symtab, const char* name, sym_status_t* status)
     if(s2->status == SYM_NOCASE)
       return NULL;
 
-    return s2->def;
+    return s2;
   }
 
   if(status != NULL)
     *status = SYM_NONE;
 
   return NULL;
+}
+
+ast_t* symtab_find(symtab_t* symtab, const char* name, sym_status_t* status)
+{
+  symbol_t* s = symtab_find_symbol(symtab, name, status);
+  return s == NULL ? NULL : s->def;
+}
+
+ast_t* symtab_find_value(symtab_t* symtab, const char* name, sym_status_t* status)
+{
+  symbol_t* s = symtab_find_symbol(symtab, name, status);
+  return s == NULL ? NULL : s->value;
+}
+
+bool symtab_set_value(symtab_t* symtab, const char* name, ast_t* value)
+{
+  symbol_t* s = symtab_find_symbol(symtab, name, NULL);
+  if(s == NULL)
+    return false;
+
+  s->value = value;
+  return true;
 }
 
 ast_t* symtab_find_case(symtab_t* symtab, const char* name,

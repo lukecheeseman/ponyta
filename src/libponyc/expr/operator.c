@@ -185,6 +185,107 @@ static bool is_lvalue(typecheck_t* t, ast_t* ast, bool need_value)
   return false;
 }
 
+static const char* get_lvalue_name(ast_t* ast)
+{
+  switch(ast_id(ast))
+  {
+    case TK_VAR:
+    case TK_LET:
+      return ast_name(ast_child(ast));
+/*
+    case TK_VARREF:
+    {
+      ast_t* id = ast_child(ast);
+      return assign_id(t, id, false, need_value);
+    }
+
+    case TK_LETREF:
+    {
+      ast_error(ast, "can't assign to a let local");
+      return false;
+    }
+
+    case TK_FVARREF:
+    {
+      AST_GET_CHILDREN(ast, left, right);
+
+      if(ast_id(left) == TK_THIS)
+        return assign_id(t, right, false, need_value);
+
+      return true;
+    }
+
+    case TK_FLETREF:
+    {
+      AST_GET_CHILDREN(ast, left, right);
+
+      if(ast_id(left) != TK_THIS)
+      {
+        ast_error(ast, "can't assign to a let field");
+        return false;
+      }
+
+      if(t->frame->loop_body != NULL)
+      {
+        ast_error(ast, "can't assign to a let field in a loop");
+        return false;
+      }
+
+      return assign_id(t, right, true, need_value);
+    }
+
+    case TK_EMBEDREF:
+    {
+      AST_GET_CHILDREN(ast, left, right);
+
+      if(ast_id(left) != TK_THIS)
+      {
+        ast_error(ast, "can't assign to an embed field");
+        return false;
+      }
+
+      if(t->frame->loop_body != NULL)
+      {
+        ast_error(ast, "can't assign to an embed field in a loop");
+        return false;
+      }
+
+      return assign_id(t, right, true, need_value);
+    }
+
+    case TK_TUPLE:
+    {
+      // A tuple is an lvalue if every component expression is an lvalue.
+      ast_t* child = ast_child(ast);
+
+      while(child != NULL)
+      {
+        if(!is_lvalue(t, child, need_value))
+          return false;
+
+        child = ast_sibling(child);
+      }
+
+      return true;
+    }
+
+    case TK_SEQ:
+    {
+      // A sequence is an lvalue if it has a single child that is an lvalue.
+      // This is used because the components of a tuple are sequences.
+      ast_t* child = ast_child(ast);
+
+      if(ast_sibling(child) != NULL)
+        return false;
+
+      return is_lvalue(t, child, need_value);
+    }
+*/
+    default: {};
+  }
+  return NULL;
+}
+
 bool expr_identity(pass_opt_t* opt, ast_t* ast)
 {
   ast_settype(ast, type_builtin(opt, ast, "Bool"));
@@ -378,6 +479,7 @@ static bool infer_locals(ast_t* left, ast_t* r_type)
   return true;
 }
 
+// FIXME: needs to update the symtab value
 bool expr_assign(pass_opt_t* opt, ast_t* ast)
 {
   // Left and right are swapped in the AST to make sure we type check the
@@ -506,6 +608,13 @@ bool expr_assign(pass_opt_t* opt, ast_t* ast)
 
   ast_settype(ast, consume_type(l_type, TK_NONE));
   ast_inheritflags(ast);
+
+  const char* name = get_lvalue_name(left);
+  if(name)
+  {
+    ast_set_value(left, name, right);
+  }
+
   return true;
 }
 

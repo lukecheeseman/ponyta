@@ -158,7 +158,6 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
     is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
     is_float(type) || ast_id(ast_parent(type)) == TK_FLOAT ? "float" :
     ast_name(ast_childidx(type, 1));
-  //  ast_id(type) == TK_NOMINAL ? ast_name(ast_childidx(type, 1)) : "literal";
 
   for (int i = 0; method_table[i].name != NULL; ++i) {
     if (!strcmp(type_name, method_table[i].type) && !strcmp(operation, method_table[i].name))
@@ -178,10 +177,9 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FUNREF:
       return expression;
 
-
     case TK_VARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
-      return expression;
+      return NULL;
 
     case TK_LETREF:
     {
@@ -190,19 +188,20 @@ ast_t* evaluate(ast_t* expression) {
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
         ast_error(expression, "Compile time expression can only use read-only variables");
-        return expression;
+        return NULL;
       }
-      // TODO: need to figure out what we will do here!
-      assert(0);
+      ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)), NULL);
+      return value;
     }
 
-    // TODO: going to need some concept of state
     case TK_SEQ:
     {
       ast_t * evaluated;
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
         evaluated = evaluate(p);
+        if(!evaluated)
+          return NULL;
       }
       return evaluated;
     }

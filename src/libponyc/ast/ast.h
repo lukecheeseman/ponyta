@@ -104,7 +104,7 @@ size_t ast_index(ast_t* ast);
 
 ast_t* ast_get(ast_t* ast, const char* name, sym_status_t* status);
 ast_t* ast_get_case(ast_t* ast, const char* name, sym_status_t* status);
-ast_t* ast_get_value(ast_t* ast, const char* name, sym_status_t* status);
+ast_t* ast_get_value(ast_t* ast, const char* name);
 bool ast_set(ast_t* ast, const char* name, ast_t* def, sym_status_t status);
 bool ast_set_value(ast_t* ast, const char* name, ast_t* value);
 void ast_setstatus(ast_t* ast, const char* name, sym_status_t status);

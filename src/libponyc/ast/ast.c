@@ -789,9 +789,9 @@ ast_t* ast_get_case(ast_t* ast, const char* name, sym_status_t* status)
   return ast_get_from_symtab(ast, name, status, &symtab_find_case);
 }
 
-ast_t* ast_get_value(ast_t* ast, const char* name, sym_status_t* status)
+ast_t* ast_get_value(ast_t* ast, const char* name)
 {
-  return ast_get_from_symtab(ast, name, status, &symtab_find_value);
+  return ast_get_from_symtab(ast, name, NULL, &symtab_find_value);
 }
 
 bool ast_set(ast_t* ast, const char* name, ast_t* def, sym_status_t status)

@@ -190,7 +190,7 @@ ast_t* evaluate(ast_t* expression) {
         ast_error(expression, "Compile time expression can only use read-only variables");
         return NULL;
       }
-      ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)), NULL);
+      ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
       return value;
     }
 

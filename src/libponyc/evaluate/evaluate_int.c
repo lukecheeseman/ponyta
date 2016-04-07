@@ -4,12 +4,9 @@
 #include "../type/subtype.h"
 #include <assert.h>
 
-// FIXME: These should not overwrite the existing values
-// will probably need to create a new token and a new ast node
-
 static bool is_ast_integer(ast_t* ast)
 {
-  return is_integer(ast_type(ast)) || ast_id(ast) == TK_INT;
+  return ast_id(ast) == TK_INT;
 }
 
 ast_t* evaluate_create_int(ast_t* receiver, ast_t* args)
@@ -42,16 +39,18 @@ static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
   assert(ast_id(args) == TK_POSITIONALARGS);
   ast_t* lhs_arg = evaluate(receiver);
   ast_t* rhs_arg = evaluate(ast_child(args));
+  if(!lhs_arg || !rhs_arg)
+    return false;
 
   if(!is_ast_integer(lhs_arg))
   {
-    ast_error(rhs_arg, "%s is not an integer expression", ast_get_print(lhs_arg));
+    ast_error(rhs_arg, "%s is not a compile-time integer expression", ast_get_print(lhs_arg));
     return false;
   }
 
   if(!is_ast_integer(rhs_arg))
   {
-    ast_error(rhs_arg, "%s is not an integer expression", ast_get_print(rhs_arg));
+    ast_error(rhs_arg, "%s is not a compile-time integer expression", ast_get_print(rhs_arg));
     return false;
   }
 

@@ -6,7 +6,7 @@
 
 static bool is_ast_float(ast_t* ast)
 {
-  return is_float(ast_type(ast)) || ast_id(ast) == TK_FLOAT;
+  return ast_id(ast) == TK_FLOAT;
 }
 
 typedef double (*binary_float_operation_t)(double, double);

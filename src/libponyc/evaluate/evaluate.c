@@ -223,6 +223,9 @@ ast_t* evaluate(ast_t* expression) {
           "No support for compile time expressions with named arguments");
 
       ast_t* evaluated = evaluate(lhs);
+      if(!evaluated)
+        return NULL;
+
       AST_GET_CHILDREN(evaluated, receiver, id);
       method_ptr_t method = lookup_method(ast_type(receiver), ast_name(id));
       if(method)

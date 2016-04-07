@@ -177,6 +177,12 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FUNREF:
       return expression;
 
+    case TK_FUN:
+    {
+      AST_GET_CHILDREN(expression, cap, id, typeparams, params, result, error, body);
+      return evaluate(body);
+    }
+
     case TK_VARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
       return NULL;
@@ -229,7 +235,15 @@ ast_t* evaluate(ast_t* expression) {
       AST_GET_CHILDREN(evaluated, receiver, id);
       method_ptr_t method = lookup_method(ast_type(receiver), ast_name(id));
       if(method)
+      {
         return method(receiver, positional);
+      }
+      else
+      {
+        ast_t* def = ast_get(expression, ast_name(id), NULL);
+        assert(def);
+        return evaluate(def);
+      }
 
       ast_error(expression, "Method not supported for compile time expressions");
       return NULL;

@@ -187,7 +187,7 @@ static ast_t* ast_get_base_type(ast_t* ast)
 // This is essentially the evaluate TK_FUN case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-static ast_t* evaluate_method(ast_t* receiver, ast_t* args, ast_t* def)
+static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
 {
   assert(receiver);
   assert(ast_id(def) == TK_FUN);
@@ -270,20 +270,16 @@ ast_t* evaluate(ast_t* expression) {
       if(!evaluated)
         return NULL;
 
+      // TODO: should probably check here if this is a builtin type
       AST_GET_CHILDREN(evaluated, receiver, id);
-      method_ptr_t method = lookup_method(ast_get_base_type(receiver), ast_name(id));
-      if(method)
-        return method(receiver, positional);
-      else
-      {
-        ast_t* def = ast_get(expression, ast_name(id), NULL);
-        assert(def);
-        // FIXME: duplicating this each time is going to be expensive ;_;
-        return evaluate_method(receiver, positional, ast_dup(def));
-      }
+      method_ptr_t builtin_method = lookup_method(ast_get_base_type(receiver), ast_name(id));
+      if(builtin_method)
+        return builtin_method(receiver, positional);
 
-      ast_error(expression, "Method not supported for compile time expressions");
-      return NULL;
+      ast_t* def = ast_get(expression, ast_name(id), NULL);
+      assert(def);
+      // FIXME: duplicating this each time is going to be expensive ;_;
+      return evaluate_method(ast_dup(def), receiver, positional);
     }
 
     case TK_IF:

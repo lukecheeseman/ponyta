@@ -417,7 +417,7 @@ static reachable_type_t* add_tuple(reachable_method_stack_t** s,
 
   while(child != NULL)
   {
-    t->fields[index].ast = child;
+    t->fields[index].ast = ast_dup(child);
     t->fields[index].type = add_type(s, r, next_type_id, child);;
     index++;
 
@@ -891,7 +891,7 @@ void reach_dump(reachable_types_t* r)
 
   while((t = reachable_types_next(r, &i)) != NULL)
   {
-    printf("  %s vtable size %d\n", t->name, t->vtable_size);
+    printf("  %s: %d\n", t->name, t->vtable_size);
     size_t j = HASHMAP_BEGIN;
     reachable_method_name_t* m;
 
@@ -901,9 +901,7 @@ void reach_dump(reachable_types_t* r)
       reachable_method_t* p;
 
       while((p = reachable_methods_next(&m->r_methods, &k)) != NULL)
-      {
-        printf("    %s vtable index %d (%p)\n", p->name, p->vtable_index, p);
-      }
+        printf("    %s: %d\n", p->name, p->vtable_index);
     }
   }
 }

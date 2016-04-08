@@ -166,6 +166,50 @@ static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   return NULL;
 }
 
+// TODO: is this wrong?
+static ast_t* ast_get_base_type(ast_t* ast)
+{
+  ast_t* type = ast_type(ast);
+  switch(ast_id(type))
+  {
+    case TK_NOMINAL:
+    case TK_LITERAL:
+      return type;
+
+    case TK_ARROW:
+      return ast_childidx(type, 1);
+
+    default: assert(0);
+  }
+  return NULL;
+}
+
+// This is essentially the evaluate TK_FUN case however, we require
+// more information regarding the arguments and receiver to evaluate
+// this
+static ast_t* evaluate_method(ast_t* receiver, ast_t* args, ast_t* def)
+{
+  assert(receiver);
+  assert(ast_id(def) == TK_FUN);
+
+  AST_GET_CHILDREN(def, cap, id, typeparams, params, result, error, body);
+  assert(ast_id(args) == TK_POSITIONALARGS);
+
+  ast_t* argument = ast_child(args);
+  ast_t* parameter = ast_child(params);
+
+  while(argument != NULL)
+  {
+    const char* param_name = ast_name(ast_child(parameter));
+    ast_t* evaluated_argument = evaluate(argument);
+    ast_set_value(parameter, param_name, evaluated_argument);
+    argument = ast_sibling(argument);
+    parameter = ast_sibling(parameter);
+  }
+
+  return evaluate(body);
+}
+
 ast_t* evaluate(ast_t* expression) {
   switch(ast_id(expression)) {
     case TK_NONE:
@@ -177,16 +221,11 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FUNREF:
       return expression;
 
-    case TK_FUN:
-    {
-      AST_GET_CHILDREN(expression, cap, id, typeparams, params, result, error, body);
-      return evaluate(body);
-    }
-
     case TK_VARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
       return NULL;
 
+    case TK_PARAMREF:
     case TK_LETREF:
     {
       ast_t *type = ast_type(expression);
@@ -196,8 +235,7 @@ ast_t* evaluate(ast_t* expression) {
         ast_error(expression, "Compile time expression can only use read-only variables");
         return NULL;
       }
-      ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
-      return value;
+      return ast_get_value(expression, ast_name(ast_child(expression)));
     }
 
     case TK_SEQ:
@@ -233,20 +271,30 @@ ast_t* evaluate(ast_t* expression) {
         return NULL;
 
       AST_GET_CHILDREN(evaluated, receiver, id);
-      method_ptr_t method = lookup_method(ast_type(receiver), ast_name(id));
+      method_ptr_t method = lookup_method(ast_get_base_type(receiver), ast_name(id));
       if(method)
-      {
         return method(receiver, positional);
-      }
       else
       {
         ast_t* def = ast_get(expression, ast_name(id), NULL);
         assert(def);
-        return evaluate(def);
+        // FIXME: duplicating this each time is going to be expensive ;_;
+        return evaluate_method(receiver, positional, ast_dup(def));
       }
 
       ast_error(expression, "Method not supported for compile time expressions");
       return NULL;
+    }
+
+    case TK_IF:
+    case TK_ELSEIF:
+    {
+      AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
+      ast_t* condition_evaluated = evaluate(condition);
+
+      return ast_id(condition_evaluated) == TK_TRUE ?
+             evaluate(then_branch) :
+             evaluate(else_branch);
     }
 
     default:

@@ -19,6 +19,7 @@ actor Main is TestList
     test(_TestChainedArithemtic)
     test(_TestIntegerEquivalence)
     test(_TestBool)
+    test(_TestFunctionCall)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -167,3 +168,21 @@ class iso _TestBool is UnitTest
     h.assert_false(bool_and[false, true]())
     h.assert_false(bool_and[true, false]())
     h.assert_true(bool_and[true, true]())
+
+class iso _TestFunctionCall is UnitTest
+
+  fun name(): String => "VDT/fib"
+
+  fun fib(n: U32): U32 =>
+    if n == 0 then
+      0
+    elseif n <= 2 then
+      1
+    else
+      fib(n - 2) + fib(n - 1)
+    end
+
+   fun apply(h: TestHelper) =>
+      h.assert_eq[U32](#fib(1), fib(1))
+      h.assert_eq[U32](#fib(8), fib(8))
+      h.assert_eq[U32](#fib(20), fib(20))

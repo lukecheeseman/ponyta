@@ -1,6 +1,7 @@
 #include "../ast/astbuild.h"
 #include "../evaluate/evaluate_float.h"
 #include "../expr/literal.h"
+#include "../type/assemble.h"
 #include "../type/subtype.h"
 #include <assert.h>
 
@@ -100,16 +101,10 @@ test_equality_double_t test)
 
   BUILD(result, lhs_arg, NODE(test(lhs, rhs) ? TK_TRUE : TK_FALSE));
 
-  ast_t* new_type_data = ast_get_case(receiver, "Bool", NULL);
-  assert(new_type_data);
+  pass_opt_t opt;
+  ast_t* bool_type = type_builtin(&opt, ast_type(lhs_arg), "Bool");
 
-  // FIXME: probably better to build the type
-  ast_t* new_type = ast_dup(ast_type(lhs_arg));
-  ast_t* id = ast_childidx(new_type, 1);
-  ast_replace(&id, ast_from_string(id,"Bool"));
-  ast_setdata(new_type, new_type_data);
-
-  ast_settype(result, new_type);
+  ast_settype(result, bool_type);
   return result;
 }
 

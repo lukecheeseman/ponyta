@@ -101,13 +101,9 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
 
 
   if(lhs->is_negative && rhs->is_negative)
-  {
     lhs->is_negative = lexint_cmp(lhs, rhs) > 0;
-  }
   else if(!lhs->is_negative && !rhs->is_negative)
-  {
     lhs->is_negative = lexint_cmp(lhs, rhs) < 0;
-  }
 
   lexint_sub(lhs, lhs, rhs);
   return result;
@@ -192,6 +188,7 @@ static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args, test_equalit
 
   BUILD(result, lhs_arg, NODE(test(lhs, rhs) ? TK_TRUE : TK_FALSE));
 
+  //FIXME: we need the options
   pass_opt_t opt;
   ast_t* bool_type = type_builtin(&opt, ast_type(lhs_arg), "Bool");
 
@@ -375,19 +372,12 @@ ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args)
 }
 
 // casting methods
-static ast_t* cast_to_type(ast_t* receiver, const char* type) {
-  ast_t* result = ast_dup(receiver);
+static void cast_to_type(ast_t* receiver, const char* type) {
+  pass_opt_t opt;
+  ast_t* new_type = type_builtin(&opt, ast_type(receiver), type);
+  assert(new_type);
 
-  ast_t* new_type_data = ast_get_case(receiver, type, NULL);
-  assert(new_type_data);
-
-  ast_t* new_type = ast_dup(ast_type(result));
-  ast_t* id = ast_childidx(new_type, 1);
-  ast_replace(&id, ast_from_string(id, type));
-  ast_setdata(new_type, new_type_data);
-
-  ast_settype(result, new_type);
-  return result;
+  ast_settype(receiver, new_type);
 }
 
 ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
@@ -428,103 +418,129 @@ ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
   lexint_add(result_int, result_int, &lt);
 
   // result will get duplicated in the cast method
-  ast_t* final_result = cast_to_type(result, "U64");
-  ast_free(result);
-  return final_result;
+  cast_to_type(result, "U64");
+  return result;
 }
 
 ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "I8");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "I8");
+  return result;
 }
 
 ast_t* evaluate_i16_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "I16");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "I16");
+  return result;
 }
 
 ast_t* evaluate_i32_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "I32");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "I32");
+  return result;
 }
 
 ast_t* evaluate_i64_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "I64");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "I64");
+  return result;
 }
 
 ast_t* evaluate_i128_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "I128");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "I128");
+  return result;
 }
 
 ast_t* evaluate_ilong_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "ILong");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "ILong");
+  return result;
 }
 
 ast_t* evaluate_isize_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "ISize");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "ISize");
+  return result;
 }
 
 ast_t* evaluate_u8_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "U8");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "U8");
+  return result;
 }
 
 ast_t* evaluate_u16_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "U16");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "U16");
+  return result;
 }
 
 ast_t* evaluate_u32_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "U32");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "U32");
+  return result;
 }
 
 ast_t* evaluate_u64_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "U64");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "U64");
+  return result;
 }
 
 ast_t* evaluate_u128_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "U128");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "U128");
+  return result;
 }
 
 ast_t* evaluate_ulong_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "ULong");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "ULong");
+  return result;
 }
 
 ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_to_type(receiver, "USize");
+  ast_t* result = ast_dup(receiver);
+  cast_to_type(result, "USize");
+  return result;
 }
 
 static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
 {
   //FIXME
-  ast_t* evaluated = receiver;
-  lexint_t* evaluated_int = ast_int(evaluated);
+  lexint_t* evaluated_int = ast_int(receiver);
 
   double result_double;
-  if(evaluated_int->is_negative && is_signed(evaluated))
+  if(evaluated_int->is_negative && is_signed(receiver))
   {
     lexint_t t = *evaluated_int;
     lexint_negate(&t);
@@ -533,14 +549,10 @@ static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
     result_double = lexint_double(evaluated_int);
   }
 
-  ast_t* result = ast_from(evaluated, TK_FLOAT);
+  ast_t* result = ast_from(receiver, TK_FLOAT);
   ast_set_float(result, result_double);
-  ast_settype(result, ast_type(evaluated));
-
-  ast_t* final_result = cast_to_type(result, type);
-  ast_free(result);
-
-  return final_result;
+  cast_to_type(result, type);
+  return result;
 }
 
 ast_t* evaluate_f32_int(ast_t* receiver, ast_t* args)

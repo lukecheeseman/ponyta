@@ -317,7 +317,7 @@ TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
 }
 
 // FIXME: These tests currently fail and are therefore disabled
-TEST_F(VDTTest, DISABLED_ExpressionEqualityOfTypeArgs)
+TEST_F(VDTTest, ExpressionEqualityOfTypeArgs)
 {
   const char* src =
     "class C1[n: U32]\n"

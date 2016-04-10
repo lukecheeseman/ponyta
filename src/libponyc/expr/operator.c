@@ -611,9 +611,7 @@ bool expr_assign(pass_opt_t* opt, ast_t* ast)
 
   const char* name = get_lvalue_name(left);
   if(name)
-  {
     ast_set_value(left, name, right);
-  }
 
   return true;
 }

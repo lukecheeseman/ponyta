@@ -1,4 +1,5 @@
 class Vector[A, _alloc: USize]
+/*
 //FIXME: going to remove many many methods here
 // won't have things like delete
 // going to be more functional
@@ -48,7 +49,7 @@ class Vector[A, _alloc: USize]
     """
     _alloc
 
-  fun apply(i: USize): this->A^ ? =>
+  fun apply(i: USize): this->A ? =>
     """
     Get the i-th element, raising an error if the index is out of bounds.
     """
@@ -139,7 +140,7 @@ class Vector[A, _alloc: USize]
       error
     end
 
-  fun ref delete(i: USize): A^ ? =>
+  fun ref delete(i: USize): A ? =>
     """
     Delete an element from the vector. Elements after this are moved down by one
     index, compacting the vector.
@@ -282,3 +283,4 @@ class VectorPairs[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[(USi
 
   fun ref next(): (USize, B->A) ? =>
     (_i, _vector(_i = _i + 1))
+    */

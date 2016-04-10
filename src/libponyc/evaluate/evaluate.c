@@ -187,13 +187,14 @@ static ast_t* ast_get_base_type(ast_t* ast)
 // This is essentially the evaluate TK_FUN case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
+
+// TODO: what happens with field assignments on classes
+// should we dup the whole class ... may be massive
 static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
 {
   assert(receiver);
-  assert(ast_id(def) == TK_FUN);
-
   AST_GET_CHILDREN(def, cap, id, typeparams, params, result, error, body);
-  assert(ast_id(args) == TK_POSITIONALARGS);
+  assert(ast_id(args) == TK_POSITIONALARGS || ast_id(args) == TK_NONE);
 
   ast_t* argument = ast_child(args);
   ast_t* parameter = ast_child(params);
@@ -201,13 +202,27 @@ static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
   while(argument != NULL)
   {
     const char* param_name = ast_name(ast_child(parameter));
-    ast_t* evaluated_argument = evaluate(argument);
-    ast_set_value(parameter, param_name, evaluated_argument);
+    ast_set_value(parameter, param_name, argument);
     argument = ast_sibling(argument);
     parameter = ast_sibling(parameter);
   }
 
   return evaluate(body);
+}
+
+static const char* get_lvalue_name(ast_t* ast)
+{
+  switch(ast_id(ast))
+  {
+    case TK_VAR:
+    case TK_LET:
+      return ast_name(ast_child(ast));
+    default:
+      return NULL;
+
+    case TK_FLETREF:
+      return ast_name(ast_childidx(ast, 1));
+  }
 }
 
 ast_t* evaluate(ast_t* expression) {
@@ -219,9 +234,12 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FLOAT:
     case TK_NEWREF:
     case TK_FUNREF:
+    case TK_TYPEREF:
+    case TK_THIS:
       return expression;
 
     case TK_VARREF:
+    case TK_FVARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
       return NULL;
 
@@ -236,6 +254,25 @@ ast_t* evaluate(ast_t* expression) {
         return NULL;
       }
       return ast_get_value(expression, ast_name(ast_child(expression)));
+    }
+
+    case TK_FLETREF:
+    {
+      // this will need to know the object
+      ast_t *type = ast_type(expression);
+      AST_GET_CHILDREN(type, package, id, typeargs, cap, ephemeral);
+      if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
+      {
+        ast_error(expression, "Compile time expression can only use read-only variables");
+        return NULL;
+      }
+
+      AST_GET_CHILDREN(expression, object, field_id);
+      ast_t* evaluated_object = evaluate(object);
+      if(!evaluated_object)
+        return NULL;
+
+      return ast_get_value(evaluated_object, ast_name(field_id));
     }
 
     case TK_SEQ:
@@ -270,16 +307,37 @@ ast_t* evaluate(ast_t* expression) {
       if(!evaluated)
         return NULL;
 
-      // TODO: should probably check here if this is a builtin type
       AST_GET_CHILDREN(evaluated, receiver, id);
-      method_ptr_t builtin_method = lookup_method(ast_get_base_type(receiver), ast_name(id));
-      if(builtin_method)
-        return builtin_method(receiver, positional);
+      ast_t* evaluated_receiver = evaluate(receiver);
+      ast_t* evaluated_positional_args = ast_dup(positional);
 
-      ast_t* def = ast_get(expression, ast_name(id), NULL);
-      assert(def);
+      ast_t* argument = ast_child(evaluated_positional_args);
+      while(argument != NULL)
+      {
+        ast_t* evaluated_argument = evaluate(argument);
+        ast_replace(&argument, evaluated_argument);
+        argument = ast_sibling(evaluated_argument);
+      }
+
+      // TODO: should probably check here if this is a builtin type
+      ast_t* type = ast_get_base_type(receiver);
+      method_ptr_t builtin_method = lookup_method(type, ast_name(id));
+      if(builtin_method)
+        return builtin_method(evaluated_receiver,
+                              evaluated_positional_args);
+
+      // the method lookup should probabyl be on the evaluated receiver node
+      // this way fields will have been assigned to
+
+      const char* type_name = ast_name(ast_childidx(type, 1));
+      ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
+      ast_t* method_def = ast_get(type_def, ast_name(id), NULL);
+      assert(method_def);
+
       // FIXME: duplicating this each time is going to be expensive ;_;
-      return evaluate_method(ast_dup(def), receiver, positional);
+      return evaluate_method(ast_dup(method_def),
+                             evaluated_receiver,
+                             evaluated_positional_args);
     }
 
     case TK_IF:
@@ -289,8 +347,19 @@ ast_t* evaluate(ast_t* expression) {
       ast_t* condition_evaluated = evaluate(condition);
 
       return ast_id(condition_evaluated) == TK_TRUE ?
-             evaluate(then_branch) :
+             evaluate(then_branch):
              evaluate(else_branch);
+    }
+
+    case TK_ASSIGN:
+    {
+      AST_GET_CHILDREN(expression, right, left);
+
+      const char* name = get_lvalue_name(left);
+      if(name)
+        ast_set_value(left, name, evaluate(right));
+
+      return right;
     }
 
     default:

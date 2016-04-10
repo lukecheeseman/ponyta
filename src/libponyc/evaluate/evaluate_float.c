@@ -14,8 +14,8 @@ typedef double (*binary_float_operation_t)(double, double);
 static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
 {
   assert(ast_id(args) == TK_POSITIONALARGS);
-  ast_t* lhs_arg = evaluate(receiver);
-  ast_t* rhs_arg = evaluate(ast_child(args));
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
 
   if(!is_ast_float(lhs_arg))
   {
@@ -78,7 +78,7 @@ ast_t* evaluate_div_float(ast_t* receiver, ast_t* args)
 ast_t* evaluate_neg_float(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* result = ast_dup(evaluate(receiver));
+  ast_t* result = ast_dup(receiver);
 
   ast_set_float(result, -ast_float(result));
 

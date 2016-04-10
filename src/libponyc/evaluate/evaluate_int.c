@@ -1,6 +1,7 @@
 #include "../ast/astbuild.h"
 #include "../evaluate/evaluate_int.h"
 #include "../expr/literal.h"
+#include "../type/assemble.h"
 #include "../type/subtype.h"
 #include <assert.h>
 
@@ -12,7 +13,7 @@ static bool is_ast_integer(ast_t* ast)
 ast_t* evaluate_create_int(ast_t* receiver, ast_t* args)
 {
   assert(receiver);
-  return evaluate(ast_child(args));
+  return ast_child(args);
 }
 
 static void lexint_negate(lexint_t* lexint)
@@ -37,8 +38,8 @@ static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
 static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
 {
   assert(ast_id(args) == TK_POSITIONALARGS);
-  ast_t* lhs_arg = evaluate(receiver);
-  ast_t* rhs_arg = evaluate(ast_child(args));
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
   if(!lhs_arg || !rhs_arg)
     return false;
 
@@ -166,7 +167,10 @@ ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* result = ast_dup(evaluate(receiver));
+  if(!is_ast_integer(receiver))
+    return NULL;
+
+  ast_t* result = ast_dup(receiver);
 
   lexint_t* result_int = ast_int(result);
 
@@ -188,16 +192,10 @@ static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args, test_equalit
 
   BUILD(result, lhs_arg, NODE(test(lhs, rhs) ? TK_TRUE : TK_FALSE));
 
-  ast_t* new_type_data = ast_get_case(receiver, "Bool", NULL);
-  assert(new_type_data);
+  pass_opt_t opt;
+  ast_t* bool_type = type_builtin(&opt, ast_type(lhs_arg), "Bool");
 
-  // FIXME: probably better to build the type
-  ast_t* new_type = ast_dup(ast_type(lhs_arg));
-  ast_t* id = ast_childidx(new_type, 1);
-  ast_replace(&id, ast_from_string(id,"Bool"));
-  ast_setdata(new_type, new_type_data);
-
-  ast_settype(result, new_type);
+  ast_settype(result, bool_type);
   return result;
 }
 
@@ -335,7 +333,10 @@ ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args)
 ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* result = ast_dup(evaluate(receiver));
+  if(!is_ast_integer(receiver))
+    return NULL;
+
+  ast_t* result = ast_dup(receiver);
 
   lexint_t* result_int = ast_int(result);
 
@@ -375,7 +376,7 @@ ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args)
 
 // casting methods
 static ast_t* cast_to_type(ast_t* receiver, const char* type) {
-  ast_t* result = ast_dup(evaluate(receiver));
+  ast_t* result = ast_dup(receiver);
 
   ast_t* new_type_data = ast_get_case(receiver, type, NULL);
   assert(new_type_data);
@@ -392,7 +393,10 @@ static ast_t* cast_to_type(ast_t* receiver, const char* type) {
 ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
 {
   assert(ast_id(args) == TK_NONE);
-  ast_t* result = ast_dup(evaluate(receiver));
+  if(!is_ast_integer(receiver))
+    return NULL;
+
+  ast_t* result = ast_dup(receiver);
   lexint_t* result_int = ast_int(result);
 
   lexint_t lt;
@@ -516,7 +520,7 @@ ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args)
 static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
 {
   //FIXME
-  ast_t* evaluated = evaluate(receiver);
+  ast_t* evaluated = receiver;
   lexint_t* evaluated_int = ast_int(evaluated);
 
   double result_double;

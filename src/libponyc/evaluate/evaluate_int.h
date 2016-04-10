@@ -1,4 +1,4 @@
-#include "../evaluate/evaluate.h"
+#include "../ast/ast.h"
 
 //TODO: preferably with errorframes
 ast_t* evaluate_create_int(ast_t* receiver, ast_t* args);

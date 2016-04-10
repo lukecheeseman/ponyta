@@ -1,5 +1,6 @@
 #include "evaluate.h"
 #include "../pass/expr.h"
+#include "../pass/pass.h"
 #include "../evaluate/evaluate_bool.h"
 #include "../evaluate/evaluate_float.h"
 #include "../evaluate/evaluate_int.h"
@@ -288,14 +289,14 @@ ast_t* evaluate(ast_t* expression) {
     case TK_CALL:
     {
       AST_GET_CHILDREN(expression, positional, named, function);
-      if(ast_id(named) != TK_NONE)
-        ast_error(expression,
-          "No support for compile time expressions with named arguments");
-
       AST_GET_CHILDREN(function, receiver, id);
-      ast_t* evaluated_receiver = evaluate(receiver);
-      ast_t* evaluated_positional_args = ast_dup(positional);
 
+      // named arguments have already been converted to positional
+      assert(ast_id(named) == TK_NONE);
+
+      ast_t* evaluated_receiver = evaluate(receiver);
+
+      ast_t* evaluated_positional_args = ast_dup(positional);
       ast_t* argument = ast_child(evaluated_positional_args);
       while(argument != NULL)
       {

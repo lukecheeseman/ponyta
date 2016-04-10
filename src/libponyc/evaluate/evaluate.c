@@ -232,8 +232,6 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FALSE:
     case TK_INT:
     case TK_FLOAT:
-    case TK_NEWREF:
-    case TK_FUNREF:
     case TK_TYPEREF:
     case TK_THIS:
       return expression;
@@ -287,27 +285,14 @@ ast_t* evaluate(ast_t* expression) {
       return evaluated;
     }
 
-    case TK_DOT:
-    {
-      ast_t* evaluated = ast_dup(expression);
-      ast_t* evaluated_receiver = evaluate(ast_child(evaluated));
-      ast_t* old_receiver = ast_child(evaluated);
-      ast_replace(&old_receiver, evaluated_receiver);
-      return evaluated;
-    }
-
     case TK_CALL:
     {
-      AST_GET_CHILDREN(expression, positional, namedargs, lhs);
-      if(ast_id(namedargs) != TK_NONE)
+      AST_GET_CHILDREN(expression, positional, named, function);
+      if(ast_id(named) != TK_NONE)
         ast_error(expression,
           "No support for compile time expressions with named arguments");
 
-      ast_t* evaluated = evaluate(lhs);
-      if(!evaluated)
-        return NULL;
-
-      AST_GET_CHILDREN(evaluated, receiver, id);
+      AST_GET_CHILDREN(function, receiver, id);
       ast_t* evaluated_receiver = evaluate(receiver);
       ast_t* evaluated_positional_args = ast_dup(positional);
 
@@ -320,7 +305,7 @@ ast_t* evaluate(ast_t* expression) {
       }
 
       // TODO: should probably check here if this is a builtin type
-      ast_t* type = ast_get_base_type(receiver);
+      ast_t* type = ast_get_base_type(evaluated_receiver);
       method_ptr_t builtin_method = lookup_method(type, ast_name(id));
       if(builtin_method)
         return builtin_method(evaluated_receiver,

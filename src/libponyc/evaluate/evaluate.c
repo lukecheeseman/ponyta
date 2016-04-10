@@ -302,7 +302,7 @@ ast_t* evaluate(ast_t* expression) {
       {
         ast_t* evaluated_argument = evaluate(argument);
         ast_replace(&argument, evaluated_argument);
-        argument = ast_sibling(evaluated_argument);
+        argument = ast_sibling(argument);
       }
 
       // TODO: should probably check here if this is a builtin type

@@ -203,6 +203,14 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
   return r_ast;
 }
 
+static bool compatible_argument(token_id typeparam_id, token_id typearg_id)
+{
+  bool is_value_argument =
+    typearg_id == TK_VALUEFORMALPARAMREF || typearg_id == TK_VALUEFORMALARG;
+  return (typeparam_id == TK_VALUEFORMALPARAM && is_value_argument) ||
+         (typeparam_id == TK_TYPEPARAM && !is_value_argument);
+}
+
 bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
   bool report_errors, pass_opt_t* opt)
 {
@@ -221,6 +229,16 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
         typearg = ast_sibling(typearg);
         continue;
       }
+    }
+
+    token_id typeparam_id = ast_id(typeparam);
+    if(!compatible_argument(typeparam_id, ast_id(typearg)))
+    {
+      bool is_typeparam = typeparam_id == TK_TYPEPARAM;
+      ast_error(orig, "invalid parameterisation");
+      ast_error(typeparam, "expected %s argument", is_typeparam ? "type" : "value");
+      ast_error(typearg, "provided %s argument", is_typeparam ? "value" : "type");
+      return false;
     }
 
     // Reify the constraint.

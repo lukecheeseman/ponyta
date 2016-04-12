@@ -21,6 +21,7 @@ actor Main is TestList
     test(_TestBool)
     test(_TestFunctionCall)
     test(_TestFunctionCallNamedArgs)
+//    test(_TestFunctionCallWithMatch)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -188,6 +189,23 @@ class iso _TestFunctionCall is UnitTest
       h.assert_eq[U32](#fib(8), fib(8))
       h.assert_eq[U32](#fib(20), fib(20))
 
+/*
+class iso _TestFunctionCallWithMatch is UnitTest
+
+  fun name(): String => "VDT/fac"
+
+  fun fac(n: U32): U32 =>
+    match n
+      | 0 => 1
+    else
+      n * fac(n-1)
+    end
+
+   fun apply(h: TestHelper) =>
+      h.assert_eq[U32](#fac(1), fac(1))
+      h.assert_eq[U32](#fac(8), fac(8))
+      h.assert_eq[U32](#fac(20), fac(20))
+*/
 class iso _TestFunctionCallNamedArgs is UnitTest
 
   fun name(): String => "VDT/named"

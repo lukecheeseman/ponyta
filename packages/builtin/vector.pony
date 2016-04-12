@@ -1,30 +1,15 @@
-class Vector[A, _alloc: USize]
-/*
-//FIXME: going to remove many many methods here
-// won't have things like delete
-// going to be more functional
+class Vector[A, size: USize]
   var _ptr: Pointer[A]
-  var _size: USize
-
-  new create() =>
-    """
-    Create a vector with zero elements, but space for len elements.
-    """
-    _ptr = Pointer[A]._alloc(_alloc)
-    _size = 0
 
   new init(from: Seq[A^]) ? =>
     """
     Create a vector of len elements, all initialised to the given value.
     """
-//FIXME: won't require the allcoate with emebded pointer -- will already be allocated
-//FIXME: won't write to _ptr perhaps
-    _ptr = Pointer[A]._alloc(_alloc)
-    _size = _alloc
+    _ptr = Pointer[A]._alloc(size)
 
     var i: USize = 0
 
-    while i < _alloc do
+    while i < size do
       _ptr._update(i, from(i))
       i = i + 1
     end
@@ -34,8 +19,132 @@ class Vector[A, _alloc: USize]
     Create a vector of len elements, populating them with random memory. This
     is only allowed for a vector of numbers.
     """
+    _ptr = Pointer[A]._alloc(size)
+
+  fun apply(i: USize): this->A ? =>
+    """
+    Get the i-th element, raising an error if the index is out of bounds.
+    """
+    if i < size then
+      _ptr._apply(i)
+    else
+      error
+    end
+
+  fun ref update(i: USize, value: A): A^ ? =>
+    """
+    Change the i-th element, raising an error if the index is out of bounds.
+    """
+    if i < size then
+      _ptr._update(i, consume value)
+    else
+      error
+    end
+
+  fun keys(): VectorKeys[A, size, this->Vector[A, size]]^ =>
+    """
+    Return an iterator over the indices in the vector.
+    """
+    VectorKeys[A, size, this->Vector[A, size]]
+
+  fun values(): VectorValues[A, size, this->Vector[A, size]]^ =>
+    """
+    Return an iterator over the values in the vector.
+    """
+    VectorValues[A, size, this->Vector[A, size]](this)
+
+  fun add[osize: USize](vector: Vector[this->A, osize]):
+        Vector[this->A!, #(size + osize)]^ ? =>
+    let array = Array[this->A]
+    for value in values() do
+      array.push(value)
+    end
+    for value in vector.values() do
+      array.push(value)
+    end
+    Vector[this->A!, #(size + osize)].init(array)
+
+class VectorKeys[A, size: USize, B: Vector[A, size] #read] is Iterator[USize]
+  var _i: USize
+
+  new create() =>
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < size
+
+  fun ref next(): USize =>
+    if _i < size then
+      _i = _i + 1
+    else
+      _i
+    end
+
+class VectorValues[A, size: USize, B: Vector[A, size] #read] is Iterator[B->A]
+  let _vector: B
+  var _i: USize
+
+  new create(vector: B) =>
+    _vector = vector
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < size
+
+  fun ref next(): B->A ? =>
+    _vector(_i = _i + 1)
+
+class VectorPairs[A, size: USize, B: Vector[A, size] #read] is Iterator[(USize, B->A)]
+  let _vector: B
+  var _i: USize
+
+  new create(vector: B) =>
+    _vector = vector
+    _i = 0
+
+  fun has_next(): Bool =>
+    _i < size
+
+  fun ref next(): (USize, B->A) ? =>
+    (_i, _vector(_i = _i + 1))
+
+/*
+
+  fun ref append[m: USize](vector: Vector[A, m]): Vector[A, #(_alloc + m)]^ ? =>
+    """
+    Append the elements from a second vector.
+    A new vector whose size is of the two vectors is returned.
+    """
+    let new_vector = Vector[A, #(_alloc + m)]
+    try
+      var i: USize = 0
+      while i < _size do
+        new_vector.push(apply(i))
+        i = i + 1
+      end
+
+      i = 0
+      while i < vector.size() do
+        new_vector.push(vector(i))
+        i = i + 1
+      end
+    else
+      error
+    end
+    new_vector
+    */
+/*
+//FIXME: going to remove many many methods here
+// won't have things like delete
+// going to be more functional
+
+  new create() =>
+    """
+    Create a vector with zero elements, but space for len elements.
+    """
     _ptr = Pointer[A]._alloc(_alloc)
-    _size = _alloc
+    _size = 0
+
 
   fun size(): USize =>
     """
@@ -49,28 +158,7 @@ class Vector[A, _alloc: USize]
     """
     _alloc
 
-  fun apply(i: USize): this->A ? =>
-    """
-    Get the i-th element, raising an error if the index is out of bounds.
-    """
-    if i < _size then
-      _ptr._apply(i)
-    else
-      error
-    end
 
-  fun ref update(i: USize, value: A): A^ ? =>
-    """
-    Change the i-th element, raising an error if the index is out of bounds.
-    """
-    if (i <= _size) and (_size < _alloc) then
-      if (i == _size) then
-        _size = _size + 1
-      end
-      _ptr._update(i, consume value)
-    else
-      error
-    end
 
   // TODO: discuss whether we need this in a vector as we aren't managing
   // memory resizing
@@ -220,67 +308,4 @@ class Vector[A, _alloc: USize]
     end
     new_vector
 
-  fun keys(): VectorKeys[A, _alloc, this->Vector[A, _alloc]]^ =>
-    """
-    Return an iterator over the indices in the vector.
-    """
-    VectorKeys[A, _alloc, this->Vector[A, _alloc]](this)
-
-  fun values(): VectorValues[A, _alloc, this->Vector[A, _alloc]]^ =>
-    """
-    Return an iterator over the values in the vector.
-    """
-    VectorValues[A, _alloc, this->Vector[A, _alloc]](this)
-
-  fun pairs(): VectorPairs[A, _alloc, this->Vector[A, _alloc]]^ =>
-    """
-    Return an iterator over the (index, value) pairs in the vector.
-    """
-    VectorPairs[A, _alloc, this->Vector[A, _alloc]](this)
-
-class VectorKeys[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[USize]
-  let _vector: B
-  var _i: USize
-
-  new create(vector: B) =>
-    _vector = vector
-    _i = 0
-
-  fun has_next(): Bool =>
-    _i < _vector.size()
-
-  fun ref next(): USize =>
-    if _i < _vector.size() then
-      _i = _i + 1
-    else
-      _i
-    end
-
-class VectorValues[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[B->A]
-  let _vector: B
-  var _i: USize
-
-  new create(vector: B) =>
-    _vector = vector
-    _i = 0
-
-  fun has_next(): Bool =>
-    _i < _vector.size()
-
-  fun ref next(): B->A ? =>
-    _vector(_i = _i + 1)
-
-class VectorPairs[A, _alloc: USize, B: Vector[A, _alloc] #read] is Iterator[(USize, B->A)]
-  let _vector: B
-  var _i: USize
-
-  new create(vector: B) =>
-    _vector = vector
-    _i = 0
-
-  fun has_next(): Bool =>
-    _i < _vector.size()
-
-  fun ref next(): (USize, B->A) ? =>
-    (_i, _vector(_i = _i + 1))
     */

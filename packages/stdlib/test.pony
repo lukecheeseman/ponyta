@@ -71,4 +71,5 @@ actor Main is TestList
     end
 
     strings.Main.make().tests(test)
+    time.Main.make().tests(test)
     value_dependent_types_test.Main.make().tests(test)

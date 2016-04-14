@@ -24,7 +24,7 @@ static bool need_primitive_call(compile_t* c, const char* method)
 
   while((t = reachable_types_next(c->reachable, &i)) != NULL)
   {
-    if(t->underlying != TK_TUPLETYPE)
+    if(t->underlying != TK_PRIMITIVE)
       continue;
 
     reachable_method_name_t* n = reach_method_name(t, method);
@@ -38,13 +38,8 @@ static bool need_primitive_call(compile_t* c, const char* method)
   return false;
 }
 
-static void primitive_call(compile_t* c, const char* method, LLVMValueRef arg)
+static void primitive_call(compile_t* c, const char* method)
 {
-  size_t count = 1;
-
-  if(arg != NULL)
-    count++;
-
   size_t i = HASHMAP_BEGIN;
   reachable_type_t* t;
 
@@ -58,11 +53,7 @@ static void primitive_call(compile_t* c, const char* method, LLVMValueRef arg)
     if(m == NULL)
       continue;
 
-    LLVMValueRef args[2];
-    args[0] = t->instance;
-    args[1] = arg;
-
-    codegen_call(c, m->func, args, count);
+    codegen_call(c, m->func, &t->instance, 1);
   }
 }
 
@@ -127,7 +118,7 @@ static void gen_main(compile_t* c, reachable_type_t* t_main,
   LLVMSetInstructionCallConv(env, c->callconv);
 
   // Run primitive initialisers using the main actor's heap.
-  primitive_call(c, c->str__init, env);
+  primitive_call(c, c->str__init);
 
   // Create a type for the message.
   LLVMTypeRef f_params[4];
@@ -180,7 +171,7 @@ static void gen_main(compile_t* c, reachable_type_t* t_main,
   if(need_primitive_call(c, c->str__final))
   {
     LLVMValueRef final_actor = create_main(c, t_main, ctx);
-    primitive_call(c, c->str__final, NULL);
+    primitive_call(c, c->str__final);
     args[0] = final_actor;
     gencall_runtime(c, "ponyint_destroy", args, 1, "");
   }

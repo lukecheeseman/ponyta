@@ -60,6 +60,10 @@ protected:
   // Check that the given source fails when compiled to the specified pass
   void test_error(const char* src, const char* pass);
 
+  // Check that the given source fails when compiled to the specified pass,
+  // exactly N errors are produced, and the errors match expected text.
+  void test_errors_1(const char* src, const char* pass, const char* err1);
+
   // Check that the 2 given sources compile to give the same AST for the first
   // package
   void test_equiv(const char* actual_src, const char* actual_pass,
@@ -86,6 +90,10 @@ protected:
   // Returns: the AST of the named definition, NULL if not found.
   ast_t* lookup_member(const char* type_name, const char* member_name);
 
+  // Lookup the first instance of the given integer as a number literal in 
+  // the previously loaded package
+  ast_t* numeric_literal(uint64_t num);
+
 private:
   const char* _builtin_src;
   const char* _first_pkg_path;
@@ -100,6 +108,8 @@ private:
   // If there are multiple matches the first found will be returned.
   // Returns: type of specified name, NULL if none found.
   ast_t* type_of_within(ast_t* ast, const char* name);
+
+  ast_t* numeric_literal_within(ast_t* ast, uint64_t num);
 };
 
 

@@ -110,8 +110,6 @@ class iso _TestStringRunes is UnitTest
       h.assert_eq[U32](expect(i), result(i))
     end
 
-    true
-
 
 class iso _TestIntToString is UnitTest
   """

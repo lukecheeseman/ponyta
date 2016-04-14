@@ -328,58 +328,75 @@ TEST_F(VDTTest, ExpressionEqualityOfTypeArgs)
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, DISABLED_ArbitraryValueDependentType)
+TEST_F(VDTTest, ArbitraryValueDependentType)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply(c1: C1[n]) : C1[n] =>\n"
+    "  fun apply[n: U32](c1: C1[n]) : C1[n] =>\n"
     "    c1";
 
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, DISABLED_MatchingValueDependentType)
+TEST_F(VDTTest, MatchingValueDependentType)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "  fun apply[n: U32](c1: C1[n], c2: C1[n]) : C1[n] =>\n"
     "    c1";
 
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, DISABLED_MatchingValueDependentTypeCallSuccess)
+TEST_F(VDTTest, MatchingValueDependentTypeCallSuccess)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "  fun apply[n: U32](c1: C1[n], c2: C1[n]) : C1[n] =>\n"
     "    c1\n"
 
     "class C3\n"
-    "  let C1[n] = C2.create().apply(C1[4], C1[4])";
+    "  fun apply() =>\n"
+    "    C2.apply[4](C1[4], C1[4])";
 
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, DISABLED_MatchingValueDependentTypeCallFailure)
+TEST_F(VDTTest, MatchingValueDependentTypeCallFailure)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply(c1: C1[n], c2: C1[n]) : C1[n] =>\n"
+    "  fun apply[n: U32](c1: C1[n], c2: C1[n]) : C1[n] =>\n"
     "    c1\n"
 
     "class C3\n"
-    "  let C1[n] = C2.create().apply(C1[4], C1[92])";
+    "  fun apply() =>\n"
+    "    C2.apply[4](C1[4], C1[92])";
 
-  TEST_COMPILE(src);
+  TEST_ERROR(src);
+}
+
+TEST_F(VDTTest, BadParamFuctionReturnType)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  fun apply[n: U32]() : C1[4] =>\n"
+    "    C1[n]\n"
+
+    "  fun get() =>\n"
+    "    apply[79]()";
+
+  TEST_ERROR(src);
 }
 
 TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypes)
@@ -388,8 +405,8 @@ TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypes)
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply(c1: C1[n], c2: C1[m]) : C1[n + m] =>\n"
-    "    C1[n + m]";
+    "  fun apply[n: U32, m: U32](c1: C1[n], c2: C1[m]): C1[#(n + m)] =>\n"
+    "    C1[#(n + m)]";
 
   TEST_COMPILE(src);
 }

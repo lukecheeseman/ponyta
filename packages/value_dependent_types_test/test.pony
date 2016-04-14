@@ -212,8 +212,8 @@ class iso _TestFunctionCallNamedArgs is UnitTest
 
   fun foo(x: U32, y: U32, z:U32 = 4): U32 => (x * y) + z
 
-   fun apply(h: TestHelper) =>
-      h.assert_eq[U32](#foo(1, 2, 3), foo(1, 2, 3))
-      h.assert_eq[U32](#foo(1 where y=2, z=3), foo(1 where y=2, z=3))
-      h.assert_eq[U32](#foo(1 where z=2, y=3), foo(1 where z=2, y=3))
-      h.assert_eq[U32](#foo(1 where y=3), foo(1 where y=3))
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#foo(1, 2, 3), foo(1, 2, 3))
+    h.assert_eq[U32](#foo(1 where y=2, z=3), foo(1 where y=2, z=3))
+    h.assert_eq[U32](#foo(1 where z=2, y=3), foo(1 where z=2, y=3))
+    h.assert_eq[U32](#foo(1 where y=3), foo(1 where y=3))

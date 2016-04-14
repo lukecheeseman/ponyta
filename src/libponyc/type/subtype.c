@@ -1330,7 +1330,7 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
 
       // we cannot check equality on valueparamrefs as they have not
       // yet been reified and symbolic equivalence is hard and unecessary
-      if(contains_valueparamref(value))
+      if(contains_valueparamref(value) || contains_valueparamref(super_value))
         return true;
 
       return equal(value, super_value);

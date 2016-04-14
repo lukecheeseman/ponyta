@@ -236,6 +236,7 @@ static const lextoken_t abstract[] =
   { "branch", TK_LITERALBRANCH },
   { "opliteral", TK_OPERATORLITERAL },
 
+  { "valueformalparam", TK_VALUEFORMALPARAM },
   { "typeparams", TK_TYPEPARAMS },
   { "typeparam", TK_TYPEPARAM },
   { "params", TK_PARAMS },

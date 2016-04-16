@@ -1,13 +1,13 @@
-class Vector[A, size: USize]
+class Vector[A, _size: USize]
   // we want to embed this pointer and magically initialise it once
-  let _ptr: Pointer[A] = Pointer[A]._alloc(size)
+  let _ptr: Pointer[A] = Pointer[A]._alloc(_size)
 
   new init(from: Seq[A^]) ? =>
     """
     Create a vector of len elements, all initialised to the given value.
     """
     var i: USize = 0
-    while i < size do
+    while i < _size do
       _ptr._update(i, from(i))
       i = i + 1
     end
@@ -19,11 +19,17 @@ class Vector[A, size: USize]
     """
     true
 
+  fun size(): USize =>
+    """
+    Return the parameterised size, this lets us treat the Vector as a ReadSeq
+    """
+    _size
+
   fun apply(i: USize): this->A ? =>
     """
     Get the i-th element, raising an error if the index is out of bounds.
     """
-    if i < size then
+    if i < _size then
       _ptr._apply(i)
     else
       error
@@ -33,14 +39,14 @@ class Vector[A, size: USize]
     """
     Change the i-th element, raising an error if the index is out of bounds.
     """
-    if i < size then
+    if i < _size then
       _ptr._update(i, consume value)
     else
       error
     end
 
-  fun add[osize: USize](vector: Vector[this->A, osize]):
-        Vector[this->A!, #(size + osize)]^ ? =>
+  fun add[o_size: USize](vector: Vector[this->A, o_size]):
+        Vector[this->A!, #(_size + o_size)]^ ? =>
     """
     Create a new vector with references to the contents of this
     vector and the argument vector.
@@ -52,44 +58,43 @@ class Vector[A, size: USize]
     for value in vector.values() do
       array.push(value)
     end
-    Vector[this->A!, #(size + osize)].init(array)
+    Vector[this->A!, #(_size + o_size)].init(array)
 
-
-  fun keys(): VectorKeys[A, size, this->Vector[A, size]]^ =>
+  fun keys(): VectorKeys[A, _size, this->Vector[A, _size]]^ =>
     """
     Return an iterator over the indices in the vector.
     """
-    VectorKeys[A, size, this->Vector[A, size]]
+    VectorKeys[A, _size, this->Vector[A, _size]]
 
-  fun values(): VectorValues[A, size, this->Vector[A, size]]^ =>
+  fun values(): VectorValues[A, _size, this->Vector[A, _size]]^ =>
     """
     Return an iterator over the values in the vector.
     """
-    VectorValues[A, size, this->Vector[A, size]](this)
+    VectorValues[A, _size, this->Vector[A, _size]](this)
 
-  fun pairs(): VectorPairs[A, size, this->Vector[A, size]]^ =>
+  fun pairs(): VectorPairs[A, _size, this->Vector[A, _size]]^ =>
     """
     Return an iterator over the pairs of indices and values in the vector.
     """
-    VectorPairs[A, size, this->Vector[A, size]](this)
+    VectorPairs[A, _size, this->Vector[A, _size]](this)
 
-class VectorKeys[A, size: USize, B: Vector[A, size] #read] is Iterator[USize]
+class VectorKeys[A, _size: USize, B: Vector[A, _size] #read] is Iterator[USize]
   var _i: USize
 
   new create() =>
     _i = 0
 
   fun has_next(): Bool =>
-    _i < size
+    _i < _size
 
   fun ref next(): USize =>
-    if _i < size then
+    if _i < _size then
       _i = _i + 1
     else
       _i
     end
 
-class VectorValues[A, size: USize, B: Vector[A, size] #read] is Iterator[B->A]
+class VectorValues[A, _size: USize, B: Vector[A, _size] #read] is Iterator[B->A]
   let _vector: B
   var _i: USize
 
@@ -98,12 +103,12 @@ class VectorValues[A, size: USize, B: Vector[A, size] #read] is Iterator[B->A]
     _i = 0
 
   fun has_next(): Bool =>
-    _i < size
+    _i < _size
 
   fun ref next(): B->A ? =>
     _vector(_i = _i + 1)
 
-class VectorPairs[A, size: USize, B: Vector[A, size] #read] is Iterator[(USize, B->A)]
+class VectorPairs[A, _size: USize, B: Vector[A, _size] #read] is Iterator[(USize, B->A)]
   let _vector: B
   var _i: USize
 
@@ -112,7 +117,7 @@ class VectorPairs[A, size: USize, B: Vector[A, size] #read] is Iterator[(USize, 
     _i = 0
 
   fun has_next(): Bool =>
-    _i < size
+    _i < _size
 
   fun ref next(): (USize, B->A) ? =>
     (_i, _vector(_i = _i + 1))

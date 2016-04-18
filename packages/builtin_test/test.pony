@@ -44,7 +44,7 @@ actor Main is TestList
     test(_TestMaybePointer)
     test(_TestValtrace)
     test(_TestCCallback)
-//    test(_TestVector)
+    test(_TestVector)
 
 
 class iso _TestAbs is UnitTest
@@ -859,12 +859,10 @@ class iso _TestCCallback is UnitTest
     let r = @pony_test_callback[I32](cb, addressof cb.apply, I32(3))
     h.assert_eq[I32](6, r)
 
-/*
 class iso _TestVector is UnitTest
   fun name(): String => "builtin/Vector"
 
   fun apply(h: TestHelper) ? =>
-    //let vector1 = Vector[4, String]
     let vector1 = Vector[String, 4].init(["A", "B", "C", "D"])
     h.assert_eq[USize](vector1.size(), 4)
 
@@ -885,7 +883,7 @@ class iso _TestVector is UnitTest
       i = i + 1
     end
 
-    let vector3: Vector[String, 6] = vector1.append[2](vector2)
+    let vector3: Vector[String, 6] = vector1.add[2](vector2)
     h.assert_eq[USize](vector3.size(), 6)
 
     let array3 = ["A", "B", "C", "D", "E", "F"]
@@ -894,4 +892,3 @@ class iso _TestVector is UnitTest
       h.assert_eq[String](vector3(i), array3(i))
       i = i + 1
     end
-    */

@@ -323,11 +323,12 @@ static void vector_apply(compile_t* c, reachable_type_t* t,
   start_function(c, m, t_elem->use_type, params, 2);
 
   LLVMValueRef ptr = LLVMGetParam(m->func, 0);
-  LLVMValueRef index[2];
-  index[0] = LLVMConstInt(c->intptr, 0, false);
-  index[1] = LLVMGetParam(m->func, 1);
+  LLVMValueRef index[3];
+  index[0] = LLVMConstInt(c->i32, 0, false);
+  index[1] = LLVMConstInt(c->i32, 1, false);
+  index[2] = LLVMGetParam(m->func, 1);
 
-  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 2, "");
+  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 3, "");
   LLVMValueRef result = LLVMBuildLoad(c->builder, loc, "");
 
   LLVMBuildRet(c->builder, result);
@@ -347,10 +348,11 @@ static void vector_update(compile_t* c, reachable_type_t* t,
 
   LLVMValueRef ptr = LLVMGetParam(m->func, 0);
   LLVMValueRef index[2];
-  index[0] = LLVMConstInt(c->intptr, 0, false);
-  index[1] = LLVMGetParam(m->func, 1);
+  index[0] = LLVMConstInt(c->i32, 0, false);
+  index[1] = LLVMConstInt(c->i32, 1, false);
+  index[2] = LLVMGetParam(m->func, 1);
 
-  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 2, "");
+  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 3, "");
   LLVMValueRef result = LLVMBuildLoad(c->builder, loc, "");
   LLVMBuildStore(c->builder, LLVMGetParam(m->func, 2), loc);
 

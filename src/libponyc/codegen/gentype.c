@@ -20,9 +20,6 @@ static void make_dispatch(compile_t* c, reachable_type_t* t);
 
 static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
 {
-  if(t->use_type != NULL)
-    return true;
-
   switch(ast_id(t->ast))
   {
     case TK_NOMINAL:
@@ -109,25 +106,6 @@ static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
         else if(name == c->str_Maybe)
         {
           t->use_type = c->void_ptr;
-          return true;
-        }
-        else if(name == c->str_Vector)
-        {
-          // TODO: just playing with this
-          // can we just use an LLVMArray to represent
-          // the contiguous memory
-          ast_t* typeargs = ast_childidx(t->ast, 2);
-          AST_GET_CHILDREN(typeargs, elem_type, size);
-          lexint_t* size_val = ast_int(ast_child(size));
-
-          reachable_type_t* elem_reach_type = reach_type(c->reachable, elem_type);
-          assert(elem_reach_type);
-          if(elem_reach_type->use_type == NULL)
-            make_opaque_struct(c, elem_reach_type);
-
-          t->structure = LLVMArrayType(elem_reach_type->use_type, (unsigned int) size_val->low);
-          t->structure_ptr = LLVMPointerType(t->structure, 0);
-          t->use_type = t->structure_ptr;
           return true;
         }
       }
@@ -301,6 +279,27 @@ static void make_dispatch(compile_t* c, reachable_type_t* t)
   codegen_finishfun(c);
 }
 
+static bool make_vector_struct(compile_t* c, reachable_type_t* t)
+{
+  ast_t* typeargs = ast_childidx(t->ast, 2);
+  AST_GET_CHILDREN(typeargs, elem_type, size);
+  lexint_t* size_val = ast_int(ast_child(size));
+
+
+  size_t buf_size = 2 * sizeof(LLVMTypeRef);
+  LLVMTypeRef* elements = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
+
+  // Create the type descriptor as element 0.
+  elements[0] = LLVMPointerType(t->desc_type, 0);
+
+  reachable_type_t* elem_reach_type = reach_type(c->reachable, elem_type);
+  elements[1] = LLVMArrayType(elem_reach_type->use_type, (unsigned int) size_val->low);
+
+  LLVMStructSetBody(t->structure, elements, 2, false);
+  ponyint_pool_free_size(buf_size, elements);
+  return true;
+}
+
 static bool make_struct(compile_t* c, reachable_type_t* t)
 {
   LLVMTypeRef type;
@@ -336,6 +335,8 @@ static bool make_struct(compile_t* c, reachable_type_t* t)
       break;
 
     case TK_CLASS:
+      if(is_vector(t->ast))
+        return make_vector_struct(c, t);
       extra = 1;
       type = t->structure;
       break;
@@ -627,7 +628,7 @@ bool gentypes(compile_t* c)
 
   while((t = reachable_types_next(c->reachable, &i)) != NULL)
   {
-    if(!is_vector(t->ast) && !make_struct(c, t))
+    if(!make_struct(c, t))
       return false;
 
     make_global_instance(c, t);

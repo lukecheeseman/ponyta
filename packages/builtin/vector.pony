@@ -1,16 +1,26 @@
 class Vector[A, _size: USize]
 
-  new _create() => true
+  new _create() =>
+    """
+    Create a vector of len elements, populating them with random memory.
+    """
+    true
 
   fun _apply(i: USize): this->A =>
+    """
+    Get the i-th element
+    """
     compile_intrinsic
 
   fun ref _update(i: USize, value: A): A^ =>
+    """
+    Change the i-th element
+    """
     compile_intrinsic
 
   new init(from: Seq[A^]) ? =>
     """
-    Create a vector of len elements, all initialised to the given value.
+    Create a vector of len elements, initialised from the given sequence.
     """
     var i: USize = 0
     while i < _size do

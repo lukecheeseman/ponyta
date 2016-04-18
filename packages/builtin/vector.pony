@@ -1,6 +1,12 @@
 class Vector[A, _size: USize]
-  // we want to embed this pointer and magically initialise it once
-  let _ptr: Pointer[A] = Pointer[A]._alloc(_size)
+
+  new _create() => true
+
+  fun _apply(i: USize): this->A =>
+    compile_intrinsic
+
+  fun ref _update(i: USize, value: A): A^ =>
+    compile_intrinsic
 
   new init(from: Seq[A^]) ? =>
     """
@@ -8,7 +14,7 @@ class Vector[A, _size: USize]
     """
     var i: USize = 0
     while i < _size do
-      _ptr._update(i, from(i))
+      _update(i, from(i))
       i = i + 1
     end
 
@@ -30,7 +36,7 @@ class Vector[A, _size: USize]
     Get the i-th element, raising an error if the index is out of bounds.
     """
     if i < _size then
-      _ptr._apply(i)
+      _apply(i)
     else
       error
     end
@@ -40,25 +46,29 @@ class Vector[A, _size: USize]
     Change the i-th element, raising an error if the index is out of bounds.
     """
     if i < _size then
-      _ptr._update(i, consume value)
+      _update(i, consume value)
     else
       error
     end
 
-  fun add[o_size: USize](vector: Vector[this->A, o_size]):
-        Vector[this->A!, #(_size + o_size)]^ ? =>
+  fun add[_size': USize](other: Vector[this->A, _size']):
+        Vector[this->A!, #(_size + _size')]^ =>
     """
     Create a new vector with references to the contents of this
     vector and the argument vector.
     """
-    let array = Array[this->A]
-    for value in values() do
-      array.push(value)
+    let result = Vector[this->A, #(_size + _size')]._create()
+    var i: USize = 0
+    while i < _size do
+      result._update(i, _apply(i))
+      i = i + 1
     end
-    for value in vector.values() do
-      array.push(value)
+    i = 0
+    while i < _size' do
+      result._update(i + _size, other._apply(i))
+      i = i + 1
     end
-    Vector[this->A!, #(_size + o_size)].init(array)
+    result
 
   fun keys(): VectorKeys[A, _size, this->Vector[A, _size]]^ =>
     """

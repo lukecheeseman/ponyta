@@ -384,7 +384,7 @@ TEST_F(VDTTest, MatchingValueDependentTypeCallFailure)
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, BadParamFuctionReturnType)
+TEST_F(VDTTest, DISABLED_BadParamFuctionReturnType)
 {
   const char* src =
     "class C1[n: U32]\n"
@@ -468,7 +468,7 @@ TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, VDTClassInheritsFromInterface)
+TEST_F(VDTTest, DISABLED_VDTClassInheritsFromInterface)
 {
   // this fails as size will be redeclared
   const char* src =

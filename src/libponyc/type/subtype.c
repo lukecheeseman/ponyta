@@ -1407,6 +1407,11 @@ bool is_literal(ast_t* type, const char* name)
   return ast_name(ast_childidx(type, 1)) == stringtab(name);
 }
 
+bool is_vector(ast_t* type)
+{
+  return is_literal(type, "Vector");
+}
+
 bool is_pointer(ast_t* type)
 {
   return is_literal(type, "Pointer");

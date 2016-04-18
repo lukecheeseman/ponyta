@@ -15,6 +15,8 @@ bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errors);
 
 bool is_eqtype(ast_t* a, ast_t* b, errorframe_t* errors);
 
+bool is_vector(ast_t* type);
+
 bool is_pointer(ast_t* type);
 
 bool is_maybe(ast_t* type);

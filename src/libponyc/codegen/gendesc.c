@@ -1,6 +1,7 @@
 #include "gendesc.h"
 #include "genname.h"
 #include "../type/reify.h"
+#include "../type/subtype.h"
 #include "../ast/stringtab.h"
 #include "../../libponyrt/mem/pool.h"
 #include <string.h>

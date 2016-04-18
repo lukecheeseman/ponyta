@@ -15,6 +15,8 @@ void genprim_array_trace(compile_t* c, reachable_type_t* t);
 
 void genprim_platform_methods(compile_t* c, reachable_type_t* t);
 
+void genprim_vector_methods(compile_t* c, reachable_type_t* t);
+
 void genprim_builtins(compile_t* c);
 
 void genprim_reachable_init(compile_t* c, ast_t* program);

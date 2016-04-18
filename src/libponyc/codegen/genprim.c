@@ -312,6 +312,62 @@ void genprim_pointer_methods(compile_t* c, reachable_type_t* t)
   pointer_usize(c, t);
 }
 
+static void vector_apply(compile_t* c, reachable_type_t* t,
+  reachable_type_t* t_elem)
+{
+  FIND_METHOD("_apply");
+
+  LLVMTypeRef params[2];
+  params[0] = t->use_type;
+  params[1] = c->intptr;
+  start_function(c, m, t_elem->use_type, params, 2);
+
+  LLVMValueRef ptr = LLVMGetParam(m->func, 0);
+  LLVMValueRef index[2];
+  index[0] = LLVMConstInt(c->intptr, 0, false);
+  index[1] = LLVMGetParam(m->func, 1);
+
+  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 2, "");
+  LLVMValueRef result = LLVMBuildLoad(c->builder, loc, "");
+
+  LLVMBuildRet(c->builder, result);
+  codegen_finishfun(c);
+}
+
+static void vector_update(compile_t* c, reachable_type_t* t,
+  reachable_type_t* t_elem)
+{
+  FIND_METHOD("_update");
+
+  LLVMTypeRef params[3];
+  params[0] = t->use_type;
+  params[1] = c->intptr;
+  params[2] = t_elem->use_type;
+  start_function(c, m, t_elem->use_type, params, 3);
+
+  LLVMValueRef ptr = LLVMGetParam(m->func, 0);
+  LLVMValueRef index[2];
+  index[0] = LLVMConstInt(c->intptr, 0, false);
+  index[1] = LLVMGetParam(m->func, 1);
+
+  LLVMValueRef loc = LLVMBuildInBoundsGEP(c->builder, ptr, index, 2, "");
+  LLVMValueRef result = LLVMBuildLoad(c->builder, loc, "");
+  LLVMBuildStore(c->builder, LLVMGetParam(m->func, 2), loc);
+
+  LLVMBuildRet(c->builder, result);
+  codegen_finishfun(c);
+}
+
+void genprim_vector_methods(compile_t* c, reachable_type_t* t)
+{
+  ast_t* typeargs = ast_childidx(t->ast, 2);
+  ast_t* typearg = ast_child(typeargs);
+  reachable_type_t* t_elem = reach_type(c->reachable, typearg);
+
+  vector_apply(c, t, t_elem);
+  vector_update(c, t, t_elem);
+}
+
 static void maybe_create(compile_t* c, reachable_type_t* t,
   reachable_type_t* t_elem)
 {

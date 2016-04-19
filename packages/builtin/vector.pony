@@ -18,6 +18,13 @@ class Vector[A, _size: USize]
     """
     compile_intrinsic
 
+  new duplicate(from: A^) =>
+    var i: USize = 0
+    while i < _size do
+      _update(i, from)
+      i = i + 1
+    end
+
   new init(from: Seq[A^]) ? =>
     """
     Create a vector of len elements, initialised from the given sequence.
@@ -25,6 +32,13 @@ class Vector[A, _size: USize]
     var i: USize = 0
     while i < _size do
       _update(i, from(i))
+      i = i + 1
+    end
+
+  new generate(g: {(): A^} val) =>
+    var i: USize = 0
+    while i < _size do
+      _update(i, g())
       i = i + 1
     end
 

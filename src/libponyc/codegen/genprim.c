@@ -370,6 +370,42 @@ void genprim_vector_methods(compile_t* c, reachable_type_t* t)
   vector_update(c, t, t_elem);
 }
 
+void genprim_vector_trace(compile_t* c, reachable_type_t* t)
+{
+  // Get the type argument for the vector This will be used to generate the
+  // per-element trace call.
+  ast_t* typeargs = ast_childidx(t->ast, 2);
+  ast_t* typearg = ast_child(typeargs);
+  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
+
+  codegen_startfun(c, t->trace_fn, NULL, NULL);
+  LLVMSetFunctionCallConv(t->trace_fn, LLVMCCallConv);
+
+  LLVMValueRef arg = LLVMGetParam(t->trace_fn, 1);
+  LLVMValueRef object = LLVMBuildBitCast(c->builder, arg, t->use_type, "vector");
+
+  // Get the index for the array element
+  // 0 looks though the arg pointer
+  // 1 gets the array element
+  // i gets the i-th element of the array
+  LLVMValueRef index[3];
+  index[0] = LLVMConstInt(c->i32, 0, false);
+  index[1] = LLVMConstInt(c->i32, 1, false);
+  lexint_t* size = ast_int(ast_child(num_elems));
+  for(uint64_t i = 0; i < size->low; ++i)
+  {
+    index[2] = LLVMConstInt(c->i32, i, false);
+
+    LLVMValueRef elem_ptr =
+      LLVMBuildInBoundsGEP(c->builder, object, index, 3, "elem");
+    LLVMValueRef elem = LLVMBuildLoad(c->builder, elem_ptr, "");
+    gentrace(c, LLVMGetParam(t->trace_fn, 0), elem, typearg);
+  }
+
+  LLVMBuildRetVoid(c->builder);
+  codegen_finishfun(c);
+}
+
 static void maybe_create(compile_t* c, reachable_type_t* t,
   reachable_type_t* t_elem)
 {

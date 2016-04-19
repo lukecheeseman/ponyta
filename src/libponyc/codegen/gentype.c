@@ -545,10 +545,18 @@ static bool make_trace(compile_t* c, reachable_type_t* t)
     const char* package = ast_name(pkg);
     const char* name = ast_name(id);
 
-    if((package == c->str_builtin) && (name == c->str_Array))
+    if(package == c->str_builtin)
     {
-      genprim_array_trace(c, t);
-      return true;
+      if(name == c->str_Array)
+      {
+        genprim_array_trace(c, t);
+        return true;
+      }
+      else if(name == c->str_Vector)
+      {
+        genprim_vector_trace(c, t);
+        return true;
+      }
     }
   }
 

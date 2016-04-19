@@ -206,6 +206,7 @@ class iso _TestFunctionCallWithMatch is UnitTest
       h.assert_eq[U32](#fac(8), fac(8))
       h.assert_eq[U32](#fac(20), fac(20))
 */
+
 class iso _TestFunctionCallNamedArgs is UnitTest
 
   fun name(): String => "VDT/named"

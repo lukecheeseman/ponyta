@@ -730,12 +730,20 @@ void gentrace_prototype(compile_t* c, reachable_type_t* t)
 
   bool need_trace = false;
 
-  for(uint32_t i = 0; i < t->field_count; i++)
+  if(is_vector(t->ast))
   {
-    if(gentrace_needed(t->fields[i].ast))
+    ast_t* typeargs = ast_childidx(t->ast, 2);
+    need_trace = gentrace_needed(ast_child(typeargs));
+  }
+  else
+  {
+    for(uint32_t i = 0; i < t->field_count; i++)
     {
-      need_trace = true;
-      break;
+      if(gentrace_needed(t->fields[i].ast))
+      {
+        need_trace = true;
+        break;
+      }
     }
   }
 

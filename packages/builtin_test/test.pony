@@ -45,6 +45,7 @@ actor Main is TestList
     test(_TestValtrace)
     test(_TestCCallback)
     test(_TestVector)
+    test(_TestNestedVector)
 
 
 class iso _TestAbs is UnitTest
@@ -891,4 +892,26 @@ class iso _TestVector is UnitTest
     while i < vector3.size() do
       h.assert_eq[String](vector3(i), array3(i))
       i = i + 1
+    end
+
+class NestedVector
+  let vector: Vector[Vector[String, 2], 4]
+
+  new create() ? =>
+    let v1 = Vector[String, 2].init(["A", "B"])
+    let v2 = Vector[String, 2].init(["C", "D"])
+    let v3 = Vector[String, 2].init(["E", "F"])
+    let v4 = Vector[String, 2].init(["G", "H"])
+    vector = Vector[Vector[String, 2], 4].init([v1, v2, v3, v4])
+
+class iso _TestNestedVector is UnitTest
+  fun name(): String => "builtin/NestedVector"
+
+  fun apply(h: TestHelper) ? =>
+    let nv = NestedVector
+    let array: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    for (i, x) in nv.vector.pairs() do
+      for (j, y) in x.pairs() do
+        h.assert_eq[String](array((i * x.size()) + j), y)
+      end
     end

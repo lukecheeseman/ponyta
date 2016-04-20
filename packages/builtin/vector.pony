@@ -1,8 +1,12 @@
 class Vector[A, _size: USize]
+  """
+  Contiguous, fixed sized memory to store elements of type A.
+  """
 
   new _create() =>
     """
-    Create a vector of len elements, populating them with random memory.
+    Create a vector of len elements, populating them with random memory. For
+    internal use only.
     """
     true
 
@@ -18,16 +22,9 @@ class Vector[A, _size: USize]
     """
     compile_intrinsic
 
-  new duplicate(from: A^) =>
-    var i: USize = 0
-    while i < _size do
-      _update(i, from)
-      i = i + 1
-    end
-
   new init(from: Seq[A^]) ? =>
     """
-    Create a vector of len elements, initialised from the given sequence.
+    Create a vector, initialised from the given sequence.
     """
     var i: USize = 0
     while i < _size do
@@ -35,7 +32,20 @@ class Vector[A, _size: USize]
       i = i + 1
     end
 
+  new duplicate(from: A^) =>
+    """
+    Create a vector, initiliased to the given value
+    """
+    var i: USize = 0
+    while i < _size do
+      _update(i, from)
+      i = i + 1
+    end
+
   new generate(g: {(): A^} val) =>
+    """
+    Create a vector initiliased using a generator function
+    """
     var i: USize = 0
     while i < _size do
       _update(i, g())
@@ -75,7 +85,7 @@ class Vector[A, _size: USize]
       error
     end
 
-  fun add[_size': USize](other: Vector[this->A, _size']):
+  fun add[_size': USize](that: Vector[this->A, _size']):
         Vector[this->A!, #(_size + _size')]^ =>
     """
     Create a new vector with references to the contents of this
@@ -89,7 +99,7 @@ class Vector[A, _size: USize]
     end
     i = 0
     while i < _size' do
-      result._update(i + _size, other._apply(i))
+      result._update(i + _size, that._apply(i))
       i = i + 1
     end
     result

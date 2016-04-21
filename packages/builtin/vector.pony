@@ -42,13 +42,13 @@ class Vector[A, _size: USize]
       i = i + 1
     end
 
-  new generate(g: {(): A^} val) =>
+  new generate(g: {ref(USize): A^ ?} ref) ? =>
     """
     Create a vector initiliased using a generator function
     """
     var i: USize = 0
     while i < _size do
-      _update(i, g())
+      _update(i, g(i))
       i = i + 1
     end
 
@@ -58,6 +58,23 @@ class Vector[A, _size: USize]
     is only allowed for a vector of numbers.
     """
     true
+
+  fun copy_to(dst: Vector[this->A!, _size]) =>
+    var i: USize = 0
+    while i < _size do
+      dst._update(i, _apply(i))
+      i = i + 1
+    end
+    //
+    //let me: this->Vector[A, _size] = this
+    //dst.generate(lambda ref(i: USize)(me): A ? => me(i) end)
+
+  fun string(g: {val(box->A!): String} val): String ref^ =>
+    let array = Array[String]
+    for value in values() do
+      array.push(g(value))
+    end
+    String.append("[").append(", ".join(array)).append("]")
 
   fun size(): USize =>
     """

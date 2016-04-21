@@ -46,6 +46,7 @@ actor Main is TestList
     test(_TestCCallback)
     test(_TestVector)
     test(_TestNestedVector)
+    test(_TestVectorTrace)
 
 
 class iso _TestAbs is UnitTest

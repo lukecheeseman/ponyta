@@ -27,7 +27,7 @@ actor _VectorTrace
   be two(h: TestHelper, s1: String, s2: String, s3: String) =>
     @pony_triggergc[None](this)
     try
-      let v = recover Vector[String, 3].init([s1, s2, s3]) end
+      let v = recover Vector[String, 3].init([s1, s2, s3].values()) end
       _VectorTrace.three(h, consume v)
     else
       h.assert_true(false)

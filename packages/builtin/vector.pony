@@ -22,14 +22,14 @@ class Vector[A, _size: USize]
     """
     compile_intrinsic
 
-// TODO: iterator
-  new init(from: Seq[A^]) ? =>
+  new init(from: Iterator[A^]) ? =>
     """
     Create a vector, initialised from the given sequence.
     """
+    //generate(lambda ref(i: USize)(from): A^ ? => from.next() end)
     var i: USize = 0
     while i < _size do
-      _update(i, from(i))
+      _update(i, from.next())
       i = i + 1
     end
 
@@ -78,7 +78,6 @@ class Vector[A, _size: USize]
       dst._update(i, _apply(i))
       i = i + 1
     end
-    //
     //let me: this->Vector[A, _size] = this
     //dst.generate(lambda ref(i: USize)(me): A ? => me(i) end)
 

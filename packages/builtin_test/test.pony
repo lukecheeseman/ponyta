@@ -865,7 +865,7 @@ class iso _TestVector is UnitTest
   fun name(): String => "builtin/Vector"
 
   fun apply(h: TestHelper) ? =>
-    let vector1 = Vector[String, 4].init(["A", "B", "C", "D"])
+    let vector1 = Vector[String, 4].init(["A", "B", "C", "D"].values())
     h.assert_eq[USize](vector1.size(), 4)
 
     let array1 = ["A", "B", "C", "D"]
@@ -875,7 +875,7 @@ class iso _TestVector is UnitTest
       i = i + 1
     end
 
-    let vector2 = Vector[String, 2].init(["E", "F"])
+    let vector2 = Vector[String, 2].init(["E", "F"].values())
     h.assert_eq[USize](vector2.size(), 2)
 
     let array2 = ["E", "F"]
@@ -899,11 +899,11 @@ class NestedVector
   let vector: Vector[Vector[String, 2], 4]
 
   new create() ? =>
-    let v1 = Vector[String, 2].init(["A", "B"])
-    let v2 = Vector[String, 2].init(["C", "D"])
-    let v3 = Vector[String, 2].init(["E", "F"])
-    let v4 = Vector[String, 2].init(["G", "H"])
-    vector = Vector[Vector[String, 2], 4].init([v1, v2, v3, v4])
+    let v1 = Vector[String, 2].init(["A", "B"].values())
+    let v2 = Vector[String, 2].init(["C", "D"].values())
+    let v3 = Vector[String, 2].init(["E", "F"].values())
+    let v4 = Vector[String, 2].init(["G", "H"].values())
+    vector = Vector[Vector[String, 2], 4].init([v1, v2, v3, v4].values())
 
 class iso _TestNestedVector is UnitTest
   fun name(): String => "builtin/NestedVector"

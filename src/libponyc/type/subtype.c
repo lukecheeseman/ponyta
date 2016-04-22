@@ -107,8 +107,6 @@ static bool is_eq_typeargs(ast_t* a, ast_t* b, errorframe_t* errors)
 
   while((a_arg != NULL) && (b_arg != NULL))
   {
-    //TODO: here do we want is_eqexpr(a_arg, b_arg)
-    // for when they are expressions?
     if(!is_eqtype(a_arg, b_arg, errors))
       ret = false;
 

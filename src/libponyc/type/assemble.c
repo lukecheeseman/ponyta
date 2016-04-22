@@ -315,16 +315,6 @@ ast_t* type_for_this(pass_opt_t* opt, ast_t* ast, token_id cap,
 
   return type;
 }
-/* FIXME
-       typearg;
-      if (ast_id(typeparam) == TK_VALUEFORMALPARAM) {
-      // FIXME: this builds the type for when this requires a value
-      // dependent type
-
-        typearg = arg;
-      } else {
-
-*/
 
 ast_t* type_for_fun(ast_t* ast)
 {

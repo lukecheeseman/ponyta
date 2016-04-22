@@ -22,6 +22,7 @@ class Vector[A, _size: USize]
     """
     compile_intrinsic
 
+// TODO: iterator
   new init(from: Seq[A^]) ? =>
     """
     Create a vector, initialised from the given sequence.
@@ -42,13 +43,13 @@ class Vector[A, _size: USize]
       i = i + 1
     end
 
-  new generate(g: {ref(USize): A^ ?} ref) ? =>
+  new generate(f: {ref(USize): A^ ?} ref) ? =>
     """
     Create a vector initiliased using a generator function
     """
     var i: USize = 0
     while i < _size do
-      _update(i, g(i))
+      _update(i, f(i))
       i = i + 1
     end
 
@@ -58,6 +59,18 @@ class Vector[A, _size: USize]
     is only allowed for a vector of numbers.
     """
     true
+
+  fun filter(f: {val(box->A): Bool} val): Array[this->A!] =>
+    let elems = Array[this->A]
+    var i: USize = 0
+    while i < _size do
+      let elem = _apply(i)
+      if f(elem) then
+        elems.push(elem)
+      end
+      i = i + 1
+    end
+    elems
 
   fun copy_to(dst: Vector[this->A!, _size]) =>
     var i: USize = 0
@@ -69,10 +82,10 @@ class Vector[A, _size: USize]
     //let me: this->Vector[A, _size] = this
     //dst.generate(lambda ref(i: USize)(me): A ? => me(i) end)
 
-  fun string(g: {val(box->A!): String} val): String ref^ =>
+  fun string(f: {val(box->A!): String} val): String ref^ =>
     let array = Array[String]
     for value in values() do
-      array.push(g(value))
+      array.push(f(value))
     end
     String.append("[").append(", ".join(array)).append("]")
 

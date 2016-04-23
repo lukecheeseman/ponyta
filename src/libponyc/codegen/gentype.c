@@ -285,7 +285,6 @@ static bool make_vector_struct(compile_t* c, reachable_type_t* t)
   AST_GET_CHILDREN(typeargs, elem_type, size);
   lexint_t* size_val = ast_int(ast_child(size));
 
-
   size_t buf_size = 2 * sizeof(LLVMTypeRef);
   LLVMTypeRef* elements = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
 
@@ -293,6 +292,8 @@ static bool make_vector_struct(compile_t* c, reachable_type_t* t)
   elements[0] = LLVMPointerType(t->desc_type, 0);
 
   reachable_type_t* elem_reach_type = reach_type(c->reachable, elem_type);
+
+  assert(lexint_cmp64(size_val, UINT32_MAX) <= 0);
   elements[1] = LLVMArrayType(elem_reach_type->use_type, (unsigned int) size_val->low);
 
   LLVMStructSetBody(t->structure, elements, 2, false);

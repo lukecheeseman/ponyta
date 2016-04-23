@@ -8,6 +8,46 @@
 #include "string.h"
 #include <assert.h>
 
+bool ast_equal(ast_t* left, ast_t* right)
+{
+  if(left == NULL || right == NULL)
+    return left == NULL && right == NULL;
+
+  if(ast_id(left) != ast_id(right))
+    return false;
+
+  if(ast_id(left) == TK_ID || ast_id(left) == TK_STRING)
+    return ast_name(left) == ast_name(right);
+
+  if(ast_id(left) == TK_INT)
+  {
+    lexint_t *l_value = ast_int(left);
+    lexint_t *r_value = ast_int(right);
+    return !lexint_cmp(l_value, r_value);
+  }
+
+  if(ast_id(left) == TK_FLOAT)
+  {
+    double l_value = ast_float(left);
+    double r_value = ast_float(right);
+    return l_value == r_value;
+  }
+
+  ast_t* l_child = ast_child(left);
+  ast_t* r_child = ast_child(right);
+
+  while(l_child != NULL && r_child != NULL)
+  {
+    if(!ast_equal(l_child, r_child))
+      return false;
+
+    l_child = ast_sibling(l_child);
+    r_child = ast_sibling(r_child);
+  }
+
+  return l_child == NULL && r_child == NULL;
+}
+
 bool contains_valueparamref(ast_t* ast) {
   while(ast != NULL) {
     if(ast_id(ast) == TK_VALUEFORMALPARAMREF || contains_valueparamref(ast_child(ast)))
@@ -26,12 +66,8 @@ bool expr_constant(ast_t** astp) {
   ast_t* expression = ast_child(ast);
   ast_settype(ast, ast_type(expression));
 
-  // FIXME: referencing classes which are defined later than this class
-  // means that referenced class has not had types assigned
-  // as such the following will report a typecheck error
-
-  //if(is_typecheck_error(ast_type(expression)))
-  //  return false;
+  if(is_typecheck_error(ast_type(expression)))
+    return false;
 
   if(contains_valueparamref(expression))
     return true;
@@ -44,36 +80,7 @@ bool expr_constant(ast_t** astp) {
   }
 
   ast_replace(astp, evaluated);
-  // FIXME: things that had a reference to ast may now be broken, check and fix
   return true;
-}
-
-// TODO: lets move these into methods that can just be found
-// from the method lookup table
-bool equal(ast_t* expr_a, ast_t* expr_b) {
-  switch(ast_id(expr_a)) {
-    case TK_INT:
-    {
-      lexint_t *sub_value = ast_int(expr_a);
-      lexint_t *super_value = ast_int(expr_b);
-      return !lexint_cmp(sub_value, super_value);
-    }
-
-    case TK_FLOAT:
-    {
-      double sub_value = ast_float(expr_a);
-      double super_value = ast_float(expr_b);
-      return sub_value == super_value;
-    }
-
-    case TK_TRUE:
-    case TK_FALSE:
-      return ast_id(expr_a) == ast_id(expr_b);
-
-    default:
-      assert(0);
-  }
-  return false;
 }
 
 typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*);

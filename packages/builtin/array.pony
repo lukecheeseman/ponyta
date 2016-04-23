@@ -53,6 +53,20 @@ class Array[A] is Seq[A]
 
     _ptr = ptr
 
+  new generate(f: {ref(USize): A^ ?} ref, len: USize) ? =>
+    """
+    Create an array initiliased using a generator function
+    """
+    _size = len
+    _alloc = len
+    _ptr = Pointer[A]._alloc(len)
+
+    var i: USize = 0
+    while i < len do
+      _ptr._update(i, f(i))
+      i = i + 1
+    end
+
   fun cstring(): Pointer[A] tag =>
     """
     Return the underlying C-style pointer.
@@ -418,6 +432,13 @@ class Array[A] is Seq[A]
       end
     end
     this
+
+  fun string(f: {val(box->A!): String} val): String ref^ =>
+    let array = Array[String]
+    for value in values() do
+      array.push(f(value))
+    end
+    String.append("{").append(", ".join(array)).append("}")
 
   fun keys(): ArrayKeys[A, this->Array[A]]^ =>
     """

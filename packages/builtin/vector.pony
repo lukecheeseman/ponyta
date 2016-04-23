@@ -29,8 +29,7 @@ class Vector[A, _size: USize]
     //generate(lambda ref(i: USize)(from): A^ ? => from.next() end)
     var i: USize = 0
     while i < _size do
-      _update(i, from.next())
-      i = i + 1
+      _update(i = i + 1, from.next())
     end
 
   new duplicate(from: A^) =>
@@ -39,8 +38,7 @@ class Vector[A, _size: USize]
     """
     var i: USize = 0
     while i < _size do
-      _update(i, from)
-      i = i + 1
+      _update(i = i + 1, from)
     end
 
   new generate(f: {ref(USize): A^ ?} ref) ? =>
@@ -49,8 +47,7 @@ class Vector[A, _size: USize]
     """
     var i: USize = 0
     while i < _size do
-      _update(i, f(i))
-      i = i + 1
+      _update(i, f(i = i + 1))
     end
 
   new undefined[B: (A & Real[B] val & Number) = A]() =>
@@ -64,19 +61,17 @@ class Vector[A, _size: USize]
     let elems = Array[this->A]
     var i: USize = 0
     while i < _size do
-      let elem = _apply(i)
+      let elem = _apply(i = i + 1)
       if f(elem) then
         elems.push(elem)
       end
-      i = i + 1
     end
     elems
 
   fun copy_to(dst: Vector[this->A!, _size]) =>
     var i: USize = 0
     while i < _size do
-      dst._update(i, _apply(i))
-      i = i + 1
+      dst._update(i, _apply(i = i + 1))
     end
     //let me: this->Vector[A, _size] = this
     //dst.generate(lambda ref(i: USize)(me): A ? => me(i) end)
@@ -123,13 +118,11 @@ class Vector[A, _size: USize]
     let result = Vector[this->A, #(_size + _size')]._create()
     var i: USize = 0
     while i < _size do
-      result._update(i, _apply(i))
-      i = i + 1
+      result._update(i, _apply(i = i + 1))
     end
     i = 0
     while i < _size' do
-      result._update(i + _size, that._apply(i))
-      i = i + 1
+      result._update(i + _size, that._apply(i = i + 1))
     end
     result
 

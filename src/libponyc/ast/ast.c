@@ -1349,9 +1349,12 @@ static void print_type(printbuf_t* buffer, ast_t* type)
       printbuf(buffer, "<type error>");
       break;
 
-    // FIXME: print the value properly
     case TK_VALUEFORMALARG:
-      printbuf(buffer, ast_get_print(ast_child(type)));
+      printbuf(buffer, ast_print_type(ast_child(type)));
+      break;
+
+    case TK_VALUEFORMALPARAMREF:
+      printbuf(buffer, ast_name(ast_child(type)));
       break;
 
     case TK_NONE:

@@ -1315,25 +1315,20 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errors)
   ast_t* value = ast_child(sub);
   switch(ast_id(super)) {
     case TK_VALUEFORMALARG: {
-      // we hit this case when we are trying to match one instantiated type
-      // against another
-      // TODO: this is where we need some notion of is_eq_expression
       ast_t *super_value = ast_child(super);
       ast_t *super_type = ast_type(super_value);
       ast_t *sub_type = ast_type(value);
 
-      // The type of these should be equal -- we don't have contravariance?
+      // The type of these should be equal so we first check this
       if(!is_eqtype(sub_type, super_type, errors))
         return false;
 
-      // we cannot check equality on valueparamrefs as they have not
-      // yet been reified and symbolic equivalence is hard and unecessary
-      // TODO: we could just test if the value is either a literal or object
       if(!ast_equal(value, super_value))
       {
         ast_error(value, "values may not be the same");
         return false;
       }
+
       return true;
     }
 

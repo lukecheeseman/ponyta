@@ -645,18 +645,38 @@ static ast_result_t syntax_embed(ast_t* ast)
   return AST_OK;
 }
 
+static bool check_is_type(ast_t* type)
+{
+  ast_t* child = ast_child(type);
+
+  while(child != NULL)
+  {
+    if(!check_is_type(child))
+      return false;
+    child = ast_sibling(child);
+  }
+
+  if(ast_id(type) == TK_ID)
+    return check_id_type_param_constraint(type);
+  return true;
+}
 
 static ast_result_t syntax_type_param(ast_t* ast)
 {
+
   AST_GET_CHILDREN(ast, id, constraint, default_arg);
   const char* name = ast_name(id);
   if(is_name_type(name))
     return AST_OK;
 
-  if(ast_id(constraint) == TK_NONE) {
+  if(ast_id(constraint) == TK_NONE)
+  {
     ast_error(ast, "Value parameter requires a constraint");
     return AST_ERROR;
   }
+
+  if(!check_is_type(constraint))
+    return AST_ERROR;
 
   return AST_OK;
 }

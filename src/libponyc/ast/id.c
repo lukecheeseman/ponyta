@@ -123,6 +123,13 @@ bool check_id_type_param(ast_t* id_node)
     START_UPPER);
 }
 
+bool check_id_type_param_constraint(ast_t* id_node)
+{
+  // _?[A-Z][A-Za-z0-9]*
+  return check_id(id_node, "type parameter constraint",
+    START_UPPER | ALLOW_LEADING_UNDERSCORE);
+}
+
 bool check_id_package(ast_t* id_node)
 {
   // [a-z][A-Za-z0-9_]* (and no double or trailing underscores)

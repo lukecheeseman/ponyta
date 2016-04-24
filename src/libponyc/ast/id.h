@@ -14,6 +14,11 @@ bool check_id_type(ast_t* id_node, const char* entity_desc);
 /// If name is illegal an error will be generated.
 bool check_id_type_param(ast_t* id_node);
 
+/// Check that the name in the given ID node is valid for a type parameter
+/// constraint.
+/// If name is illegal an error will be generated.
+bool check_id_type_param_constraint(ast_t* id_node);
+
 /// Check that the name in the given ID node is valid for a package.
 /// If name is illegal an error will be generated.
 bool check_id_package(ast_t* id_node);

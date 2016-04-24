@@ -543,3 +543,11 @@ TEST_F(VDTTest, TestReifiedConstraint)
 
   TEST_COMPILE(src);
 }
+
+TEST_F(VDTTest, TestBadConstraint)
+{
+  const char* src =
+    "class C1[n: U32, m: n]";
+
+  TEST_ERROR(src);
+}

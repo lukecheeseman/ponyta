@@ -1023,6 +1023,20 @@ static void nominal_types(ast_t *ast)
   }
 }
 
+static void set_nominal_types(ast_t *ast)
+{
+  ast_t* child = ast_child(ast);
+
+  while (child != NULL)
+  {
+    set_nominal_types(child);
+    child = ast_sibling(child);
+  }
+
+  if(ast_id(ast) == TK_NOMINAL)
+    nominal_types(ast);
+}
+
 // Setup the type, or lack thereof, for local variable declarations.
 // This is not really anything to do with traits, but must be done before the
 // expr pass (to allow initialisation references to the variable type) but
@@ -1033,8 +1047,7 @@ static void local_types(ast_t* ast)
 
   // need to create the type for type arguments so ensure that
   // they are set here
-  if (ast_id(ast_childidx(ast, 1)) == TK_NOMINAL)
-    nominal_types(ast_childidx(ast, 1));
+  set_nominal_types(ast_childidx(ast, 1));
 
   // Setup type or mark as inferred now to allow calling create on a
   // non-inferred local to initialise itself

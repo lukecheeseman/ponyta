@@ -40,7 +40,7 @@ enum
   AST_ORPHAN = 0x10,
   AST_INHERIT_FLAGS = (AST_FLAG_CAN_ERROR | AST_FLAG_CAN_SEND |
     AST_FLAG_MIGHT_SEND | AST_FLAG_RECURSE_1 | AST_FLAG_RECURSE_2),
-  AST_ALL_FLAGS = 0x7FFFF
+  AST_ALL_FLAGS = 0xFFFFF
 };
 
 
@@ -532,6 +532,16 @@ void ast_resetpass(ast_t* ast)
 
   for(ast_t* p = ast_child(ast); p != NULL; p = ast_sibling(p))
     ast_resetpass(p);
+}
+
+void ast_setreified(ast_t* ast)
+{
+  ast_setflag(ast, AST_FLAG_REIFIED);
+}
+
+bool ast_checkreified(ast_t* ast)
+{
+  return ast_checkflag(ast, AST_FLAG_REIFIED) != 0;
 }
 
 const char* ast_get_print(ast_t* ast)
@@ -1356,6 +1366,53 @@ static void print_type(printbuf_t* buffer, ast_t* type)
     case TK_VALUEFORMALPARAMREF:
       printbuf(buffer, ast_name(ast_child(type)));
       break;
+
+    case TK_CONSTANT:
+    {
+      // TODO: write/find an expression pretty printer
+      // Instead of writing a printer for all expressions
+      // for now we just steal the source code
+      source_t* source = ast_source(type);
+      size_t line = ast_line(type);
+      char buf[1024];
+
+      if((source != NULL) && (line != 0))
+      {
+        size_t tline = 1;
+        size_t tpos = 0;
+
+        while((tline < line) && (tpos < source->len))
+        {
+          if(source->m[tpos] == '\n')
+            tline++;
+
+          tpos++;
+        }
+
+        tpos = tpos + ast_pos(type) - 1;
+        size_t start = tpos;
+
+        size_t br_count = 1;
+        while(br_count != 0 && tpos < source->len)
+        {
+          if(source->m[tpos] == ']')
+            br_count--;
+          if(source->m[tpos] == '[')
+            br_count++;
+          tpos++;
+        }
+        tpos--;
+
+        size_t len = tpos - start;
+
+        if(len >= sizeof(buf))
+          len = sizeof(buf) - 1;
+
+        memcpy(buf, &source->m[start], len);
+        buf[len] = '\0';
+        printbuf(buffer, buf);
+      }
+    }
 
     case TK_NONE:
       break;

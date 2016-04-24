@@ -43,6 +43,7 @@ enum
   AST_FLAG_RECURSE_2    = 0x10000,
   AST_FLAG_DONE_2       = 0x20000,
   AST_FLAG_ERROR_2      = 0x40000,
+  AST_FLAG_REIFIED      = 0x80000,
 };
 
 
@@ -79,6 +80,9 @@ int ast_checkflag(ast_t* ast, uint32_t flag);
 void ast_setflag(ast_t* ast, uint32_t flag);
 void ast_clearflag(ast_t* ast, uint32_t flag);
 void ast_resetpass(ast_t* ast);
+
+void ast_setreified(ast_t* ast);
+bool ast_checkreified(ast_t* ast);
 
 const char* ast_get_print(ast_t* ast);
 const char* ast_name(ast_t* ast);

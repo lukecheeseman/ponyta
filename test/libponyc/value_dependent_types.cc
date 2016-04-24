@@ -316,7 +316,6 @@ TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
   ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t3"), NULL));
 }
 
-// FIXME: These tests currently fail and are therefore disabled
 TEST_F(VDTTest, ExpressionEqualityOfTypeArgs)
 {
   const char* src =
@@ -384,28 +383,28 @@ TEST_F(VDTTest, MatchingValueDependentTypeCallFailure)
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, DISABLED_BadParamFuctionReturnType)
+TEST_F(VDTTest, BadParamFuctionReturnType)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
     "  fun apply[n: U32]() : C1[4] =>\n"
-    "    C1[n]\n"
-
-    "  fun get() =>\n"
-    "    apply[79]()";
+    "    C1[n]";
 
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, DISABLED_ReturnTypeSumOfInputTypes)
+// FIXME: these tests fails as the operations cannot be found due to builtin
+// not being included -- fail in dot_or_tilde, these do not fail when
+// run outside of the testing framework
+TEST_F(VDTTest, DISABLED_ValueTypeSumOfInputTypes)
 {
   const char* src =
     "class C1[n: U32]\n"
 
     "class C2\n"
-    "  fun apply[n: U32, m: U32](c1: C1[n], c2: C1[m]): C1[#(n + m)] =>\n"
+    "  fun apply[n: U32, m: U32]() =>\n"
     "    C1[#(n + m)]";
 
   TEST_COMPILE(src);
@@ -470,10 +469,9 @@ TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
 
 TEST_F(VDTTest, DISABLED_VDTClassInheritsFromInterface)
 {
-  // this fails as size will be redeclared
+  // This fails as size will be redeclared
   const char* src =
     "class Vector[A, size: USize] is Seq[A]";
-   
   TEST_ERROR(src);
 }
 
@@ -509,8 +507,7 @@ TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstantError)
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, DISABLED_IsSubTypeClassWithCompileConstantGenericValueDependentType)
-
+TEST_F(VDTTest, IsSubTypeClassWithCompileConstantGenericValueDependentType)
 {
   const char* src =
     "trait T1[A: (U32 | U64), n: A]\n"
@@ -525,7 +522,16 @@ TEST_F(VDTTest, DISABLED_IsSubTypeClassWithCompileConstantGenericValueDependentT
   ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
 }
 
+TEST_F(VDTTest, ReificationWithReversedOrder)
+{
+  const char* src =
+    "class C1[n: (U32 | U64), m: (U32 | U64)]\n"
 
+    "class C2[n: (U32 | U64), m: (U32 | U64)]\n"
+      "let c: C1[m, n] = C1[m, n]\n";
+
+  TEST_COMPILE(src);
+}
 /*
 
 class C1[A, n: A]

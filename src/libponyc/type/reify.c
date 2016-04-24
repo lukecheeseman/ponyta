@@ -54,7 +54,11 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
   if(strcmp(ast_name(ref_name), ast_name(param_name)))
     return;
 
+  if(ast_checkreified(ast))
+    return;
+
   ast_replace(astp, ast_child(typearg));
+  ast_setreified(*astp);
   ast_settype(*astp, ast_childidx(typeparam, 1));
 }
 

@@ -139,7 +139,6 @@ static method_entry_t method_table[] = {
   { "integer" , "f64"     , &evaluate_f64_int    },
 
   //float operations
-
   { "float"   , "add"     , &evaluate_add_float  },
   { "float"   , "sub"     , &evaluate_sub_float  },
   { "float"   , "mul"     , &evaluate_mul_float  },

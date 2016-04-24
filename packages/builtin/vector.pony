@@ -73,8 +73,7 @@ class Vector[A, _size: USize]
     while i < _size do
       dst._update(i, _apply(i = i + 1))
     end
-    //let me: this->Vector[A, _size] = this
-    //dst.generate(lambda ref(i: USize)(me): A ? => me(i) end)
+    //dst.generate(lambda ref(i: USize)(src=this): A ? => src(i) end)
 
   fun string(f: {val(box->A!): String} val): String ref^ =>
     let array = Array[String]

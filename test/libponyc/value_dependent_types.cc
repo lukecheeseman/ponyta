@@ -528,18 +528,18 @@ TEST_F(VDTTest, ReificationWithReversedOrder)
     "class C1[n: (U32 | U64), m: (U32 | U64)]\n"
 
     "class C2[n: (U32 | U64), m: (U32 | U64)]\n"
-      "let c: C1[m, n] = C1[m, n]\n";
+    "  let c: C1[m, n] = C1[m, n]\n";
 
   TEST_COMPILE(src);
 }
-/*
 
-class C1[A, n: A]
-  fun apply(): A => n
+TEST_F(VDTTest, TestReifiedConstraint)
+{
+  const char* src =
+    "class C1[A, n: A]\n"
 
-actor Main
-  fun bar(c: C1[Bool, true]) => true
+    "class C2\n"
+    "  let c: C1[U32, 2] = C1[U32, 2]";
 
-  new create(env: Env) =>
-    bar(C1[Bool, true])
-*/
+  TEST_COMPILE(src);
+}

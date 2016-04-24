@@ -59,7 +59,13 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
 
   ast_replace(astp, ast_child(typearg));
   ast_setreified(*astp);
-  ast_settype(*astp, ast_childidx(typeparam, 1));
+
+  ast_t* constraint = ast_childidx(typeparam, 1);
+  assert(ast_id(constraint) != TK_TYPEPARAMREF);
+  // Values can be constrained by other type parameters
+  // we want to use the reified version of that parameter
+
+  ast_settype(*astp, constraint);
 }
 
 static void reify_arrow(ast_t** astp)
@@ -192,6 +198,9 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
   // Duplicate the node.
   ast_t* r_ast = ast_dup(ast);
 
+  // We may need to reify some constraints of the typeparameters as well
+  typeparams = ast_dup(typeparams);
+
   // Iterate pairwise through the typeparams and typeargs.
   ast_t* typeparam = ast_child(typeparams);
   ast_t* typearg = ast_child(typeargs);
@@ -199,12 +208,16 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
   while((typeparam != NULL) && (typearg != NULL))
   {
     reify_one(&r_ast, typeparam, typearg);
+    reify_one(&typeparams, typeparam, typearg);
     typeparam = ast_sibling(typeparam);
     typearg = ast_sibling(typearg);
   }
 
   assert(typeparam == NULL);
   assert(typearg == NULL);
+
+  ast_free(typeparams);
+
   return r_ast;
 }
 

@@ -26,6 +26,15 @@ class List[A] is Seq[A]
       push(consume value)
     end
 
+  new generate(f: {ref(USize): A^ ?} ref, len: USize) ? =>
+    """
+    Create a vector initiliased using a generator function
+    """
+    var i: USize = 0
+    while i < len do
+      push(f(i = i + 1))
+    end
+
   fun ref reserve(len: USize): List[A]^ =>
     """
     Do nothing, but be compatible with Seq.

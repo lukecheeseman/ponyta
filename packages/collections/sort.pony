@@ -3,7 +3,7 @@ interface Sortable[A: Comparable[A] #read ]
   fun apply(i: USize): A ?
   fun ref update(i: USize, value: A): A^ ?
 
-primitive Sort[A: Comparable[A] #read]
+class Sort[A: Comparable[A] #read]
   fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
     let tmp = data(i)
     data.update(i, data(j))

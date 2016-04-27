@@ -372,36 +372,63 @@ void genprim_vector_methods(compile_t* c, reachable_type_t* t)
 
 void genprim_vector_trace(compile_t* c, reachable_type_t* t)
 {
-  // Get the type argument for the vector This will be used to generate the
+  // Get the type argument for the array. This will be used to generate the
   // per-element trace call.
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
 
+  // If the elements don't need tracing then we can stop here
+  if(!gentrace_needed(typearg))
+    return;
+
+  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
   codegen_startfun(c, t->trace_fn, NULL, NULL);
   LLVMSetFunctionCallConv(t->trace_fn, LLVMCCallConv);
 
-  LLVMValueRef arg = LLVMGetParam(t->trace_fn, 1);
-  LLVMValueRef object = LLVMBuildBitCast(c->builder, arg, t->use_type, "vector");
+  LLVMValueRef ctx = LLVMGetParam(t->trace_fn, 0);
 
-  // Get the index for the array element
-  // 0 looks though the arg pointer
-  // 1 gets the array element
-  // i gets the i-th element of the array
+  LLVMValueRef arg = LLVMGetParam(t->trace_fn, 1);
+  LLVMValueRef vector = LLVMBuildBitCast(c->builder, arg, t->use_type, "vector");
+
+  LLVMBasicBlockRef entry_block = LLVMGetInsertBlock(c->builder);
+  LLVMBasicBlockRef cond_block = codegen_block(c, "cond");
+  LLVMBasicBlockRef body_block = codegen_block(c, "body");
+  LLVMBasicBlockRef post_block = codegen_block(c, "post");
+
+  // Build the count node.
+  lexint_t* size = ast_int(ast_child(num_elems));
+  assert(lexint_cmp64(size, UINT32_MAX) <= 0);
+  LLVMValueRef count = LLVMConstInt(c->i32, size->low, false);
+  LLVMBuildBr(c->builder, cond_block);
+
+  // While the index is less than the count, trace an element. The initial
+  // index when coming from the entry block is zero.
+  LLVMPositionBuilderAtEnd(c->builder, cond_block);
+  LLVMValueRef phi = LLVMBuildPhi(c->builder, c->intptr, "");
+  LLVMValueRef zero = LLVMConstInt(c->intptr, 0, false);
+  LLVMAddIncoming(phi, &zero, &entry_block, 1);
+  LLVMValueRef test = LLVMBuildICmp(c->builder, LLVMIntULT, phi, count, "");
+  LLVMBuildCondBr(c->builder, test, body_block, post_block);
+
+  // The phi node is the index. Get the element and trace it.
+  // Build a GEP to the element of the vector
+  LLVMPositionBuilderAtEnd(c->builder, body_block);
   LLVMValueRef index[3];
   index[0] = LLVMConstInt(c->i32, 0, false);
   index[1] = LLVMConstInt(c->i32, 1, false);
-  lexint_t* size = ast_int(ast_child(num_elems));
-  for(uint64_t i = 0; i < size->low; ++i)
-  {
-    index[2] = LLVMConstInt(c->i32, i, false);
+  index[2] = phi;
+  LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP(c->builder, vector, index, 3, "elem");
+  LLVMValueRef elem = LLVMBuildLoad(c->builder, elem_ptr, "");
+  gentrace(c, ctx, elem, typearg);
 
-    LLVMValueRef elem_ptr =
-      LLVMBuildInBoundsGEP(c->builder, object, index, 3, "elem");
-    LLVMValueRef elem = LLVMBuildLoad(c->builder, elem_ptr, "");
-    gentrace(c, LLVMGetParam(t->trace_fn, 0), elem, typearg);
-  }
+  // Add one to the phi node and branch back to the cond block.
+  LLVMValueRef one = LLVMConstInt(c->intptr, 1, false);
+  LLVMValueRef inc = LLVMBuildAdd(c->builder, phi, one, "");
+  body_block = LLVMGetInsertBlock(c->builder);
+  LLVMAddIncoming(phi, &inc, &body_block, 1);
+  LLVMBuildBr(c->builder, cond_block);
 
+  LLVMPositionBuilderAtEnd(c->builder, post_block);
   LLVMBuildRetVoid(c->builder);
   codegen_finishfun(c);
 }

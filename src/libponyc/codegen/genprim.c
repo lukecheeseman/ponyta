@@ -375,13 +375,12 @@ void genprim_vector_trace(compile_t* c, reachable_type_t* t)
   // Get the type argument for the array. This will be used to generate the
   // per-element trace call.
   ast_t* typeargs = ast_childidx(t->ast, 2);
-  ast_t* typearg = ast_child(typeargs);
+  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
 
   // If the elements don't need tracing then we can stop here
-  if(!gentrace_needed(typearg))
+  if(!gentrace_needed(elem_type))
     return;
 
-  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
   codegen_startfun(c, t->trace_fn, NULL, NULL);
   LLVMSetFunctionCallConv(t->trace_fn, LLVMCCallConv);
 
@@ -419,7 +418,7 @@ void genprim_vector_trace(compile_t* c, reachable_type_t* t)
   index[2] = phi;
   LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP(c->builder, vector, index, 3, "elem");
   LLVMValueRef elem = LLVMBuildLoad(c->builder, elem_ptr, "");
-  gentrace(c, ctx, elem, typearg);
+  gentrace(c, ctx, elem, elem_type);
 
   // Add one to the phi node and branch back to the cond block.
   LLVMValueRef one = LLVMConstInt(c->intptr, 1, false);

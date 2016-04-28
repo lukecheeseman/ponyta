@@ -251,7 +251,10 @@ typedef enum token_id
   TK_TEST_TRY_NO_CHECK,
   TK_TEST_BORROWED,
   TK_TEST_UPDATEARG,
-  TK_TEST_EXTRA
+  TK_TEST_EXTRA,
+
+  // Token for compile time objects
+  TK_CONSTANT_OBJECT
 } token_id;
 
 

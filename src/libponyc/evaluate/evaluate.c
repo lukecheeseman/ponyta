@@ -190,6 +190,21 @@ static ast_t* ast_get_base_type(ast_t* ast)
   return NULL;
 }
 
+static const char* get_lvalue_name(ast_t* ast)
+{
+  switch(ast_id(ast))
+  {
+    case TK_VAR:
+    case TK_LET:
+      return ast_name(ast_child(ast));
+    default:
+      return NULL;
+
+    case TK_FLETREF:
+      return ast_name(ast_childidx(ast, 1));
+  }
+}
+
 // This is essentially the evaluate TK_FUN case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
@@ -216,32 +231,21 @@ static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
   return evaluate(body);
 }
 
-static const char* get_lvalue_name(ast_t* ast)
-{
-  switch(ast_id(ast))
-  {
-    case TK_VAR:
-    case TK_LET:
-      return ast_name(ast_child(ast));
-    default:
-      return NULL;
-
-    case TK_FLETREF:
-      return ast_name(ast_childidx(ast, 1));
-  }
-}
-
 ast_t* evaluate(ast_t* expression) {
   switch(ast_id(expression)) {
+    // Literal cases where we can return the value
     case TK_NONE:
     case TK_TRUE:
     case TK_FALSE:
     case TK_INT:
     case TK_FLOAT:
+      return expression;
+
     case TK_TYPEREF:
     case TK_THIS:
       return expression;
 
+    // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
     case TK_FVARREF:
       ast_error(expression, "Compile time expression can only use read-only variables");
@@ -251,7 +255,7 @@ ast_t* evaluate(ast_t* expression) {
     case TK_LETREF:
     {
       ast_t *type = ast_type(expression);
-      AST_GET_CHILDREN(type, package, id, typeargs, cap, ephemeral);
+      ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
         ast_error(expression, "Compile time expression can only use read-only variables");
@@ -264,19 +268,19 @@ ast_t* evaluate(ast_t* expression) {
     {
       // this will need to know the object
       ast_t *type = ast_type(expression);
-      AST_GET_CHILDREN(type, package, id, typeargs, cap, ephemeral);
+      ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
         ast_error(expression, "Compile time expression can only use read-only variables");
         return NULL;
       }
 
-      AST_GET_CHILDREN(expression, object, field_id);
+      AST_GET_CHILDREN(expression, object, id);
       ast_t* evaluated_object = evaluate(object);
       if(!evaluated_object)
         return NULL;
 
-      return ast_get_value(evaluated_object, ast_name(field_id));
+      return ast_get_value(evaluated_object, ast_name(id));
     }
 
     case TK_SEQ:
@@ -313,13 +317,12 @@ ast_t* evaluate(ast_t* expression) {
       // TODO: should probably check here if this is a builtin type
       ast_t* type = ast_get_base_type(evaluated_receiver);
       method_ptr_t builtin_method = lookup_method(type, ast_name(id));
-      if(builtin_method)
+      if(builtin_method != NULL)
         return builtin_method(evaluated_receiver,
                               evaluated_positional_args);
 
-      // the method lookup should probabyl be on the evaluated receiver node
+      // FIXME: the method lookup should probably be on the evaluated receiver node
       // this way fields will have been assigned to
-
       const char* type_name = ast_name(ast_childidx(type, 1));
       ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
       ast_t* method_def = ast_get(type_def, ast_name(id), NULL);

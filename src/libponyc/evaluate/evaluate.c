@@ -16,21 +16,20 @@ bool ast_equal(ast_t* left, ast_t* right)
   if(ast_id(left) != ast_id(right))
     return false;
 
-  if(ast_id(left) == TK_ID || ast_id(left) == TK_STRING)
-    return ast_name(left) == ast_name(right);
-
-  if(ast_id(left) == TK_INT)
+  switch(ast_id(left))
   {
-    lexint_t *l_value = ast_int(left);
-    lexint_t *r_value = ast_int(right);
-    return !lexint_cmp(l_value, r_value);
-  }
+    case TK_ID:
+    case TK_STRING:
+      return ast_name(left) == ast_name(right);
 
-  if(ast_id(left) == TK_FLOAT)
-  {
-    double l_value = ast_float(left);
-    double r_value = ast_float(right);
-    return l_value == r_value;
+    case TK_INT:
+      return lexint_cmp(ast_int(left), ast_int(right)) == 0;
+
+    case TK_FLOAT:
+      return ast_float(left) == ast_float(right);
+
+    default:
+      break;
   }
 
   ast_t* l_child = ast_child(left);

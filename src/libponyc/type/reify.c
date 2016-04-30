@@ -267,6 +267,7 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
     if(bind_constraint != r_constraint)
       ast_free_unattached(bind_constraint);
     errorframe_t info = NULL;
+
     if (ast_id(typearg) == TK_VALUEFORMALARG) {
       ast_t* value = ast_child(typearg);
       if(!coerce_literals(&value, r_constraint, opt))
@@ -280,9 +281,12 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
         if(report_errors)
         {
           errorframe_t frame = NULL;
-          ast_error_frame(&frame, orig, "value argument type is outside its constraint");
-          ast_error_frame(&frame, value, "argument type: %s", ast_print_type(ast_type(value)));
-          ast_error_frame(&frame, typeparam, "constraint: %s", ast_print_type(r_constraint));
+          ast_error_frame(&frame, orig,
+            "value argument type is outside its constraint");
+          ast_error_frame(&frame, value,
+            "argument type: %s", ast_print_type(ast_type(value)));
+          ast_error_frame(&frame, typeparam,
+            "constraint: %s", ast_print_type(r_constraint));
           errorframe_append(&frame, &info);
           errorframe_report(&frame);
         }

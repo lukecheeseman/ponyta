@@ -234,10 +234,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
 
-  // we may need a lookup here!!!
-  // lookup
-  // evaluate the function with the evaluated arguments
-
   // lookup the reified defintion of the function
   ast_t* function_def = lookup(opt, receiver, type, ast_name(func_id));
 

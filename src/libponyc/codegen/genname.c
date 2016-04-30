@@ -46,8 +46,8 @@ static const char* element_name(ast_t* type, bool use_cap)
 
     case TK_VALUEFORMALARG:
       return build_name(NULL, "$value", type, NULL, true, false);
-    case TK_TRUE:
 
+    case TK_TRUE:
     case TK_FALSE:
     case TK_STRING:
     case TK_INT:

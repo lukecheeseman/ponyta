@@ -361,7 +361,7 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
       member != NULL;
       field++, member = ast_sibling(member))
   {
-    // All field objects must also me compile time objects.
+    // All field objects must also be compile time objects.
     // When we assign to an embedded field we know we must have
     // constructed it in the constructor so we get the initializer and then
     // construct the field in the construction of the compile time object

@@ -120,7 +120,7 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
 
     // FIXME: failures can occur here
     case TK_CONSTANT:
-      expr_constant(astp);
+      assert(expr_constant(astp));
       break;
 
     default: {}
@@ -268,12 +268,15 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       ast_free_unattached(bind_constraint);
     errorframe_t info = NULL;
     if (ast_id(typearg) == TK_VALUEFORMALARG) {
-      ast_t *value = ast_child(typearg);
-
+      ast_t* value = ast_child(typearg);
       if(!coerce_literals(&value, r_constraint, opt))
         return false;
 
-      if (!is_subtype(ast_type(value), r_constraint, report_errors ? &info : NULL)) {
+      ast_t* value_type = ast_type(value);
+      if(value_type == NULL)
+        return false;
+
+      if (!is_subtype(value_type, r_constraint, report_errors ? &info : NULL)) {
         if(report_errors)
         {
           errorframe_t frame = NULL;

@@ -239,9 +239,9 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
   AST_GET_CHILDREN(method_def, cap, id, typeparams, params, result, error, body);
   assert(ast_id(args) == TK_POSITIONALARGS || ast_id(args) == TK_NONE);
 
+  // map each parameter to its argument value in the symbol table
   ast_t* argument = ast_child(args);
   ast_t* parameter = ast_child(params);
-
   while(argument != NULL)
   {
     const char* param_name = ast_name(ast_child(parameter));
@@ -250,18 +250,23 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
     parameter = ast_sibling(parameter);
   }
 
+  // push the receiver so that we evaluate the body with the correct symbol
+  // table
   ast_t* old_this = this;
   this = receiver;
   ast_t* evaluated = evaluate(body);
   this = old_this;
 
+  // If the method is a constructor then we need to build a compile time object
+  // adding the values of the fields as the children and setting the type
+  // to be the return type of the function body
   if(ast_id(method_def) == TK_NEW)
   {
     ast_t* obj = ast_from(receiver, TK_CONSTANT_OBJECT);
     ast_set_symtab(obj, ast_get_symtab(method_def));
-    // receiver has the reified type
-    // def has correct cap and eph
-    ast_t* type = ast_childidx(method_def, 4);
+
+    // get the return type
+    ast_t* type = ast_childidx(ast_type(function), 3);
     ast_settype(obj, ast_dup(type));
 
     ast_t* class_def = ast_get(receiver, ast_name(ast_childidx(type, 1)), NULL);

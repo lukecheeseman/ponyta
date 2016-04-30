@@ -255,7 +255,7 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
     case TK_IDENTITY:   r = expr_identityof(options, ast); break;
     case TK_DONTCARE:   r = expr_dontcare(ast); break;
 
-    case TK_CONSTANT:   r = expr_constant(astp); break;
+    case TK_CONSTANT:   r = expr_constant(options, astp); break;
 
     case TK_LAMBDA:
       if(!expr_lambda(options, astp))

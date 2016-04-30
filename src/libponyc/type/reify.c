@@ -10,6 +10,9 @@
 #include <assert.h>
 #include <string.h>
 
+//FIXME: remove if possible
+#include "../pass/pass.h"
+
 static void reify_typeparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
 {
   ast_t* ast = *astp;
@@ -119,10 +122,13 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
       reify_arrow(astp);
       break;
 
-    // FIXME: failures can occur here
+    // FIXME: is there anyway we can not do this as part of reification???
     case TK_CONSTANT:
-      assert(expr_constant(astp));
+    {
+      pass_opt_t opt;
+      assert(expr_constant(&opt, astp));
       break;
+    }
 
     default: {}
   }

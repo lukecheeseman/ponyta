@@ -57,7 +57,7 @@ bool contains_valueparamref(ast_t* ast) {
   return false;
 }
 
-bool expr_constant(ast_t** astp) {
+bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   // If we see a compile time expression
   // we first evaluate it then replace this node with the result
   ast_t *ast = *astp;
@@ -72,7 +72,7 @@ bool expr_constant(ast_t** astp) {
   if(contains_valueparamref(expression))
     return true;
 
-  ast_t* evaluated = evaluate(expression);
+  ast_t* evaluated = evaluate(opt, expression);
   if (evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
@@ -224,10 +224,10 @@ static ast_t* this = NULL;
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-static ast_t* evaluate_method(ast_t* function, ast_t* args)
+static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
-  ast_t* evaluated_receiver = evaluate(receiver);
+  ast_t* evaluated_receiver = evaluate(opt, receiver);
 
   ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
@@ -239,8 +239,7 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
   // evaluate the function with the evaluated arguments
 
   // lookup the reified defintion of the function
-  pass_opt_t opt;
-  ast_t* function_def = lookup(&opt, receiver, type, ast_name(func_id));
+  ast_t* function_def = lookup(opt, receiver, type, ast_name(func_id));
 
   // map each parameter to its argument value in the symbol table
   ast_t* params = ast_childidx(function_def, 3);
@@ -261,7 +260,7 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
   // table
   ast_t* old_this = this;
   this = evaluated_receiver;
-  ast_t* evaluated = evaluate(body);
+  ast_t* evaluated = evaluate(opt, body);
   this = old_this;
 
   // If the method is a constructor then we need to build a compile time object
@@ -298,15 +297,13 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
       }
       member = ast_sibling(member);
     }
-
-    // grab the return type from the definition
     return obj;
   }
 
   return evaluated;
 }
 
-ast_t* evaluate(ast_t* expression) {
+ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
   switch(ast_id(expression)) {
     // Literal cases where we can return the value
     case TK_NONE:
@@ -361,7 +358,7 @@ ast_t* evaluate(ast_t* expression) {
       }
 
       AST_GET_CHILDREN(expression, receiver, id);
-      ast_t* evaluated_receiver = evaluate(receiver);
+      ast_t* evaluated_receiver = evaluate(opt, receiver);
       if(evaluated_receiver == NULL)
       {
         ast_error(receiver, "could not evaluate receiver");
@@ -382,7 +379,7 @@ ast_t* evaluate(ast_t* expression) {
       ast_t * evaluated;
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
-        evaluated = evaluate(p);
+        evaluated = evaluate(opt, p);
         if(evaluated == NULL)
         {
           ast_error(p, "could not evaluate compile time expression");
@@ -404,25 +401,25 @@ ast_t* evaluate(ast_t* expression) {
       ast_t* argument = ast_child(positional);
       while(argument != NULL)
       {
-        ast_t* evaluated_argument = evaluate(argument);
+        ast_t* evaluated_argument = evaluate(opt, argument);
         if(evaluated_argument == NULL)
           return NULL;
         ast_append(evaluated_positional_args, evaluated_argument);
         argument = ast_sibling(argument);
       }
 
-      return evaluate_method(function, evaluated_positional_args);
+      return evaluate_method(opt, function, evaluated_positional_args);
     }
 
     case TK_IF:
     case TK_ELSEIF:
     {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
-      ast_t* condition_evaluated = evaluate(condition);
+      ast_t* condition_evaluated = evaluate(opt, condition);
 
       return ast_id(condition_evaluated) == TK_TRUE ?
-             evaluate(then_branch):
-             evaluate(else_branch);
+             evaluate(opt, then_branch):
+             evaluate(opt, else_branch);
     }
 
     case TK_ASSIGN:
@@ -431,7 +428,7 @@ ast_t* evaluate(ast_t* expression) {
 
       const char* name = get_lvalue_name(left);
       if(name != NULL)
-        ast_set_value(left, name, evaluate(right));
+        ast_set_value(left, name, evaluate(opt, right));
 
       return right;
     }

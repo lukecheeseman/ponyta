@@ -4,6 +4,7 @@
 #include "../evaluate/evaluate_bool.h"
 #include "../evaluate/evaluate_float.h"
 #include "../evaluate/evaluate_int.h"
+#include "../type/lookup.h"
 #include "../type/subtype.h"
 #include "string.h"
 #include <assert.h>
@@ -227,15 +228,19 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
   ast_t* evaluated_receiver = evaluate(receiver);
+
   ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
 
-  // lookup the defintion of the function
-  const char* type_name = ast_name(ast_childidx(type, 1));
-  ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
-  ast_t* function_def = ast_dup(ast_get(type_def, ast_name(func_id), NULL));
+  // we may need a lookup here!!!
+  // lookup
+  // evaluate the function with the evaluated arguments
+
+  // lookup the reified defintion of the function
+  pass_opt_t opt;
+  ast_t* function_def = lookup(&opt, receiver, type, ast_name(func_id));
 
   // map each parameter to its argument value in the symbol table
   ast_t* params = ast_childidx(function_def, 3);
@@ -255,7 +260,7 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
   // push the receiver so that we evaluate the body with the correct symbol
   // table
   ast_t* old_this = this;
-  this = receiver;
+  this = evaluated_receiver;
   ast_t* evaluated = evaluate(body);
   this = old_this;
 
@@ -309,6 +314,7 @@ ast_t* evaluate(ast_t* expression) {
     case TK_FALSE:
     case TK_INT:
     case TK_FLOAT:
+    case TK_CONSTANT_OBJECT:
       return expression;
 
     case TK_TYPEREF:
@@ -399,11 +405,12 @@ ast_t* evaluate(ast_t* expression) {
       while(argument != NULL)
       {
         ast_t* evaluated_argument = evaluate(argument);
+        if(evaluated_argument == NULL)
+          return NULL;
         ast_append(evaluated_positional_args, evaluated_argument);
         argument = ast_sibling(argument);
       }
 
-      // evaluate the function with the evaluated arguments
       return evaluate_method(function, evaluated_positional_args);
     }
 

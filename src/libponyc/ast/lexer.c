@@ -280,7 +280,7 @@ static const lextoken_t abstract[] =
 
   { "\\n", TK_NEWLINE },
 
-  { "object", TK_CONSTANT_OBJECT },
+  { "constant_object", TK_CONSTANT_OBJECT },
   {NULL, (token_id)0}
 };
 

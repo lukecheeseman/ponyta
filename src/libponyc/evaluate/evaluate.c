@@ -75,6 +75,7 @@ bool expr_constant(ast_t** astp) {
   if (evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
+    ast_error(expression, "Could not evaluate compile time expression");
     return false;
   }
 
@@ -200,20 +201,19 @@ static const char* get_lvalue_name(ast_t* ast)
     default:
       return NULL;
 
+    case TK_EMBEDREF:
     case TK_FLETREF:
       return ast_name(ast_childidx(ast, 1));
   }
 }
 
+static ast_t* this = NULL;
+
 // This is essentially the evaluate TK_FUN case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-
-// TODO: what happens with field assignments on classes
-// should we dup the whole class ... may be massive
 static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
 {
-  assert(receiver);
   AST_GET_CHILDREN(def, cap, id, typeparams, params, result, error, body);
   assert(ast_id(args) == TK_POSITIONALARGS || ast_id(args) == TK_NONE);
 
@@ -228,7 +228,44 @@ static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
     parameter = ast_sibling(parameter);
   }
 
-  return evaluate(body);
+  ast_t* old_this = this;
+  this = receiver;
+  ast_t* evaluated = evaluate(body);
+  this = old_this;
+
+  if(ast_id(def) == TK_NEW)
+  {
+    ast_t* obj = ast_from(receiver, TK_CONSTANT_OBJECT);
+    ast_set_symtab(obj, ast_get_symtab(def));
+    ast_t* type = ast_childidx(def, 4);
+    ast_settype(obj, ast_dup(type));
+
+    ast_t* def = ast_get(receiver, ast_name(ast_childidx(type, 1)), NULL);
+    ast_t* members = ast_childidx(def, 4);
+    ast_t* member = ast_child(members);
+    while(member != NULL)
+    {
+      switch(ast_id(member))
+      {
+        case TK_FVAR:
+          assert(0);
+        case TK_EMBED:
+        case TK_FLET:
+        {
+          const char* field_name = ast_name(ast_child(member));
+          ast_append(obj, ast_get_value(obj, field_name));
+        }
+        default:
+          break;
+      }
+      member = ast_sibling(member);
+    }
+
+    // grab the return type from the definition
+    return obj;
+  }
+
+  return evaluated;
 }
 
 ast_t* evaluate(ast_t* expression) {
@@ -242,8 +279,16 @@ ast_t* evaluate(ast_t* expression) {
       return expression;
 
     case TK_TYPEREF:
-    case TK_THIS:
       return expression;
+
+    // FIXME: this feels like a bit of a hack
+    // what happens is if we are evaluate an expression
+    // in the body then this will not be set as the receiver
+    // is this in this -- how to avoid?
+    // therefore we will be looking up in the current scope
+    // which can be found from the expression anyway
+    case TK_THIS:
+      return this == NULL ? expression : this;
 
     // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
@@ -264,6 +309,7 @@ ast_t* evaluate(ast_t* expression) {
       return ast_get_value(expression, ast_name(ast_child(expression)));
     }
 
+    case TK_EMBEDREF:
     case TK_FLETREF:
     {
       // this will need to know the object
@@ -275,12 +321,21 @@ ast_t* evaluate(ast_t* expression) {
         return NULL;
       }
 
-      AST_GET_CHILDREN(expression, object, id);
-      ast_t* evaluated_object = evaluate(object);
-      if(!evaluated_object)
+      AST_GET_CHILDREN(expression, receiver, id);
+      ast_t* evaluated_receiver = evaluate(receiver);
+      if(evaluated_receiver == NULL)
+      {
+        ast_error(receiver, "Could not evaluate receiver");
         return NULL;
+      }
 
-      return ast_get_value(evaluated_object, ast_name(id));
+      ast_t* field = ast_get_value(evaluated_receiver, ast_name(id));
+      if(field == NULL)
+      {
+        ast_error(expression, "Could not find field");
+        return NULL;
+      }
+      return field;
     }
 
     case TK_SEQ:
@@ -289,8 +344,11 @@ ast_t* evaluate(ast_t* expression) {
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
         evaluated = evaluate(p);
-        if(!evaluated)
+        if(evaluated == NULL)
+        {
+          ast_error(p, "Could not evaluate compile time expression");
           return NULL;
+        }
       }
       return evaluated;
     }
@@ -305,12 +363,13 @@ ast_t* evaluate(ast_t* expression) {
 
       ast_t* evaluated_receiver = evaluate(receiver);
 
-      ast_t* evaluated_positional_args = ast_dup(positional);
-      ast_t* argument = ast_child(evaluated_positional_args);
+      // build up the evaluated arguments
+      ast_t* evaluated_positional_args = ast_from(positional, ast_id(positional));
+      ast_t* argument = ast_child(positional);
       while(argument != NULL)
       {
         ast_t* evaluated_argument = evaluate(argument);
-        ast_replace(&argument, evaluated_argument);
+        ast_append(evaluated_positional_args, evaluated_argument);
         argument = ast_sibling(argument);
       }
 
@@ -321,8 +380,6 @@ ast_t* evaluate(ast_t* expression) {
         return builtin_method(evaluated_receiver,
                               evaluated_positional_args);
 
-      // FIXME: the method lookup should probably be on the evaluated receiver node
-      // this way fields will have been assigned to
       const char* type_name = ast_name(ast_childidx(type, 1));
       ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
       ast_t* method_def = ast_get(type_def, ast_name(id), NULL);
@@ -350,7 +407,7 @@ ast_t* evaluate(ast_t* expression) {
       AST_GET_CHILDREN(expression, right, left);
 
       const char* name = get_lvalue_name(left);
-      if(name)
+      if(name != NULL)
         ast_set_value(left, name, evaluate(right));
 
       return right;

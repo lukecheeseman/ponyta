@@ -345,3 +345,44 @@ LLVMValueRef gen_string(compile_t* c, ast_t* ast)
 
   return g_inst;
 }
+
+LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
+{
+  ast_t* type = ast_type(ast);
+  AST_GET_CHILDREN(type, package, id);
+  const char* type_name = ast_name(id);
+  reachable_type_t* t = reach_type(c->reachable, type);
+
+  LLVMValueRef args[t->field_count + 1];
+  args[0] = t->desc;
+
+  uint32_t field = 0;
+  for(ast_t* member = ast_child(ast);
+      member != NULL;
+      field++, member = ast_sibling(member))
+  {
+    // All field objects must also me compile time objects.
+    // When we assign to an embedded field we know we must have
+    // constructed it in the constructor so we get the initializer and then
+    // construct the field in the construction of the compile time object
+    // then we remove the old global that we no longer require.
+    if(t->fields[field].embed)
+    {
+      LLVMValueRef constant = gen_expr(c, member);
+      args[field + 1] = LLVMGetInitializer(constant);
+      LLVMDeleteGlobal(constant);
+    }
+    else
+    {
+      args[field + 1] = gen_expr(c, member);
+    }
+  }
+
+  // FIXME: typename will need to change to some reference
+  LLVMValueRef inst = LLVMConstNamedStruct(t->structure, args, t->field_count + 1);
+  LLVMValueRef g_inst = LLVMAddGlobal(c->module, t->structure, type_name);
+  LLVMSetInitializer(g_inst, inst);
+  LLVMSetGlobalConstant(g_inst, true);
+  LLVMSetLinkage(g_inst, LLVMInternalLinkage);
+  return g_inst;
+}

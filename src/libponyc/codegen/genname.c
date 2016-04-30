@@ -46,13 +46,15 @@ static const char* element_name(ast_t* type, bool use_cap)
 
     case TK_VALUEFORMALARG:
       return build_name(NULL, "$value", type, NULL, true, false);
-
-    // TODO: will need to generate unique names for object values
     case TK_TRUE:
+
     case TK_FALSE:
     case TK_STRING:
     case TK_INT:
       return ast_get_print(type);
+
+    case TK_CONSTANT_OBJECT:
+      return element_name(ast_type(type), use_cap);
 
     default: {}
   }

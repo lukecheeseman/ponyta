@@ -403,6 +403,12 @@ symtab_t* ast_get_symtab(ast_t* ast)
   return ast->symtab;
 }
 
+void ast_set_symtab(ast_t* ast, symtab_t* symtab)
+{
+  assert(ast != NULL && symtab != NULL);
+  ast->symtab  = symtab;
+}
+
 ast_t* ast_setid(ast_t* ast, token_id id)
 {
   assert(ast != NULL);

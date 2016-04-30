@@ -54,7 +54,7 @@ static const char* element_name(ast_t* type, bool use_cap)
       return ast_get_print(type);
 
     case TK_CONSTANT_OBJECT:
-      return element_name(ast_type(type), use_cap);
+      return ast_name(ast_child(type));
 
     default: {}
   }

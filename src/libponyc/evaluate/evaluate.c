@@ -1,4 +1,5 @@
 #include "evaluate.h"
+#include "../ast/astbuild.h"
 #include "../pass/expr.h"
 #include "../pass/pass.h"
 #include "../evaluate/evaluate_bool.h"
@@ -8,6 +9,7 @@
 #include "../type/subtype.h"
 #include "string.h"
 #include <assert.h>
+#include <inttypes.h>
 
 bool ast_equal(ast_t* left, ast_t* right)
 {
@@ -219,6 +221,7 @@ static const char* get_lvalue_name(ast_t* ast)
   }
 }
 
+static uint64_t count = 0;
 static ast_t* this = NULL;
 
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
@@ -227,9 +230,9 @@ static ast_t* this = NULL;
 static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
-  ast_t* evaluated_receiver = evaluate(opt, receiver);
 
-  ast_t* type = ast_get_base_type(evaluated_receiver);
+  ast_t* type = ast_get_base_type(receiver);
+  ast_t* evaluated_receiver = evaluate(opt, receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
@@ -264,14 +267,22 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
   // to be the return type of the function body
   if(ast_id(function_def) == TK_NEW)
   {
-    ast_t* obj = ast_from(receiver, TK_CONSTANT_OBJECT);
+    // TODO: we need to create some name or means by which to indicate that
+    // we are refering to the same object
+    const char* type_name = ast_name(ast_childidx(type, 1));
+    char obj_name[strlen(type_name) + 21];
+    sprintf(obj_name, "%s%" PRIu64, type_name, count++);
+
+    BUILD(obj, receiver,
+      NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
     ast_set_symtab(obj, ast_get_symtab(function_def));
 
     // get the return type
-    ast_t* type = ast_childidx(ast_type(function), 3);
-    ast_settype(obj, ast_dup(type));
+    ast_t* ret_type = ast_childidx(ast_type(function), 3);
+    ast_settype(obj, ast_dup(ret_type));
+    ast_t* class_def = ast_get(receiver, ast_name(ast_childidx(ret_type, 1)), NULL);
 
-    ast_t* class_def = ast_get(receiver, ast_name(ast_childidx(type, 1)), NULL);
+    ast_t* obj_members = ast_childidx(obj, 1);
     ast_t* members = ast_childidx(class_def, 4);
     ast_t* member = ast_child(members);
     while(member != NULL)
@@ -286,7 +297,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
         case TK_FLET:
         {
           const char* field_name = ast_name(ast_child(member));
-          ast_append(obj, ast_get_value(obj, field_name));
+          ast_append(obj_members, ast_get_value(obj, field_name));
         }
         default:
           break;

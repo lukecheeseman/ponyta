@@ -75,7 +75,7 @@ bool expr_constant(ast_t** astp) {
   if (evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
-    ast_error(expression, "Could not evaluate compile time expression");
+    ast_error(expression, "could not evaluate compile time expression");
     return false;
   }
 
@@ -220,26 +220,25 @@ static const char* get_lvalue_name(ast_t* ast)
 
 static ast_t* this = NULL;
 
-// This is essentially the evaluate TK_FUN case however, we require
+// This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
 static ast_t* evaluate_method(ast_t* function, ast_t* args)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
-  ast_t* evaluated_receiver = evaluate(ast_child(function));
+  ast_t* evaluated_receiver = evaluate(receiver);
   ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
 
+  // lookup the defintion of the function
   const char* type_name = ast_name(ast_childidx(type, 1));
   ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
-  ast_t* method_def = ast_dup(ast_get(type_def, ast_name(func_id), NULL));
-
-  AST_GET_CHILDREN(method_def, cap, id, typeparams, params, result, error, body);
-  assert(ast_id(args) == TK_POSITIONALARGS || ast_id(args) == TK_NONE);
+  ast_t* function_def = ast_dup(ast_get(type_def, ast_name(func_id), NULL));
 
   // map each parameter to its argument value in the symbol table
+  ast_t* params = ast_childidx(function_def, 3);
   ast_t* argument = ast_child(args);
   ast_t* parameter = ast_child(params);
   while(argument != NULL)
@@ -249,6 +248,9 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
     argument = ast_sibling(argument);
     parameter = ast_sibling(parameter);
   }
+
+  // look up the body of the method so that we can evaluate it
+  ast_t* body = ast_childidx(function_def, 6);
 
   // push the receiver so that we evaluate the body with the correct symbol
   // table
@@ -260,10 +262,10 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
   // If the method is a constructor then we need to build a compile time object
   // adding the values of the fields as the children and setting the type
   // to be the return type of the function body
-  if(ast_id(method_def) == TK_NEW)
+  if(ast_id(function_def) == TK_NEW)
   {
     ast_t* obj = ast_from(receiver, TK_CONSTANT_OBJECT);
-    ast_set_symtab(obj, ast_get_symtab(method_def));
+    ast_set_symtab(obj, ast_get_symtab(function_def));
 
     // get the return type
     ast_t* type = ast_childidx(ast_type(function), 3);
@@ -277,7 +279,8 @@ static ast_t* evaluate_method(ast_t* function, ast_t* args)
       switch(ast_id(member))
       {
         case TK_FVAR:
-          assert(0);
+          ast_error(member, "compile time objects can only have read-only fields");
+          return NULL;
 
         case TK_EMBED:
         case TK_FLET:
@@ -323,7 +326,7 @@ ast_t* evaluate(ast_t* expression) {
     // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
     case TK_FVARREF:
-      ast_error(expression, "Compile time expression can only use read-only variables");
+      ast_error(expression, "compile time expression can only use read-only variables");
       return NULL;
 
     case TK_PARAMREF:
@@ -333,7 +336,7 @@ ast_t* evaluate(ast_t* expression) {
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(expression, "Compile time expression can only use read-only variables");
+        ast_error(expression, "compile time expression can only use read-only variables");
         return NULL;
       }
       return ast_get_value(expression, ast_name(ast_child(expression)));
@@ -347,7 +350,7 @@ ast_t* evaluate(ast_t* expression) {
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(expression, "Compile time expression can only use read-only variables");
+        ast_error(expression, "compile time expression can only use read-only variables");
         return NULL;
       }
 
@@ -355,14 +358,14 @@ ast_t* evaluate(ast_t* expression) {
       ast_t* evaluated_receiver = evaluate(receiver);
       if(evaluated_receiver == NULL)
       {
-        ast_error(receiver, "Could not evaluate receiver");
+        ast_error(receiver, "could not evaluate receiver");
         return NULL;
       }
 
       ast_t* field = ast_get_value(evaluated_receiver, ast_name(id));
       if(field == NULL)
       {
-        ast_error(expression, "Could not find field");
+        ast_error(expression, "could not find field");
         return NULL;
       }
       return field;
@@ -376,7 +379,7 @@ ast_t* evaluate(ast_t* expression) {
         evaluated = evaluate(p);
         if(evaluated == NULL)
         {
-          ast_error(p, "Could not evaluate compile time expression");
+          ast_error(p, "could not evaluate compile time expression");
           return NULL;
         }
       }
@@ -400,6 +403,7 @@ ast_t* evaluate(ast_t* expression) {
         argument = ast_sibling(argument);
       }
 
+      // evaluate the function with the evaluated arguments
       return evaluate_method(function, evaluated_positional_args);
     }
 

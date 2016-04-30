@@ -6,6 +6,7 @@
 #include "../ast/token.h"
 #include "../expr/literal.h"
 #include "../evaluate/evaluate.h"
+#include "../pass/expr.h"
 #include <assert.h>
 #include <string.h>
 
@@ -274,7 +275,7 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
         return false;
 
       ast_t* value_type = ast_type(value);
-      if(value_type == NULL)
+      if(is_typecheck_error(value_type))
         return false;
 
       if (!is_subtype(value_type, r_constraint, report_errors ? &info : NULL)) {

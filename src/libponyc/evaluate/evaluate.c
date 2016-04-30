@@ -79,6 +79,17 @@ bool expr_constant(ast_t** astp) {
     return false;
   }
 
+  ast_t* type = ast_type(evaluated);
+  if(ast_id(type) == TK_NOMINAL)
+  {
+    ast_t* cap = ast_childidx(type, 3);
+    if(ast_id(cap) != TK_VAL)
+    {
+      ast_error(expression, "result of compile time expression must be val");
+      return false;
+    }
+  }
+
   ast_replace(astp, evaluated);
   return true;
 }
@@ -212,9 +223,20 @@ static ast_t* this = NULL;
 // This is essentially the evaluate TK_FUN case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
+static ast_t* evaluate_method(ast_t* function, ast_t* args)
 {
-  AST_GET_CHILDREN(def, cap, id, typeparams, params, result, error, body);
+  AST_GET_CHILDREN(function, receiver, func_id);
+  ast_t* evaluated_receiver = evaluate(ast_child(function));
+  ast_t* type = ast_get_base_type(evaluated_receiver);
+  method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
+  if(builtin_method != NULL)
+    return builtin_method(evaluated_receiver, args);
+
+  const char* type_name = ast_name(ast_childidx(type, 1));
+  ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
+  ast_t* method_def = ast_dup(ast_get(type_def, ast_name(func_id), NULL));
+
+  AST_GET_CHILDREN(method_def, cap, id, typeparams, params, result, error, body);
   assert(ast_id(args) == TK_POSITIONALARGS || ast_id(args) == TK_NONE);
 
   ast_t* argument = ast_child(args);
@@ -233,15 +255,17 @@ static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
   ast_t* evaluated = evaluate(body);
   this = old_this;
 
-  if(ast_id(def) == TK_NEW)
+  if(ast_id(method_def) == TK_NEW)
   {
     ast_t* obj = ast_from(receiver, TK_CONSTANT_OBJECT);
-    ast_set_symtab(obj, ast_get_symtab(def));
-    ast_t* type = ast_childidx(def, 4);
+    ast_set_symtab(obj, ast_get_symtab(method_def));
+    // receiver has the reified type
+    // def has correct cap and eph
+    ast_t* type = ast_childidx(method_def, 4);
     ast_settype(obj, ast_dup(type));
 
-    ast_t* def = ast_get(receiver, ast_name(ast_childidx(type, 1)), NULL);
-    ast_t* members = ast_childidx(def, 4);
+    ast_t* class_def = ast_get(receiver, ast_name(ast_childidx(type, 1)), NULL);
+    ast_t* members = ast_childidx(class_def, 4);
     ast_t* member = ast_child(members);
     while(member != NULL)
     {
@@ -249,6 +273,7 @@ static ast_t* evaluate_method(ast_t* def, ast_t* receiver, ast_t* args)
       {
         case TK_FVAR:
           assert(0);
+
         case TK_EMBED:
         case TK_FLET:
         {
@@ -356,12 +381,9 @@ ast_t* evaluate(ast_t* expression) {
     case TK_CALL:
     {
       AST_GET_CHILDREN(expression, positional, named, function);
-      AST_GET_CHILDREN(function, receiver, id);
 
       // named arguments have already been converted to positional
       assert(ast_id(named) == TK_NONE);
-
-      ast_t* evaluated_receiver = evaluate(receiver);
 
       // build up the evaluated arguments
       ast_t* evaluated_positional_args = ast_from(positional, ast_id(positional));
@@ -373,22 +395,7 @@ ast_t* evaluate(ast_t* expression) {
         argument = ast_sibling(argument);
       }
 
-      // TODO: should probably check here if this is a builtin type
-      ast_t* type = ast_get_base_type(evaluated_receiver);
-      method_ptr_t builtin_method = lookup_method(type, ast_name(id));
-      if(builtin_method != NULL)
-        return builtin_method(evaluated_receiver,
-                              evaluated_positional_args);
-
-      const char* type_name = ast_name(ast_childidx(type, 1));
-      ast_t* type_def = ast_get(evaluated_receiver, type_name, NULL);
-      ast_t* method_def = ast_get(type_def, ast_name(id), NULL);
-      assert(method_def);
-
-      // FIXME: duplicating this each time is going to be expensive ;_;
-      return evaluate_method(ast_dup(method_def),
-                             evaluated_receiver,
-                             evaluated_positional_args);
+      return evaluate_method(function, evaluated_positional_args);
     }
 
     case TK_IF:

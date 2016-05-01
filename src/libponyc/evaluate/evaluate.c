@@ -236,6 +236,9 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
   // first evaluate the receiver and then check whether the method
   // is builtin
   ast_t* evaluated_receiver = evaluate(opt, receiver);
+  if(evaluated_receiver == NULL)
+    return NULL;
+
   ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
   //TODO: we need a nicer way of knowing which methods we can and cannot
@@ -267,6 +270,12 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
   this = evaluated_receiver;
   ast_t* evaluated = evaluate(opt, body);
   this = old_this;
+
+  if(evaluated == NULL)
+  {
+    ast_error(function, "function is not a compile time expression");
+    return NULL;
+  }
 
   // If the method is a constructor then we need to build a compile time object
   // adding the values of the fields as the children and setting the type

@@ -40,7 +40,7 @@ enum
   AST_ORPHAN = 0x10,
   AST_INHERIT_FLAGS = (AST_FLAG_CAN_ERROR | AST_FLAG_CAN_SEND |
     AST_FLAG_MIGHT_SEND | AST_FLAG_RECURSE_1 | AST_FLAG_RECURSE_2),
-  AST_ALL_FLAGS = 0xFFFFF
+  AST_ALL_FLAGS = 0x1FFFFF
 };
 
 
@@ -548,6 +548,16 @@ void ast_setreified(ast_t* ast)
 bool ast_checkreified(ast_t* ast)
 {
   return ast_checkflag(ast, AST_FLAG_REIFIED) != 0;
+}
+
+void ast_setconstant(ast_t* ast)
+{
+  ast_setflag(ast, AST_FLAG_CONSTANT);
+}
+
+bool ast_checkconstant(ast_t* ast)
+{
+  return ast_checkflag(ast, AST_FLAG_CONSTANT) != 0;
 }
 
 const char* ast_get_print(ast_t* ast)

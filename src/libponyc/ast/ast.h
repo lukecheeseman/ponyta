@@ -44,6 +44,7 @@ enum
   AST_FLAG_DONE_2       = 0x20000,
   AST_FLAG_ERROR_2      = 0x40000,
   AST_FLAG_REIFIED      = 0x80000,
+  AST_FLAG_CONSTANT     = 0x100000,
 };
 
 
@@ -84,6 +85,9 @@ void ast_resetpass(ast_t* ast);
 
 void ast_setreified(ast_t* ast);
 bool ast_checkreified(ast_t* ast);
+
+void ast_setconstant(ast_t* ast);
+bool ast_checkconstant(ast_t* ast);
 
 const char* ast_get_print(ast_t* ast);
 const char* ast_name(ast_t* ast);

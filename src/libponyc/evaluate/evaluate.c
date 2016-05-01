@@ -81,6 +81,7 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
     ast_error(expression, "could not evaluate compile time expression");
     return false;
   }
+  ast_setconstant(evaluated);
 
   ast_t* type = ast_type(evaluated);
   if(ast_id(type) == TK_NOMINAL)
@@ -221,6 +222,7 @@ static const char* get_lvalue_name(ast_t* ast)
   }
 }
 
+// FIXME: a per type object count would be nicer
 static uint64_t count = 0;
 static ast_t* this = NULL;
 
@@ -270,8 +272,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
     // TODO: we need to create some name or means by which to indicate that
     // we are refering to the same object
     const char* type_name = ast_name(ast_childidx(type, 1));
-    char obj_name[strlen(type_name) + 21];
-    sprintf(obj_name, "%s%" PRIu64, type_name, count++);
+    char obj_name[strlen(type_name) + 11 + 21];
+    sprintf(obj_name, "%s_$instance_%" PRIu64, type_name, count++);
 
     BUILD(obj, receiver,
       NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
@@ -349,7 +351,14 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
         ast_error(expression, "compile time expression can only use read-only variables");
         return NULL;
       }
-      return ast_get_value(expression, ast_name(ast_child(expression)));
+
+      ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
+      if(value == NULL)
+      {
+        ast_error(expression, "variable is not a compile time expression");
+        return false;
+      }
+      return value;
     }
 
     case TK_EMBEDREF:

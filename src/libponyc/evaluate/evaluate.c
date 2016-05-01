@@ -233,9 +233,13 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
 
-  ast_t* type = ast_get_base_type(receiver);
+  // first evaluate the receiver and then check whether the method
+  // is builtin
   ast_t* evaluated_receiver = evaluate(opt, receiver);
+  ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
+  //TODO: we need a nicer way of knowing which methods we can and cannot
+  // do here.
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
 
@@ -282,8 +286,10 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
     // get the return type
     ast_t* ret_type = ast_childidx(ast_type(function), 3);
     ast_settype(obj, ast_dup(ret_type));
-    ast_t* class_def = ast_get(receiver, ast_name(ast_childidx(ret_type, 1)), NULL);
 
+    // find the class definition and add the members of the object as child
+    // nodes
+    ast_t* class_def = ast_get(receiver, type_name, NULL);
     ast_t* obj_members = ast_childidx(obj, 1);
     ast_t* members = ast_childidx(class_def, 4);
     ast_t* member = ast_child(members);

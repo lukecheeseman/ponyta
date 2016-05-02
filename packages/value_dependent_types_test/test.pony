@@ -21,6 +21,9 @@ actor Main is TestList
     test(_TestBool)
     test(_TestFunctionCall)
     test(_TestFunctionCallNamedArgs)
+    test(_TestCompileTimeObjectField)
+    test(_TestCompileTimeDependentObject)
+    test(_TestCompileTimeObjectEmbeddedField)
 //    test(_TestFunctionCallWithMatch)
 
 class C1[n: U32]
@@ -153,7 +156,7 @@ class iso _TestIntegerToIntegerTypeCast is UnitTest
 class iso _TestBool is UnitTest
 
   fun name(): String => "VDT/Bool"
-  
+
   fun bool_or[b1: Bool, b2: Bool](): Bool =>
     #(b1 or b2)
 
@@ -218,3 +221,48 @@ class iso _TestFunctionCallNamedArgs is UnitTest
     h.assert_eq[U32](#foo(1 where y=2, z=3), foo(1 where y=2, z=3))
     h.assert_eq[U32](#foo(1 where z=2, y=3), foo(1 where z=2, y=3))
     h.assert_eq[U32](#foo(1 where y=3), foo(1 where y=3))
+
+class C2
+  let x: U32
+
+  new val create(x': U32) => x = x'
+
+class C3[c: C2 val]
+  new val create() => true
+  fun apply(): C2 val => c
+
+class C4
+  embed c: C2 val
+
+  new val create(x: U32) => c = C2(x)
+
+class iso _TestCompileTimeObjectField is UnitTest
+
+  fun name(): String => "VDT/CompileTimeObjectField"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#(C2(48).x), C2(48).x)
+    h.assert_eq[U32](#(C2(48)).x, C2(48).x)
+
+class iso _TestCompileTimeDependentObject is UnitTest
+
+  fun name(): String => "VDT/CompileTimeDependentObject"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#(C3[#C2(48)]().x), 48)
+    let c = #C3[#C2(471)]
+    let x = c().x
+    h.assert_eq[U32](x, 471)
+
+class iso _TestCompileTimeObjectEmbeddedField is UnitTest
+
+  fun name(): String => "VDT/CompileTimeObjectiEmbeddedField"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#(C4(12).c.x), 12)
+    let c1 = #(C4(982))
+    h.assert_eq[U32](c1.c.x, 982)
+    let c2 = #(C4(78).c)
+    h.assert_eq[U32](c2.x, 78)
+    let x = #(C4(2123).c.x)
+    h.assert_eq[U32](x, 2123)

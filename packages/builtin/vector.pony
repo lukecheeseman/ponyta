@@ -68,10 +68,10 @@ class Vector[A, _size: USize]
     end
     elems
 
-  fun copy_to(dst: Vector[this->A!, _size]) =>
+  fun copy_to(dst: Seq[this->A!]) ? =>
     var i: USize = 0
     while i < _size do
-      dst._update(i, _apply(i = i + 1))
+      dst.update(i, _apply(i = i + 1))
     end
     //dst.generate(lambda ref(i: USize)(src=this): A ? => src(i) end)
 

@@ -22,6 +22,7 @@ actor Main is TestList
     test(_TestFunctionCall)
     test(_TestFunctionCallNamedArgs)
     test(_TestCompileTimeObjectField)
+    test(_TestCompileTimeObjectMethod)
     test(_TestCompileTimeDependentObject)
     test(_TestCompileTimeObjectEmbeddedField)
 //    test(_TestFunctionCallWithMatch)
@@ -227,6 +228,8 @@ class C2
 
   new val create(x': U32) => x = x'
 
+  fun apply(): U32 => x + x + x
+
 class C3[c: C2 val]
   new val create() => true
   fun apply(): C2 val => c
@@ -243,6 +246,14 @@ class iso _TestCompileTimeObjectField is UnitTest
   fun apply(h: TestHelper) =>
     h.assert_eq[U32](#(C2(48).x), C2(48).x)
     h.assert_eq[U32](#(C2(48)).x, C2(48).x)
+
+class iso _TestCompileTimeObjectMethod is UnitTest
+
+  fun name(): String => "VDT/CompileTimeObjectMethod"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](#(C2(48)()), C2(48)())
+    h.assert_eq[U32](#(C2(48))(), C2(48)())
 
 class iso _TestCompileTimeDependentObject is UnitTest
 

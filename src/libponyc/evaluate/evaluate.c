@@ -324,7 +324,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   // push the receiver and evaluate the body
   ast_t* evaluated = evaluate(opt, body, evaluated_receiver);
-
   if(evaluated == NULL)
   {
     ast_error(function, "function is not a compile time expression");
@@ -381,7 +380,19 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   return evaluated;
 }
 
+static const uint64_t MAX_DEPTH = 512;
+static uint64_t depth = 0;
+
 ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
+  depth++;
+  if(depth >= MAX_DEPTH)
+  {
+    ast_error(expression,
+      "compile-time expression evaluation depth exceeds maximum of %" PRIu64,
+       MAX_DEPTH);
+    return NULL;
+  }
+  ast_t* ret = NULL;
   switch(ast_id(expression)) {
     // Literal cases where we can return the value
     case TK_NONE:
@@ -390,16 +401,19 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
     case TK_INT:
     case TK_FLOAT:
     case TK_CONSTANT_OBJECT:
-      return expression;
+      ret = expression;
+      break;
 
     case TK_FUNREF:
     case TK_TYPEREF:
-      return expression;
+      ret = expression;
+      break;
 
     // If we're evaluating a method on an object then we have a this node
     // representing the object. Otherwise we just return the current this node.
     case TK_THIS:
-      return this == NULL ? expression : this;
+      ret = this == NULL ? expression : this;
+      break;
 
     // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
@@ -422,9 +436,10 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       if(value == NULL)
       {
         ast_error(expression, "variable is not a compile time expression");
-        return false;
+        return NULL;
       }
-      return value;
+      ret = value;
+      break;
     }
 
     case TK_EMBEDREF:
@@ -453,7 +468,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
         ast_error(expression, "could not find field");
         return NULL;
       }
-      return field;
+      ret = field;
+      return ret;
     }
 
     case TK_SEQ:
@@ -468,7 +484,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
           return NULL;
         }
       }
-      return evaluated;
+      ret = evaluated;
+      break;
     }
 
     case TK_CALL:
@@ -490,7 +507,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
         argument = ast_sibling(argument);
       }
 
-      return evaluate_method(opt, function, evaluated_positional_args, this);
+      ret = evaluate_method(opt, function, evaluated_positional_args, this);
+      break;
     }
 
     case TK_IF:
@@ -499,9 +517,10 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
       ast_t* condition_evaluated = evaluate(opt, condition, this);
 
-      return ast_id(condition_evaluated) == TK_TRUE ?
-             evaluate(opt, then_branch, this):
-             evaluate(opt, else_branch, this);
+      ret = ast_id(condition_evaluated) == TK_TRUE ?
+            evaluate(opt, then_branch, this):
+            evaluate(opt, else_branch, this);
+      break;
     }
 
     case TK_ASSIGN:
@@ -511,8 +530,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       const char* name = get_lvalue_name(left);
       assert(name != NULL);
       ast_set_value(left, name, evaluate(opt, right, this));
-
-      return right;
+      ret = right;
+      break;
     }
 
     default:
@@ -520,5 +539,6 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       ast_error(expression, "Cannot evaluate compile time expression");
       return NULL;
   }
-  return NULL;
+  depth--;
+  return ret;
 }

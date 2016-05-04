@@ -380,16 +380,15 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   return evaluated;
 }
 
-static const uint64_t MAX_DEPTH = 512;
-static uint64_t depth = 0;
+static int depth = 0;
 
 ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
   depth++;
-  if(depth >= MAX_DEPTH)
+  if(depth >= opt->evaluation_depth)
   {
     ast_error(expression,
-      "compile-time expression evaluation depth exceeds maximum of %" PRIu64,
-       MAX_DEPTH);
+      "compile-time expression evaluation depth exceeds maximum of %d",
+       opt->evaluation_depth);
     return NULL;
   }
   ast_t* ret = NULL;

@@ -88,6 +88,7 @@ void pass_opt_init(pass_opt_t* options)
   memset(options, 0, sizeof(pass_opt_t));
   options->limit = PASS_ALL;
   options->verbosity = VERBOSITY_INFO;
+  options->evaluation_depth = 512;
   frame_push(&options->check, NULL);
 }
 

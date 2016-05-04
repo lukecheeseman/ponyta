@@ -200,6 +200,8 @@ typedef struct pass_opt_t
   char* features;
 
   typecheck_t check;
+
+  int evaluation_depth;
 } pass_opt_t;
 
 /** Limit processing to the specified pass. All passes up to and including the

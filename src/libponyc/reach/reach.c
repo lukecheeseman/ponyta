@@ -722,6 +722,7 @@ static void reachable_expr(reachable_method_stack_t** s, reachable_types_t* r,
 
     case TK_CONSTANT_OBJECT:
       add_type(s, r, next_type_id, ast_type(ast));
+      break;
 
     default: {}
   }

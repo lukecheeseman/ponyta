@@ -7,6 +7,7 @@
 #include "../evaluate/evaluate_int.h"
 #include "../type/lookup.h"
 #include "../type/subtype.h"
+#include "../type/reify.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -238,6 +239,13 @@ static uint64_t count = 0;
 static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* this)
 {
+  ast_t* typeargs = NULL;
+  if(ast_id(ast_childidx(function, 1)) == TK_TYPEARGS)
+  {
+    typeargs = ast_childidx(function, 1);
+    function = ast_child(function);
+  }
+
   AST_GET_CHILDREN(function, receiver, func_id);
   ast_t* evaluated_receiver = evaluate(opt, receiver, this);
   if(evaluated_receiver == NULL)
@@ -286,12 +294,21 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   }
 
   // lookup the reified defintion of the function
-  ast_t* function_def = lookup(opt, receiver, type, ast_name(func_id));
-  if(function_def == NULL)
+  ast_t* fun = lookup(opt, receiver, type, ast_name(func_id));
+  if(fun == NULL)
     return NULL;
 
+  if(typeargs != NULL)
+  {
+    ast_t* typeparams = ast_childidx(fun, 2);
+    ast_t* r_fun = reify(fun, typeparams, typeargs);
+    ast_free_unattached(fun);
+    fun = r_fun;
+    assert(fun != NULL);
+  }
+
   // map each parameter to its argument value in the symbol table
-  ast_t* params = ast_childidx(function_def, 3);
+  ast_t* params = ast_childidx(fun, 3);
   ast_t* argument = ast_child(args);
   ast_t* parameter = ast_child(params);
   while(argument != NULL)
@@ -303,7 +320,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   }
 
   // look up the body of the method so that we can evaluate it
-  ast_t* body = ast_childidx(function_def, 6);
+  ast_t* body = ast_childidx(fun, 6);
 
   // push the receiver and evaluate the body
   ast_t* evaluated = evaluate(opt, body, evaluated_receiver);
@@ -317,7 +334,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   // If the method is a constructor then we need to build a compile time object
   // adding the values of the fields as the children and setting the type
   // to be the return type of the function body
-  if(ast_id(function_def) == TK_NEW)
+  if(ast_id(fun) == TK_NEW)
   {
     // TODO: we need to create some name or means by which to indicate that
     // we are refering to the same object
@@ -327,7 +344,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
     BUILD(obj, receiver,
       NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
-    ast_set_symtab(obj, ast_get_symtab(function_def));
+    ast_set_symtab(obj, ast_get_symtab(fun));
 
     // get the return type
     ast_t* ret_type = ast_childidx(ast_type(function), 3);
@@ -344,7 +361,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       switch(ast_id(member))
       {
         case TK_FVAR:
-          ast_error(member, "compile time objects may only have read-only fields");
+          ast_error(member, "compile time objects fields must be read-only");
           return NULL;
 
         case TK_EMBED:

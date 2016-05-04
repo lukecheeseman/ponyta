@@ -647,8 +647,12 @@ static ast_result_t syntax_embed(ast_t* ast)
 
 static bool check_is_type(ast_t* type)
 {
-  ast_t* child = ast_child(type);
+  if(ast_id(type) == TK_ID)
+    return check_id_type_param_constraint(type);
+  if(ast_id(type) == TK_VALUEFORMALARG)
+    return true;
 
+  ast_t* child = ast_child(type);
   while(child != NULL)
   {
     if(!check_is_type(child))
@@ -656,8 +660,6 @@ static bool check_is_type(ast_t* type)
     child = ast_sibling(child);
   }
 
-  if(ast_id(type) == TK_ID)
-    return check_id_type_param_constraint(type);
   return true;
 }
 
@@ -995,12 +997,6 @@ ast_result_t pass_syntax(ast_t** astp, pass_opt_t* options)
     case TK_CAP_SHARE:
     case TK_CAP_ALIAS:
     case TK_CAP_ANY:    r = syntax_cap_set(t, ast); break;
-
-    case TK_VALUEFORMALARG:
-    case TK_VALUEFORMALPARAM:
-      //ast_error(ast, "Value formal parameters not yet supported");
-      //r = AST_ERROR;
-      break;
 
     default: break;
   }

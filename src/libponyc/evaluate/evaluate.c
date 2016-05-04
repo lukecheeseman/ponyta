@@ -216,14 +216,17 @@ static const char* get_lvalue_name(ast_t* ast)
   {
     case TK_VAR:
     case TK_LET:
+    case TK_REFERENCE:
       return ast_name(ast_child(ast));
-    default:
-      return NULL;
 
     case TK_EMBEDREF:
     case TK_FLETREF:
       return ast_name(ast_childidx(ast, 1));
+
+    default:
+      assert(0);
   }
+  return NULL;
 }
 
 // FIXME: a per type object count would be nicer
@@ -244,10 +247,43 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* type = ast_get_base_type(evaluated_receiver);
   method_ptr_t builtin_method
     = lookup_method(evaluated_receiver, type, ast_name(func_id));
-  //TODO: we need a nicer way of knowing which methods we can and cannot
-  // do here.
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args);
+
+  // We ensure that we have type checked the method before we attempt to
+  // evaluate it, this is so that we do not attempt to evaluate erroneuos
+  // functions and also as we require that expressions have been correctly
+  // desugared and types assigned.
+  // TODO: this can go absolutely insane on .string()
+  switch(ast_id(function))
+  {
+    case TK_NEWREF:
+    {
+      // Here we typecheck the whole class as the constructor may rely on
+      // fields etc. it is also likely that we would then go on to use some
+      // of the methods in this class.
+      ast_t* def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
+      if(ast_visit(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+        return NULL;
+      break;
+    }
+
+    case TK_FUNREF:
+    {
+      // find the method and type check it
+      ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
+      ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
+      if(ast_visit(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+        return NULL;
+      break;
+    }
+
+    case TK_BEREF:
+      ast_error(function, "cannot evaluate compile-time behaviours");
+      return NULL;
+
+    default: break;
+  }
 
   // lookup the reified defintion of the function
   ast_t* function_def = lookup(opt, receiver, type, ast_name(func_id));
@@ -308,7 +344,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       switch(ast_id(member))
       {
         case TK_FVAR:
-          ast_error(member, "compile time objects can only have read-only fields");
+          ast_error(member, "compile time objects may only have read-only fields");
           return NULL;
 
         case TK_EMBED:
@@ -339,6 +375,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
     case TK_CONSTANT_OBJECT:
       return expression;
 
+    case TK_FUNREF:
     case TK_TYPEREF:
       return expression;
 
@@ -455,13 +492,14 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       AST_GET_CHILDREN(expression, right, left);
 
       const char* name = get_lvalue_name(left);
-      if(name != NULL)
-        ast_set_value(left, name, evaluate(opt, right, this));
+      assert(name != NULL);
+      ast_set_value(left, name, evaluate(opt, right, this));
 
       return right;
     }
 
     default:
+      assert(0);
       ast_error(expression, "Cannot evaluate compile time expression");
       return NULL;
   }

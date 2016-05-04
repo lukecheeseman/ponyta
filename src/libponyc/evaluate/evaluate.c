@@ -74,7 +74,9 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   if(contains_valueparamref(expression))
     return true;
 
-  ast_t* evaluated = evaluate(opt, expression);
+  // evaluate the expression passing NULL as this as we aren't
+  // evaluate a method on an object
+  ast_t* evaluated = evaluate(opt, expression, NULL);
   if (evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
@@ -177,7 +179,7 @@ static method_entry_t method_table[] = {
 
 static method_ptr_t lookup_method(ast_t* type, const char* operation) {
   const char* type_name =
-    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" : 
+    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" :
     is_float(type) || ast_id(ast_parent(type)) == TK_FLOAT ? "float" :
     ast_name(ast_childidx(type, 1));
 
@@ -224,18 +226,15 @@ static const char* get_lvalue_name(ast_t* ast)
 
 // FIXME: a per type object count would be nicer
 static uint64_t count = 0;
-static ast_t* this = NULL;
 
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
+static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
+  ast_t* this)
 {
   AST_GET_CHILDREN(function, receiver, func_id);
-
-  // first evaluate the receiver and then check whether the method
-  // is builtin
-  ast_t* evaluated_receiver = evaluate(opt, receiver);
+  ast_t* evaluated_receiver = evaluate(opt, receiver, this);
   if(evaluated_receiver == NULL)
     return NULL;
 
@@ -248,6 +247,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
 
   // lookup the reified defintion of the function
   ast_t* function_def = lookup(opt, receiver, type, ast_name(func_id));
+  if(function_def == NULL)
+    return NULL;
 
   // map each parameter to its argument value in the symbol table
   ast_t* params = ast_childidx(function_def, 3);
@@ -266,10 +267,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
 
   // push the receiver so that we evaluate the body with the correct symbol
   // table
-  ast_t* old_this = this;
-  this = evaluated_receiver;
-  ast_t* evaluated = evaluate(opt, body);
-  this = old_this;
+  ast_t* evaluated = evaluate(opt, body, evaluated_receiver);
 
   if(evaluated == NULL)
   {
@@ -327,7 +325,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args)
   return evaluated;
 }
 
-ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
+ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
   switch(ast_id(expression)) {
     // Literal cases where we can return the value
     case TK_NONE:
@@ -341,12 +339,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
     case TK_TYPEREF:
       return expression;
 
-    // FIXME: this feels like a bit of a hack
-    // what happens is if we are evaluate an expression
-    // in the body then this will not be set as the receiver
-    // is this in this -- how to avoid?
-    // therefore we will be looking up in the current scope
-    // which can be found from the expression anyway
+    // If we're evaluating a method on an object then we have a this node
+    // representing the object. Otherwise we just return the current this node.
     case TK_THIS:
       return this == NULL ? expression : this;
 
@@ -389,7 +383,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
       }
 
       AST_GET_CHILDREN(expression, receiver, id);
-      ast_t* evaluated_receiver = evaluate(opt, receiver);
+      ast_t* evaluated_receiver = evaluate(opt, receiver, this);
       if(evaluated_receiver == NULL)
       {
         ast_error(receiver, "could not evaluate receiver");
@@ -410,7 +404,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
       ast_t * evaluated;
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
-        evaluated = evaluate(opt, p);
+        evaluated = evaluate(opt, p, this);
         if(evaluated == NULL)
         {
           ast_error(p, "could not evaluate compile time expression");
@@ -432,25 +426,25 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
       ast_t* argument = ast_child(positional);
       while(argument != NULL)
       {
-        ast_t* evaluated_argument = evaluate(opt, argument);
+        ast_t* evaluated_argument = evaluate(opt, argument, this);
         if(evaluated_argument == NULL)
           return NULL;
         ast_append(evaluated_positional_args, evaluated_argument);
         argument = ast_sibling(argument);
       }
 
-      return evaluate_method(opt, function, evaluated_positional_args);
+      return evaluate_method(opt, function, evaluated_positional_args, this);
     }
 
     case TK_IF:
     case TK_ELSEIF:
     {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
-      ast_t* condition_evaluated = evaluate(opt, condition);
+      ast_t* condition_evaluated = evaluate(opt, condition, this);
 
       return ast_id(condition_evaluated) == TK_TRUE ?
-             evaluate(opt, then_branch):
-             evaluate(opt, else_branch);
+             evaluate(opt, then_branch, this):
+             evaluate(opt, else_branch, this);
     }
 
     case TK_ASSIGN:
@@ -459,7 +453,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression) {
 
       const char* name = get_lvalue_name(left);
       if(name != NULL)
-        ast_set_value(left, name, evaluate(opt, right));
+        ast_set_value(left, name, evaluate(opt, right, this));
 
       return right;
     }

@@ -177,10 +177,12 @@ static method_entry_t method_table[] = {
   { NULL, NULL, NULL }
 };
 
-static method_ptr_t lookup_method(ast_t* type, const char* operation) {
+static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
+  const char* operation)
+{
   const char* type_name =
-    is_integer(type) || ast_id(ast_parent(type)) == TK_INT ? "integer" :
-    is_float(type) || ast_id(ast_parent(type)) == TK_FLOAT ? "float" :
+    is_integer(type) || ast_id(receiver) == TK_INT ? "integer" :
+    is_float(type) || ast_id(receiver) == TK_FLOAT ? "float" :
     ast_name(ast_childidx(type, 1));
 
   for (int i = 0; method_table[i].name != NULL; ++i) {
@@ -238,8 +240,10 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   if(evaluated_receiver == NULL)
     return NULL;
 
+  // First lookup to see if we have a special method to evaluate the expression
   ast_t* type = ast_get_base_type(evaluated_receiver);
-  method_ptr_t builtin_method = lookup_method(type, ast_name(func_id));
+  method_ptr_t builtin_method
+    = lookup_method(evaluated_receiver, type, ast_name(func_id));
   //TODO: we need a nicer way of knowing which methods we can and cannot
   // do here.
   if(builtin_method != NULL)
@@ -265,8 +269,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   // look up the body of the method so that we can evaluate it
   ast_t* body = ast_childidx(function_def, 6);
 
-  // push the receiver so that we evaluate the body with the correct symbol
-  // table
+  // push the receiver and evaluate the body
   ast_t* evaluated = evaluate(opt, body, evaluated_receiver);
 
   if(evaluated == NULL)

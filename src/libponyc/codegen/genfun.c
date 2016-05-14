@@ -14,8 +14,8 @@
 #include <string.h>
 #include <assert.h>
 
-static void name_param(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m, LLVMValueRef func, const char* name, unsigned index,
+static void name_param(compile_t* c, reach_type_t* t,
+  reach_method_t* m, LLVMValueRef func, const char* name, unsigned index,
   size_t line, size_t pos)
 {
   LLVMValueRef value = LLVMGetParam(func, index);
@@ -45,8 +45,8 @@ static void name_param(compile_t* c, reachable_type_t* t,
     LLVMGetInsertBlock(c->builder));
 }
 
-static void name_params(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m, ast_t* params, LLVMValueRef func)
+static void name_params(compile_t* c, reach_type_t* t, reach_method_t* m,
+  ast_t* params, LLVMValueRef func)
 {
   // Name the receiver 'this'.
   name_param(c, t, m, func, c->str_this, 0, ast_line(params), ast_pos(params));
@@ -62,11 +62,8 @@ static void name_params(compile_t* c, reachable_type_t* t,
   }
 }
 
-static void make_signature(reachable_type_t* t, reachable_method_t* m)
+static void make_signature(reach_type_t* t, reach_method_t* m)
 {
-  AST_GET_CHILDREN(m->r_fun, cap, id, typeparams, params, result, can_error,
-    body);
-
   // Count the parameters, including the receiver.
   size_t count = m->param_count + 1;
   size_t tparam_size = count * sizeof(LLVMTypeRef);
@@ -86,15 +83,15 @@ static void make_signature(reachable_type_t* t, reachable_method_t* m)
   ponyint_pool_free_size(tparam_size, tparams);
 }
 
-static void make_function_debug(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m, LLVMValueRef func)
+static void make_function_debug(compile_t* c, reach_type_t* t,
+  reach_method_t* m, LLVMValueRef func)
 {
   AST_GET_CHILDREN(m->r_fun, cap, id, typeparams, params, result, can_error,
     body);
 
   // Count the parameters, including the receiver and the result.
   size_t count = m->param_count + 2;
-  size_t md_size = count * sizeof(reachable_type_t*);
+  size_t md_size = count * sizeof(reach_type_t*);
   LLVMMetadataRef* md = (LLVMMetadataRef*)ponyint_pool_alloc_size(md_size);
 
   md[0] = m->result->di_type;
@@ -125,8 +122,8 @@ static void make_function_debug(compile_t* c, reachable_type_t* t,
   ponyint_pool_free_size(md_size, md);
 }
 
-static void make_prototype(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m)
+static void make_prototype(compile_t* c, reach_type_t* t,
+  reach_method_name_t* n, reach_method_t* m)
 {
   if(m->intrinsic)
     return;
@@ -137,7 +134,7 @@ static void make_prototype(compile_t* c, reachable_type_t* t,
   switch(ast_id(m->r_fun))
   {
     case TK_NEW:
-      handler = t->underlying == TK_ACTOR;
+      handler = (t->underlying == TK_ACTOR) && !m->forwarding;
       break;
 
     case TK_BE:
@@ -184,6 +181,13 @@ static void make_prototype(compile_t* c, reachable_type_t* t,
     // Generate the function prototype.
     m->func = codegen_addfun(c, m->full_name, m->func_type);
     make_function_debug(c, t, m, m->func);
+  }
+
+  if(n->name == c->str__final)
+  {
+    // Store the finaliser and use the C calling convention.
+    t->final_fn = m->func;
+    LLVMSetFunctionCallConv(m->func, LLVMCCallConv);
   }
 }
 
@@ -265,7 +269,7 @@ static LLVMTypeRef send_message(compile_t* c, ast_t* params, LLVMValueRef to,
   return msg_type_ptr;
 }
 
-static void add_dispatch_case(compile_t* c, reachable_type_t* t, ast_t* params,
+static void add_dispatch_case(compile_t* c, reach_type_t* t, ast_t* params,
   uint32_t index, LLVMValueRef handler, LLVMTypeRef type)
 {
   // Add a case to the dispatch function to handle this message.
@@ -328,19 +332,12 @@ static void add_dispatch_case(compile_t* c, reachable_type_t* t, ast_t* params,
   ponyint_pool_free_size(buf_size, args);
 }
 
-static bool genfun_fun(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m)
+static bool genfun_fun(compile_t* c, reach_type_t* t, reach_method_t* m)
 {
   assert(m->func != NULL);
 
   AST_GET_CHILDREN(m->r_fun, cap, id, typeparams, params, result, can_error,
     body);
-
-  if(m->name == c->str__final)
-  {
-    t->final_fn = m->func;
-    LLVMSetFunctionCallConv(m->func, LLVMCCallConv);
-  }
 
   codegen_startfun(c, m->func, m->di_file, m->di_method);
   name_params(c, t, m, params, m->func);
@@ -376,8 +373,7 @@ static bool genfun_fun(compile_t* c, reachable_type_t* t,
   return true;
 }
 
-static bool genfun_be(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m)
+static bool genfun_be(compile_t* c, reach_type_t* t, reach_method_t* m)
 {
   assert(m->func != NULL);
   assert(m->func_handler != NULL);
@@ -418,8 +414,7 @@ static bool genfun_be(compile_t* c, reachable_type_t* t,
   return true;
 }
 
-static bool genfun_new(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m)
+static bool genfun_new(compile_t* c, reach_type_t* t, reach_method_t* m)
 {
   assert(m->func != NULL);
 
@@ -446,8 +441,7 @@ static bool genfun_new(compile_t* c, reachable_type_t* t,
   return true;
 }
 
-static bool genfun_newbe(compile_t* c, reachable_type_t* t,
-  reachable_method_t* m)
+static bool genfun_newbe(compile_t* c, reach_type_t* t, reach_method_t* m)
 {
   assert(m->func != NULL);
   assert(m->func_handler != NULL);
@@ -489,7 +483,19 @@ static bool genfun_newbe(compile_t* c, reachable_type_t* t,
   return true;
 }
 
-static bool genfun_allocator(compile_t* c, reachable_type_t* t)
+static void copy_subordinate(reach_method_t* m)
+{
+  reach_method_t* m2 = m->subordinate;
+
+  while(m2 != NULL)
+  {
+    m2->func_type = m->func_type;
+    m2->func = m->func;
+    m2 = m2->subordinate;
+  }
+}
+
+static bool genfun_allocator(compile_t* c, reach_type_t* t)
 {
   switch(t->underlying)
   {
@@ -507,7 +513,7 @@ static bool genfun_allocator(compile_t* c, reachable_type_t* t)
   if((t->primitive != NULL) || is_pointer(t->ast) || is_maybe(t->ast))
     return true;
 
-  const char* funname = genname_fun(t->name, "Alloc", NULL);
+  const char* funname = genname_alloc(t->name);
   LLVMTypeRef ftype = LLVMFunctionType(t->use_type, NULL, 0, false);
   LLVMValueRef fun = codegen_addfun(c, funname, ftype);
   codegen_startfun(c, fun, NULL, NULL);
@@ -538,18 +544,52 @@ static bool genfun_allocator(compile_t* c, reachable_type_t* t)
   return true;
 }
 
-bool genfun_method_sigs(compile_t* c, reachable_type_t* t)
+static bool genfun_forward(compile_t* c, reach_type_t* t,
+  reach_method_name_t* n,  reach_method_t* m)
+{
+  assert(m->func != NULL);
+
+  reach_method_t* m2 = reach_method(t, m->cap, n->name, m->typeargs);
+  assert(m2 != NULL);
+  assert(m2 != m);
+
+  codegen_startfun(c, m->func, m->di_file, m->di_method);
+
+  int count = LLVMCountParams(m->func);
+  size_t buf_size = count * sizeof(LLVMValueRef);
+
+  LLVMValueRef* args = (LLVMValueRef*)ponyint_pool_alloc_size(buf_size);
+  args[0] = LLVMGetParam(m->func, 0);
+
+  for(int i = 1; i < count; i++)
+  {
+    LLVMValueRef value = LLVMGetParam(m->func, i);
+    args[i] = gen_assign_cast(c, m2->params[i - 1]->use_type, value,
+      m->params[i - 1]->ast);
+  }
+
+  LLVMValueRef ret = codegen_call(c, m2->func, args, count);
+  ret = gen_assign_cast(c, m->result->use_type, ret, m2->result->ast);
+  LLVMBuildRet(c->builder, ret);
+  codegen_finishfun(c);
+  return true;
+}
+
+bool genfun_method_sigs(compile_t* c, reach_type_t* t)
 {
   size_t i = HASHMAP_BEGIN;
-  reachable_method_name_t* n;
+  reach_method_name_t* n;
 
-  while((n = reachable_method_names_next(&t->methods, &i)) != NULL)
+  while((n = reach_method_names_next(&t->methods, &i)) != NULL)
   {
     size_t j = HASHMAP_BEGIN;
-    reachable_method_t* m;
+    reach_method_t* m;
 
-    while((m = reachable_methods_next(&n->r_methods, &j)) != NULL)
-      make_prototype(c, t, m);
+    while((m = reach_mangled_next(&n->r_mangled, &j)) != NULL)
+    {
+      make_prototype(c, t, n, m);
+      copy_subordinate(m);
+    }
   }
 
   if(!genfun_allocator(c, t))
@@ -558,7 +598,7 @@ bool genfun_method_sigs(compile_t* c, reachable_type_t* t)
   return true;
 }
 
-bool genfun_method_bodies(compile_t* c, reachable_type_t* t)
+bool genfun_method_bodies(compile_t* c, reach_type_t* t)
 {
   switch(t->underlying)
   {
@@ -573,44 +613,50 @@ bool genfun_method_bodies(compile_t* c, reachable_type_t* t)
   }
 
   size_t i = HASHMAP_BEGIN;
-  reachable_method_name_t* n;
+  reach_method_name_t* n;
 
-  while((n = reachable_method_names_next(&t->methods, &i)) != NULL)
+  while((n = reach_method_names_next(&t->methods, &i)) != NULL)
   {
     size_t j = HASHMAP_BEGIN;
-    reachable_method_t* m;
+    reach_method_t* m;
 
-    while((m = reachable_methods_next(&n->r_methods, &j)) != NULL)
+    while((m = reach_mangled_next(&n->r_mangled, &j)) != NULL)
     {
       if(m->intrinsic)
         continue;
 
-      switch(ast_id(m->r_fun))
+      if(m->forwarding)
       {
-        case TK_NEW:
-          if(t->underlying == TK_ACTOR)
-          {
-            if(!genfun_newbe(c, t, m))
-              return false;
-          } else {
-            if(!genfun_new(c, t, m))
-              return false;
-          }
-          break;
-
-        case TK_BE:
-          if(!genfun_be(c, t, m))
-            return false;
-          break;
-
-        case TK_FUN:
-          if(!genfun_fun(c, t, m))
-            return false;
-          break;
-
-        default:
-          assert(0);
+        if(!genfun_forward(c, t, n, m))
           return false;
+      } else {
+        switch(ast_id(m->r_fun))
+        {
+          case TK_NEW:
+            if(t->underlying == TK_ACTOR)
+            {
+              if(!genfun_newbe(c, t, m))
+                return false;
+            } else {
+              if(!genfun_new(c, t, m))
+                return false;
+            }
+            break;
+
+          case TK_BE:
+            if(!genfun_be(c, t, m))
+              return false;
+            break;
+
+          case TK_FUN:
+            if(!genfun_fun(c, t, m))
+              return false;
+            break;
+
+          default:
+            assert(0);
+            return false;
+        }
       }
     }
   }

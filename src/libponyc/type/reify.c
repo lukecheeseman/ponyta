@@ -122,19 +122,37 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
       reify_arrow(astp);
       break;
 
-    // FIXME: is there anyway we can not do this as part of reification???
-    case TK_CONSTANT:
-    {
-      pass_opt_t opt;
-      assert(expr_constant(&opt, astp));
-      break;
-    }
-
     default: {}
   }
 }
 
-bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors)
+bool evaluate_expressions(ast_t** astp, pass_opt_t* opt)
+{
+  ast_t* ast = *astp;
+
+  // FIXME: the type of expressions hasn't been resolved yet
+  ast_t* type = ast_type(ast);
+  if(type != NULL)
+    if(!evaluate_expressions(&type, opt))
+      return false;
+
+  if(ast_id(ast) == TK_CONSTANT)
+    return expr_constant(opt, astp);
+
+  ast_t* child = ast_child(ast);
+  while(child != NULL)
+  {
+    if(!evaluate_expressions(&child, opt))
+      return false;
+
+    child = ast_sibling(child);
+  }
+
+  return true;
+}
+
+bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors,
+  pass_opt_t* opt)
 {
   assert(
     (ast_id(typeparams) == TK_TYPEPARAMS) ||
@@ -155,8 +173,8 @@ bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors)
   {
     if(errors)
     {
-      ast_error(typeargs, "too many type arguments");
-      ast_error(typeparams, "definition is here");
+      ast_error(opt->check.errors, typeargs, "too many type arguments");
+      ast_error_continue(opt->check.errors, typeparams, "definition is here");
     }
 
     return false;
@@ -181,8 +199,8 @@ bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors)
   {
     if(errors)
     {
-      ast_error(typeargs, "not enough type arguments");
-      ast_error(typeparams, "definition is here");
+      ast_error(opt->check.errors, typeargs, "not enough type arguments");
+      ast_error_continue(opt->check.errors, typeparams, "definition is here");
     }
 
     return false;
@@ -191,8 +209,9 @@ bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors)
   return true;
 }
 
-ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
+ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs, pass_opt_t* opt)
 {
+  (void)opt;
   assert(
     (ast_id(typeparams) == TK_TYPEPARAMS) ||
     (ast_id(typeparams) == TK_NONE)
@@ -225,6 +244,8 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs)
 
   assert(typeparam == NULL);
   assert(typearg == NULL);
+
+  assert(evaluate_expressions(&r_ast, opt));
 
   ast_free(typeparams);
 
@@ -263,16 +284,19 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
     if(!compatible_argument(typeparam_id, ast_id(typearg)))
     {
       bool is_typeparam = typeparam_id == TK_TYPEPARAM;
-      ast_error(orig, "invalid parameterisation");
-      ast_error(typeparam, "expected %s argument", is_typeparam ? "type" : "value");
-      ast_error(typearg, "provided %s argument", is_typeparam ? "value" : "type");
+      ast_error(opt->check.errors, orig,
+        "invalid parameterisation");
+      ast_error_continue(opt->check.errors, typeparam,
+        "expected %s argument", is_typeparam ? "type" : "value");
+      ast_error_continue(opt->check.errors, typearg,
+        "provided %s argument", is_typeparam ? "value" : "type");
       return false;
     }
 
     // Reify the constraint.
     ast_t* constraint = ast_childidx(typeparam, 1);
     ast_t* bind_constraint = bind_type(constraint);
-    ast_t* r_constraint = reify(bind_constraint, typeparams, typeargs);
+    ast_t* r_constraint = reify(bind_constraint, typeparams, typeargs, opt);
 
     if(bind_constraint != r_constraint)
       ast_free_unattached(bind_constraint);
@@ -287,18 +311,15 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       if(is_typecheck_error(value_type))
         return false;
 
-      if (!is_subtype(value_type, r_constraint, report_errors ? &info : NULL)) {
+      if (!is_subtype(value_type, r_constraint, report_errors ? &info : NULL, opt)) {
         if(report_errors)
         {
-          errorframe_t frame = NULL;
-          ast_error_frame(&frame, orig,
+          ast_error(opt->check.errors, orig,
             "value argument type is outside its constraint");
-          ast_error_frame(&frame, value,
+          ast_error_continue(opt->check.errors, value,
             "argument type: %s", ast_print_type(ast_type(value)));
-          ast_error_frame(&frame, typeparam,
+          ast_error_continue(opt->check.errors, typeparam,
             "constraint: %s", ast_print_type(r_constraint));
-          errorframe_append(&frame, &info);
-          errorframe_report(&frame);
         }
 
         ast_free_unattached(r_constraint);
@@ -306,19 +327,16 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       }
     }
     // A bound type must be a subtype of the constraint.
-    else if(!is_subtype(typearg, r_constraint, report_errors ? &info : NULL))
+    else if(!is_subtype(typearg, r_constraint, report_errors ? &info : NULL, opt))
     {
       if(report_errors)
       {
-        errorframe_t frame = NULL;
-        ast_error_frame(&frame, orig,
+        ast_error(opt->check.errors, orig,
           "type argument is outside its constraint");
-        ast_error_frame(&frame, typearg,
+        ast_error_continue(opt->check.errors, typearg,
           "argument: %s", ast_print_type(typearg));
-        ast_error_frame(&frame, typeparam,
+        ast_error_continue(opt->check.errors, typeparam,
           "constraint: %s", ast_print_type(r_constraint));
-        errorframe_append(&frame, &info);
-        errorframe_report(&frame);
       }
 
       ast_free_unattached(r_constraint);
@@ -332,10 +350,12 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
     {
       if(report_errors)
       {
-        ast_error(orig, "a constructable constraint can only be fulfilled "
-          "by a concrete type argument");
-        ast_error(typearg, "argument: %s", ast_print_type(typearg));
-        ast_error(typeparam, "constraint: %s", ast_print_type(constraint));
+        ast_error(opt->check.errors, orig, "a constructable constraint can "
+          "only be fulfilled by a concrete type argument");
+        ast_error_continue(opt->check.errors, typearg, "argument: %s",
+          ast_print_type(typearg));
+        ast_error_continue(opt->check.errors, typeparam, "constraint: %s",
+          ast_print_type(constraint));
       }
 
       return false;

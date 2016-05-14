@@ -4,6 +4,7 @@
 #include "../ast/printbuf.h"
 #include "../pass/pass.h"
 #include "../pass/expr.h"
+#include "../type/alias.h"
 #include "../type/sanitise.h"
 #include <assert.h>
 
@@ -32,8 +33,8 @@ static ast_t* make_capture_field(pass_opt_t* opt, ast_t* capture)
 
     if(def == NULL)
     {
-      ast_error(id_node, "cannot capture \"%s\", variable not defined",
-        name);
+      ast_error(opt->check.errors, id_node,
+        "cannot capture \"%s\", variable not defined", name);
       return NULL;
     }
 
@@ -42,30 +43,22 @@ static ast_t* make_capture_field(pass_opt_t* opt, ast_t* capture)
     if(def_id != TK_ID && def_id != TK_FVAR && def_id != TK_FLET &&
       def_id != TK_PARAM)
     {
-      ast_error(id_node, "cannot capture \"%s\", can only capture fields, "
-        "parameters and local variables", name);
+      ast_error(opt->check.errors, id_node, "cannot capture \"%s\", can only "
+        "capture fields, parameters and local variables", name);
       return NULL;
     }
 
     BUILD(capture_rhs, id_node, NODE(TK_REFERENCE, ID(name)));
 
-    type = ast_type(def);
+    type = alias(ast_type(def));
     value = capture_rhs;
-  }
-  else
-  {
-    // Expression capture
-    if(ast_id(type) == TK_NONE)
-    {
-      // No type specified, use type of the captured expression
-      type = ast_type(value);
-    }
-    else
-    {
-      // Type given, infer literals
-      if(!coerce_literals(&value, type, opt))
-        return NULL;
-    }
+  } else if(ast_id(type) == TK_NONE) {
+    // No type specified, use type of the captured expression
+    type = alias(ast_type(value));
+  } else {
+    // Type given, infer literals
+    if(!coerce_literals(&value, type, opt))
+      return NULL;
   }
 
   if(is_typecheck_error(type))

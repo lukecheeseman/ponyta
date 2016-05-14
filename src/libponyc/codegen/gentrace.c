@@ -409,7 +409,7 @@ static void trace_maybe(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
 static void trace_known(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
   ast_t* type, bool immutable)
 {
-  reachable_type_t* t = reach_type(c->reachable, type);
+  reach_type_t* t = reach_type(c->reach, type);
 
   // If this type has no trace function, don't try to recurse in the runtime.
   if(t->trace_fn != NULL)
@@ -472,6 +472,9 @@ static void trace_dynamic_union_or_isect(compile_t* c, LLVMValueRef ctx,
   {
     trace_dynamic(c, ctx, object, child, orig, tuple, next_block);
   }
+
+  // No type matched. This may be a boxed primitive: trace it here.
+  trace_tag(c, ctx, object);
 }
 
 static void trace_dynamic_tuple(compile_t* c, LLVMValueRef ctx,
@@ -498,7 +501,7 @@ static void trace_dynamic_tuple(compile_t* c, LLVMValueRef ctx,
   LLVMBasicBlockRef is_true = codegen_block(c, "");
   LLVMBasicBlockRef is_false = codegen_block(c, "");
 
-  if(!is_subtype(orig, tuple, NULL))
+  if(!is_subtype(orig, tuple, NULL, c->opt))
   {
     LLVMValueRef dynamic_count = gendesc_fieldcount(c, desc);
     LLVMValueRef static_count = LLVMConstInt(c->i32, cardinality, false);
@@ -613,11 +616,11 @@ static void trace_dynamic_nominal(compile_t* c, LLVMValueRef ctx,
   {
     // We are a tuple element. Our type is in the correct position in the
     // tuple, everything else is TK_DONTCARE.
-    if(is_matchtype(orig, tuple) != MATCHTYPE_ACCEPT)
+    if(is_matchtype(orig, tuple, c->opt) != MATCHTYPE_ACCEPT)
       return;
   } else {
     // We aren't a tuple element.
-    if(is_matchtype(orig, type) != MATCHTYPE_ACCEPT)
+    if(is_matchtype(orig, type, c->opt) != MATCHTYPE_ACCEPT)
       return;
   }
 
@@ -716,7 +719,7 @@ bool gentrace_needed(ast_t* type)
   return true;
 }
 
-void gentrace_prototype(compile_t* c, reachable_type_t* t)
+void gentrace_prototype(compile_t* c, reach_type_t* t)
 {
   switch(t->underlying)
   {

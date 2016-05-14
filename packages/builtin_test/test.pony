@@ -390,22 +390,27 @@ class iso _TestSpecialValuesF32 is UnitTest
   fun apply(h: TestHelper) =>
     // 1
     h.assert_true(F32(1.0).finite())
+    h.assert_false(F32(1.0).infinite())
     h.assert_false(F32(1.0).nan())
 
     // -1
     h.assert_true(F32(-1.0).finite())
+    h.assert_false(F32(-1.0).infinite())
     h.assert_false(F32(-1.0).nan())
 
     // Infinity
     h.assert_false(F32(1.0 / 0.0).finite())
+    h.assert_true(F32(1.0 / 0.0).infinite())
     h.assert_false(F32(1.0 / 0.0).nan())
 
     // - infinity
     h.assert_false(F32(-1.0 / 0.0).finite())
+    h.assert_true(F32(-1.0 / 0.0).infinite())
     h.assert_false(F32(-1.0 / 0.0).nan())
 
     // NaN
     h.assert_false(F32(0.0 / 0.0).finite())
+    h.assert_false(F32(0.0 / 0.0).infinite())
     h.assert_true(F32(0.0 / 0.0).nan())
 
 
@@ -418,22 +423,27 @@ class iso _TestSpecialValuesF64 is UnitTest
   fun apply(h: TestHelper) =>
     // 1
     h.assert_true(F64(1.0).finite())
+    h.assert_false(F64(1.0).infinite())
     h.assert_false(F64(1.0).nan())
 
     // -1
     h.assert_true(F64(-1.0).finite())
+    h.assert_false(F64(-1.0).infinite())
     h.assert_false(F64(-1.0).nan())
 
     // Infinity
     h.assert_false(F64(1.0 / 0.0).finite())
+    h.assert_true(F64(1.0 / 0.0).infinite())
     h.assert_false(F64(1.0 / 0.0).nan())
 
     // - infinity
     h.assert_false(F64(-1.0 / 0.0).finite())
+    h.assert_true(F64(-1.0 / 0.0).infinite())
     h.assert_false(F64(-1.0 / 0.0).nan())
 
     // NaN
     h.assert_false(F64(0.0 / 0.0).finite())
+    h.assert_false(F64(0.0 / 0.0).infinite())
     h.assert_true(F64(0.0 / 0.0).nan())
 
 
@@ -515,7 +525,7 @@ class iso _TestStringCompare is UnitTest
     h.assert_eq[Compare](Equal, "foo".compare("foo"))
     h.assert_eq[Compare](Greater, "foo".compare("bar"))
     h.assert_eq[Compare](Less, "bar".compare("foo"))
-    
+
     h.assert_eq[Compare](Less, "abc".compare("bc"))
 
     h.assert_eq[Compare](Equal, "foo".compare_sub("foo", 3))
@@ -823,6 +833,7 @@ class iso _TestDivMod is UnitTest
 
 struct _TestStruct
   var i: U32 = 0
+  new create() => None
 
 class iso _TestMaybePointer is UnitTest
   """

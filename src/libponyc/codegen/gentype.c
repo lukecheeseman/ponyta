@@ -14,19 +14,12 @@
 #include <string.h>
 #include <assert.h>
 
-static void make_debug_info(compile_t* c, reachable_type_t* t);
-static void make_box_type(compile_t* c, reachable_type_t* t);
-static void make_dispatch(compile_t* c, reachable_type_t* t);
-
-static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
+static bool make_opaque_struct(compile_t* c, reach_type_t* t)
 {
   switch(ast_id(t->ast))
   {
     case TK_NOMINAL:
     {
-      ast_t* def = (ast_t*)ast_data(t->ast);
-      t->underlying = ast_id(def);
-
       switch(t->underlying)
       {
         case TK_INTERFACE:
@@ -122,7 +115,6 @@ static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
     }
 
     case TK_TUPLETYPE:
-      t->underlying = TK_TUPLETYPE;
       t->primitive = LLVMStructCreateNamed(c->context, t->name);
       t->use_type = t->primitive;
       t->field_count = (uint32_t)ast_childcount(t->ast);
@@ -131,7 +123,6 @@ static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
     case TK_UNIONTYPE:
     case TK_ISECTTYPE:
       // Just a raw object pointer.
-      t->underlying = ast_id(t->ast);
       t->use_type = c->object_ptr;
       return true;
 
@@ -142,7 +133,7 @@ static bool make_opaque_struct(compile_t* c, reachable_type_t* t)
   return false;
 }
 
-static void make_debug_basic(compile_t* c, reachable_type_t* t)
+static void make_debug_basic(compile_t* c, reach_type_t* t)
 {
   uint64_t size = LLVMABISizeOfType(c->target_data, t->primitive);
   uint64_t align = LLVMABIAlignmentOfType(c->target_data, t->primitive);
@@ -163,7 +154,7 @@ static void make_debug_basic(compile_t* c, reachable_type_t* t)
     8 * size, 8 * align, encoding);
 }
 
-static void make_debug_prototype(compile_t* c, reachable_type_t* t)
+static void make_debug_prototype(compile_t* c, reach_type_t* t)
 {
   t->di_type = LLVMDIBuilderCreateReplaceableStruct(c->di,
     t->name, c->di_unit, t->di_file, (unsigned)ast_line(t->ast));
@@ -175,7 +166,7 @@ static void make_debug_prototype(compile_t* c, reachable_type_t* t)
   }
 }
 
-static void make_debug_info(compile_t* c, reachable_type_t* t)
+static void make_debug_info(compile_t* c, reach_type_t* t)
 {
   source_t* source = ast_source(t->ast);
   t->di_file = LLVMDIBuilderCreateFile(c->di, source->file);
@@ -211,7 +202,7 @@ static void make_debug_info(compile_t* c, reachable_type_t* t)
   assert(0);
 }
 
-static void make_box_type(compile_t* c, reachable_type_t* t)
+static void make_box_type(compile_t* c, reach_type_t* t)
 {
   if(t->primitive == NULL)
     return;
@@ -227,7 +218,7 @@ static void make_box_type(compile_t* c, reachable_type_t* t)
   t->structure_ptr = LLVMPointerType(t->structure, 0);
 }
 
-static void make_global_instance(compile_t* c, reachable_type_t* t)
+static void make_global_instance(compile_t* c, reach_type_t* t)
 {
   // Not a primitive type.
   if(t->underlying != TK_PRIMITIVE)
@@ -250,7 +241,7 @@ static void make_global_instance(compile_t* c, reachable_type_t* t)
   LLVMSetLinkage(t->instance, LLVMInternalLinkage);
 }
 
-static void make_dispatch(compile_t* c, reachable_type_t* t)
+static void make_dispatch(compile_t* c, reach_type_t* t)
 {
   // Do nothing if we're not an actor.
   if(t->underlying != TK_ACTOR)
@@ -279,7 +270,7 @@ static void make_dispatch(compile_t* c, reachable_type_t* t)
   codegen_finishfun(c);
 }
 
-static bool make_vector_struct(compile_t* c, reachable_type_t* t)
+static bool make_vector_struct(compile_t* c, reach_type_t* t)
 {
   ast_t* typeargs = ast_childidx(t->ast, 2);
   AST_GET_CHILDREN(typeargs, elem_type, size);
@@ -291,7 +282,7 @@ static bool make_vector_struct(compile_t* c, reachable_type_t* t)
   // Create the type descriptor as element 0.
   elements[0] = LLVMPointerType(t->desc_type, 0);
 
-  reachable_type_t* elem_reach_type = reach_type(c->reachable, elem_type);
+  reach_type_t* elem_reach_type = reach_type(c->reach, elem_type);
 
   assert(lexint_cmp64(size_val, UINT32_MAX) <= 0);
   elements[1] = LLVMArrayType(elem_reach_type->use_type, (unsigned int) size_val->low);
@@ -301,7 +292,7 @@ static bool make_vector_struct(compile_t* c, reachable_type_t* t)
   return true;
 }
 
-static bool make_struct(compile_t* c, reachable_type_t* t)
+static bool make_struct(compile_t* c, reach_type_t* t)
 {
   LLVMTypeRef type;
   int extra = 0;
@@ -382,7 +373,7 @@ static bool make_struct(compile_t* c, reachable_type_t* t)
   return true;
 }
 
-static LLVMMetadataRef make_debug_field(compile_t* c, reachable_type_t* t,
+static LLVMMetadataRef make_debug_field(compile_t* c, reach_type_t* t,
   uint32_t i)
 {
   const char* name;
@@ -436,7 +427,7 @@ static LLVMMetadataRef make_debug_field(compile_t* c, reachable_type_t* t,
     (unsigned)ast_line(ast), 8 * size, 8 * align, 8 * offset, flags, di_type);
 }
 
-static void make_debug_fields(compile_t* c, reachable_type_t* t)
+static void make_debug_fields(compile_t* c, reach_type_t* t)
 {
   LLVMMetadataRef fields = NULL;
 
@@ -483,7 +474,7 @@ static void make_debug_fields(compile_t* c, reachable_type_t* t)
   }
 }
 
-static void make_debug_final(compile_t* c, reachable_type_t* t)
+static void make_debug_final(compile_t* c, reach_type_t* t)
 {
   switch(t->underlying)
   {
@@ -511,7 +502,7 @@ static void make_debug_final(compile_t* c, reachable_type_t* t)
   assert(0);
 }
 
-static void make_pointer_methods(compile_t* c, reachable_type_t* t)
+static void make_pointer_methods(compile_t* c, reach_type_t* t)
 {
   if(ast_id(t->ast) != TK_NOMINAL)
     return;
@@ -534,7 +525,7 @@ static void make_pointer_methods(compile_t* c, reachable_type_t* t)
   }
 }
 
-static bool make_trace(compile_t* c, reachable_type_t* t)
+static bool make_trace(compile_t* c, reach_type_t* t)
 {
   if(t->trace_fn == NULL)
     return true;
@@ -612,7 +603,7 @@ static bool make_trace(compile_t* c, reachable_type_t* t)
 
 bool gentypes(compile_t* c)
 {
-  reachable_type_t* t;
+  reach_type_t* t;
   size_t i;
 
   genprim_builtins(c);
@@ -620,7 +611,7 @@ bool gentypes(compile_t* c)
   PONY_LOG(c->opt, VERBOSITY_INFO, (" Data prototypes\n"));
   i = HASHMAP_BEGIN;
 
-  while((t = reachable_types_next(c->reachable, &i)) != NULL)
+  while((t = reach_types_next(&c->reach->types, &i)) != NULL)
   {
     if(!make_opaque_struct(c, t))
       return false;
@@ -635,7 +626,7 @@ bool gentypes(compile_t* c)
   PONY_LOG(c->opt, VERBOSITY_INFO, (" Data types\n"));
   i = HASHMAP_BEGIN;
 
-  while((t = reachable_types_next(c->reachable, &i)) != NULL)
+  while((t = reach_types_next(&c->reach->types, &i)) != NULL)
   {
     if(!make_struct(c, t))
       return false;
@@ -646,7 +637,7 @@ bool gentypes(compile_t* c)
   PONY_LOG(c->opt, VERBOSITY_INFO, (" Function prototypes\n"));
   i = HASHMAP_BEGIN;
 
-  while((t = reachable_types_next(c->reachable, &i)) != NULL)
+  while((t = reach_types_next(&c->reach->types, &i)) != NULL)
   {
     make_debug_final(c, t);
     make_pointer_methods(c, t);
@@ -658,7 +649,7 @@ bool gentypes(compile_t* c)
   PONY_LOG(c->opt, VERBOSITY_INFO, (" Functions\n"));
   i = HASHMAP_BEGIN;
 
-  while((t = reachable_types_next(c->reachable, &i)) != NULL)
+  while((t = reach_types_next(&c->reach->types, &i)) != NULL)
   {
     if(!genfun_method_bodies(c, t))
       return false;
@@ -667,7 +658,7 @@ bool gentypes(compile_t* c)
   PONY_LOG(c->opt, VERBOSITY_INFO, (" Descriptors\n"));
   i = HASHMAP_BEGIN;
 
-  while((t = reachable_types_next(c->reachable, &i)) != NULL)
+  while((t = reach_types_next(&c->reach->types, &i)) != NULL)
   {
     if(!make_trace(c, t))
       return false;

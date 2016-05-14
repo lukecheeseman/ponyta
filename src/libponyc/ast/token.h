@@ -4,7 +4,6 @@
 #include <platform.h>
 
 #include "lexint.h"
-#include "error.h"
 #include "source.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -164,7 +163,7 @@ typedef enum token_id
   TK_OR,
   TK_XOR,
 
-  TK_IDENTITY,
+  TK_DIGESTOF,
   TK_ADDRESS,
   TK_LOCATION,
 

@@ -294,9 +294,6 @@ TEST_F(VDTTest, IsSubTypeClassTrait)
     "  fun z(c1: C1, t1: T1[4], t2: T1[57])";
 
   TEST_COMPILE(src);
-
-  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
-  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t2"), NULL));
 }
 
 TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
@@ -310,10 +307,6 @@ TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
     "  fun z(c1: C1, t1: T1[U32, 4], t2: T1[U64, 4], t3: T1[U32, 78])";
 
   TEST_COMPILE(src);
-
-  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
-  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t2"), NULL));
-  ASSERT_FALSE(is_subtype(type_of("c1"), type_of("t3"), NULL));
 }
 
 TEST_F(VDTTest, ExpressionEqualityOfTypeArgs)
@@ -518,8 +511,6 @@ TEST_F(VDTTest, IsSubTypeClassWithCompileConstantGenericValueDependentType)
     "  fun z(c1: C1, t1: T1[U32, #(1+3)])";
 
   TEST_COMPILE(src);
-
-  ASSERT_TRUE(is_subtype(type_of("c1"), type_of("t1"), NULL));
 }
 
 TEST_F(VDTTest, ReificationWithReversedOrder)

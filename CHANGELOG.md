@@ -23,6 +23,9 @@ All notable changes to the Pony compiler and standard library will be documented
 - Crashing gc bug from using `get` instead of `getorput` in `gc_markactor`.
 - Add -rpath to the link command for library paths
 - Simplify contains() method on HashMap.
+- Lambda captures use the alias of the expression type.
+- Trace boxed primitives in union types.
+- Use -isystem for LLVM include directory only if it is not in search path.
 
 ### Added
 
@@ -50,6 +53,18 @@ All notable changes to the Pony compiler and standard library will be documented
 - `ArrayValues.rewind()` method.
 - Nanos primitive in time package.
 - Persistent package, with List and Map
+- Custom chunk size for Stdin.
+- Itertools package
+- TCPConnection.expect
+- TCPConnectionNotify.sentv
+- HashMap.get_or_else
+- ponytest TestHelper.expect_action, complete_action, and fail_action
+- ponytest TestHelper.dispose_when_done
+- copysign and infinite for floating point numbers
+- contains() method on Array
+- GC tracing with acquire/release semantics.
+- pony_alloc_msg_size runtime function
+- `net/WriteBuffer`
 
 ### Changed
 
@@ -63,6 +78,9 @@ All notable changes to the Pony compiler and standard library will be documented
 - Improved TCPConnection with a dynamically size of buffers
 - Drop dynamic LTO detection in the build system.
 - Parameterized Array.find and Array.rfind with a comparator.
+- `this->` adapted types check match on the upper bounds.
+- Renamed `identityof` to `digestof`.
+- Renamed `net/Buffer` to `net/ReadBuffer`
 
 ## [0.2.1] - 2015-10-06
 

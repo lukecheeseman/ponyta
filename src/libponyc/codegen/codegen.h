@@ -52,9 +52,8 @@ typedef struct compile_frame_t
 typedef struct compile_t
 {
   pass_opt_t* opt;
-  reachable_types_t* reachable;
+  reach_t* reach;
   const char* filename;
-  uint32_t next_type_id;
 
   const char* str_builtin;
   const char* str_Bool;
@@ -106,6 +105,7 @@ typedef struct compile_t
   const char* str__create;
   const char* str__init;
   const char* str__final;
+  const char* str__event_notify;
 
   LLVMCallConv callconv;
   LLVMContextRef context;
@@ -194,7 +194,7 @@ LLVMBasicBlockRef codegen_block(compile_t* c, const char* name);
 LLVMValueRef codegen_call(compile_t* c, LLVMValueRef fun, LLVMValueRef* args,
   size_t count);
 
-const char* suffix_filename(const char* dir, const char* prefix,
+const char* suffix_filename(compile_t* c, const char* dir, const char* prefix,
   const char* file, const char* extension);
 
 PONY_EXTERN_C_END

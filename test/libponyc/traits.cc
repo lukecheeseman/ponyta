@@ -5,9 +5,9 @@
 
 #include "util.h"
 
-#define TEST_COMPILE(src) DO(test_compile(src, "traits"))
-#define TEST_ERROR(src) DO(test_error(src, "traits"))
-#define TEST_EQUIV(src, expect) DO(test_equiv(src, "traits", expect, "traits"))
+#define TEST_COMPILE(src) DO(test_compile(src, "expr"))
+#define TEST_ERROR(src) DO(test_error(src, "expr"))
+#define TEST_EQUIV(src, expect) DO(test_equiv(src, "expr", expect, "expr"))
 
 
 class TraitsTest : public PassTest
@@ -99,7 +99,7 @@ TEST_F(TraitsTest, TraitAndClassNamesDontClash)
     "  fun f(y: U32): U32 => y\n"
 
     "class C is T\n"
-    "  var y: Bool";
+    "  var y: Bool = false";
 
   TEST_COMPILE(src);
 }
@@ -112,7 +112,7 @@ TEST_F(TraitsTest, TraitMethodAndCLassFieldNamesDoClash)
     "  fun f()\n"
 
     "class C is T\n"
-    "  var f: Bool";
+    "  var f: Bool = false";
 
   TEST_ERROR(src);
 }
@@ -650,4 +650,21 @@ TEST_F(TraitsTest, ActorInheritBehaviour)
     "actor A is T";
 
   TEST_COMPILE(src);
+}
+
+
+TEST_F(TraitsTest, LetInFunction)
+{
+  const char* src =
+    "trait T\n"
+    " fun foo() =>\n"
+    "   let x: U32 = 0\n"
+
+    "class Baz is T\n"
+    "class Bar is T\n";
+
+  // Tests #684. Issue only kicks in expr pass when
+  // let single assignment is checked, but test seems
+  // to belong here as fix is in traits.c.
+  DO(test_compile(src, "expr"));
 }

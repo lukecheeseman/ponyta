@@ -96,9 +96,25 @@ class val TestHelper
     """
     Assert that the 2 given expressions resolve to the same instance
     """
-    let expect' = identityof expect
-    let actual' = identityof actual
-    _check_eq[U64]("is", expect', actual', msg, loc)
+    _check_is[A]("is", consume expect, consume actual, msg, loc)
+
+  fun _check_is[A](check: String, expect: A, actual: A, msg: String,
+    loc: SourceLoc): Bool
+  =>
+    """
+    Check that the 2 given expressions resolve to the same instance
+    """
+    if expect isnt actual then
+      fail(_format_loc(loc) + "Assert " + check + " failed. " + msg +
+        " Expected (" + (digestof expect).string() + ") is (" +
+        (digestof actual).string() + ")")
+      return false
+    end
+
+    log(_format_loc(loc) + "Assert " + check + " passed. " + msg +
+      " Got (" + (digestof expect).string() + ") is (" +
+      (digestof actual).string() + ")", true)
+    true
 
   fun assert_eq[A: (Equatable[A] #read & Stringable #read)]
     (expect: A, actual: A, msg: String = "", loc: SourceLoc = __loc): Bool
@@ -131,9 +147,25 @@ class val TestHelper
     """
     Assert that the 2 given expressions resolve to different instances.
     """
-    let not_expect' = identityof not_expect
-    let actual' = identityof actual
-    _check_ne[U64]("isn't", not_expect', actual', msg, loc)
+    _check_isnt[A]("isn't", consume not_expect, consume actual, msg, loc)
+
+  fun _check_isnt[A](check: String, not_expect: A, actual: A, msg: String,
+    loc: SourceLoc): Bool
+  =>
+    """
+    Check that the 2 given expressions resolve to different instances.
+    """
+    if not_expect is actual then
+      fail(_format_loc(loc) + "Assert " + check + " failed. " + msg +
+        " Expected (" + (digestof not_expect).string() + ") isnt (" +
+        (digestof actual).string() + ")")
+      return false
+    end
+
+    log(_format_loc(loc) + "Assert " + check + " passed. " + msg +
+      " Got (" + (digestof not_expect).string() + ") isnt (" +
+      (digestof actual).string() + ")", true)
+    true
 
   fun assert_ne[A: (Equatable[A] #read & Stringable #read)]
     (not_expect: A, actual: A, msg: String = "", loc: SourceLoc = __loc): Bool
@@ -280,3 +312,52 @@ class val TestHelper
     Once this is called tear_down() may be called at any time.
     """
     _runner.complete(success)
+
+  fun expect_action(name: String) =>
+    """
+    Can be called in a long test to set up expectations for one or more actions
+    that, when all completed, will complete the test.
+
+    This pattern is useful for cases where you have multiple things that need
+    to happen to complete your test, but don't want to have to collect them
+    all yourself into a single actor that calls the complete method.
+
+    The order of calls to expect_action don't matter - the actions may be
+    completed in any other order to complete the test.
+    """
+    _runner.expect_action(name)
+
+  fun complete_action(name: String) =>
+    """
+    MUST be called for each action expectation that was set up in a long test
+    to fulfill the expectations. Any expectations that are still outstanding
+    when the long test timeout runs out will be printed by name when it fails.
+
+    Completing all outstanding actions is enough to finish the test. There's no
+    need to also call the complete method when the actions are finished.
+
+    Calling the complete method will finish the test immediately, without
+    waiting for any outstanding actions to be completed.
+    """
+    _runner.complete_action(name, true)
+
+  fun fail_action(name: String) =>
+    """
+    Call to fail an action, which will also cause the entire test to fail
+    immediately, without waiting the rest of the outstanding actions.
+
+    The name of the failed action will be included in the failure output.
+
+    Usually the action name should be an expected action set up by a call to
+    expect_action, but failing unexpected actions will also fail the test.
+    """
+    _runner.complete_action(name, false)
+
+  fun dispose_when_done(disposable: DisposableActor) =>
+    """
+    Pass a disposable actor to be disposed of when the test is complete.
+    The actor will be disposed no matter whether the test succeeds or fails.
+
+    If the test is already tearing down, the actor will be disposed immediately.
+    """
+    _runner.dispose_when_done(disposable)

@@ -81,7 +81,7 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   if (evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
-    ast_error(expression, "could not evaluate compile time expression");
+    ast_error(opt->check.errors, expression, "could not evaluate compile time expression");
     return false;
   }
   ast_setconstant(evaluated);
@@ -92,7 +92,7 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
     ast_t* cap = ast_childidx(type, 3);
     if(ast_id(cap) != TK_VAL)
     {
-      ast_error(expression, "result of compile time expression must be val");
+      ast_error(opt->check.errors, expression, "result of compile time expression must be val");
       return false;
     }
   }
@@ -101,7 +101,7 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   return true;
 }
 
-typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*);
+typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*, pass_opt_t* opt);
 
 typedef struct method_entry {
   const char* type;
@@ -256,7 +256,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   method_ptr_t builtin_method
     = lookup_method(evaluated_receiver, type, ast_name(func_id));
   if(builtin_method != NULL)
-    return builtin_method(evaluated_receiver, args);
+    return builtin_method(evaluated_receiver, args, opt);
 
   // We ensure that we have type checked the method before we attempt to
   // evaluate it, this is so that we do not attempt to evaluate erroneuos
@@ -287,7 +287,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     }
 
     case TK_BEREF:
-      ast_error(function, "cannot evaluate compile-time behaviours");
+      ast_error(opt->check.errors, function, "cannot evaluate compile-time behaviours");
       return NULL;
 
     default: break;
@@ -301,7 +301,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   if(typeargs != NULL)
   {
     ast_t* typeparams = ast_childidx(fun, 2);
-    ast_t* r_fun = reify(fun, typeparams, typeargs);
+    ast_t* r_fun = reify(fun, typeparams, typeargs, opt);
     ast_free_unattached(fun);
     fun = r_fun;
     assert(fun != NULL);
@@ -326,7 +326,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* evaluated = evaluate(opt, body, evaluated_receiver);
   if(evaluated == NULL)
   {
-    ast_error(function, "function is not a compile time expression");
+    ast_error(opt->check.errors, function, "function is not a compile time expression");
     return NULL;
   }
 
@@ -360,7 +360,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       switch(ast_id(member))
       {
         case TK_FVAR:
-          ast_error(member, "compile time objects fields must be read-only");
+          ast_error(opt->check.errors, member, "compile time objects fields must be read-only");
           return NULL;
 
         case TK_EMBED:
@@ -386,7 +386,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
   depth++;
   if(depth >= opt->evaluation_depth)
   {
-    ast_error(expression,
+    ast_error(opt->check.errors, expression,
       "compile-time expression evaluation depth exceeds maximum of %d",
        opt->evaluation_depth);
     return NULL;
@@ -417,7 +417,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
     // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
     case TK_FVARREF:
-      ast_error(expression, "compile time expression can only use read-only variables");
+      ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
       return NULL;
 
     case TK_PARAMREF:
@@ -427,14 +427,14 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(expression, "compile time expression can only use read-only variables");
+        ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
         return NULL;
       }
 
       ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
       if(value == NULL)
       {
-        ast_error(expression, "variable is not a compile time expression");
+        ast_error(opt->check.errors, expression, "variable is not a compile time expression");
         return NULL;
       }
       ret = value;
@@ -449,7 +449,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(expression, "compile time expression can only use read-only variables");
+        ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
         return NULL;
       }
 
@@ -457,14 +457,14 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       ast_t* evaluated_receiver = evaluate(opt, receiver, this);
       if(evaluated_receiver == NULL)
       {
-        ast_error(receiver, "could not evaluate receiver");
+        ast_error(opt->check.errors, receiver, "could not evaluate receiver");
         return NULL;
       }
 
       ast_t* field = ast_get_value(evaluated_receiver, ast_name(id));
       if(field == NULL)
       {
-        ast_error(expression, "could not find field");
+        ast_error(opt->check.errors, expression, "could not find field");
         return NULL;
       }
       ret = field;
@@ -479,7 +479,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
         evaluated = evaluate(opt, p, this);
         if(evaluated == NULL)
         {
-          ast_error(p, "could not evaluate compile time expression");
+          ast_error(opt->check.errors, p, "could not evaluate compile time expression");
           return NULL;
         }
       }
@@ -535,7 +535,7 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
 
     default:
       assert(0);
-      ast_error(expression, "Cannot evaluate compile time expression");
+      ast_error(opt->check.errors, expression, "Cannot evaluate compile time expression");
       return NULL;
   }
   depth--;

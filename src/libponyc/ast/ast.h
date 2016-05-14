@@ -116,7 +116,8 @@ size_t ast_index(ast_t* ast);
 ast_t* ast_get(ast_t* ast, const char* name, sym_status_t* status);
 ast_t* ast_get_case(ast_t* ast, const char* name, sym_status_t* status);
 ast_t* ast_get_value(ast_t* ast, const char* name);
-bool ast_set(ast_t* ast, const char* name, ast_t* def, sym_status_t status);
+bool ast_set(ast_t* ast, const char* name, ast_t* value, sym_status_t status,
+  bool allow_shadowing);
 bool ast_set_value(ast_t* ast, const char* name, ast_t* value);
 void ast_setstatus(ast_t* ast, const char* name, sym_status_t status);
 void ast_inheritstatus(ast_t* dst, ast_t* src);
@@ -125,7 +126,8 @@ void ast_consolidate_branches(ast_t* ast, size_t count);
 bool ast_canmerge(ast_t* dst, ast_t* src);
 bool ast_merge(ast_t* dst, ast_t* src);
 bool ast_within_scope(ast_t* outer, ast_t* inner, const char* name);
-bool ast_all_consumes_in_scope(ast_t* outer, ast_t* inner);
+bool ast_all_consumes_in_scope(ast_t* outer, ast_t* inner,
+  errorframe_t* errorf);
 void ast_clear(ast_t* ast);
 void ast_clear_local(ast_t* ast);
 
@@ -149,8 +151,10 @@ void ast_fprintverbose(FILE* fp, ast_t* ast);
 const char* ast_print_type(ast_t* type);
 void ast_setwidth(size_t w);
 
-void ast_error(ast_t* ast, const char* fmt, ...)
-  __attribute__((format(printf, 2, 3)));
+void ast_error(errors_t* errors, ast_t* ast, const char* fmt, ...)
+  __attribute__((format(printf, 3, 4)));
+void ast_error_continue(errors_t* errors, ast_t* ast, const char* fmt, ...)
+  __attribute__((format(printf, 3, 4)));
 void ast_error_frame(errorframe_t* frame, ast_t* ast, const char* fmt, ...)
   __attribute__((format(printf, 3, 4)));
 

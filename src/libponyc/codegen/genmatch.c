@@ -210,7 +210,7 @@ static bool check_value(compile_t* c, ast_t* pattern, ast_t* param_type,
   if(l_value == NULL)
     return false;
 
-  reachable_type_t* t = reach_type(c->reachable, param_type);
+  reach_type_t* t = reach_type(c->reach, param_type);
   LLVMValueRef r_value = gen_assign_cast(c, t->use_type, value, param_type);
 
   if(r_value == NULL)
@@ -331,7 +331,7 @@ static bool dynamic_value_ptr(compile_t* c, LLVMValueRef ptr,
   // it isn't a boxed primitive, as that would go through the other path, ie
   // dynamic_match_object(). We also know it isn't an unboxed tuple. We can
   // load from ptr with a type based on the static type of the pattern.
-  reachable_type_t* t = reach_type(c->reachable, param_type);
+  reach_type_t* t = reach_type(c->reach, param_type);
   LLVMTypeRef ptr_type = LLVMPointerType(t->use_type, 0);
   ptr = LLVMBuildIntToPtr(c->builder, ptr, ptr_type, "");
   LLVMValueRef value = LLVMBuildLoad(c->builder, ptr, "");
@@ -355,7 +355,7 @@ static bool dynamic_capture_ptr(compile_t* c, LLVMValueRef ptr,
   // it isn't a boxed primitive or tuple, as that would go through the other
   // path, ie dynamic_match_object(). We also know it isn't an unboxed tuple.
   // We can load from ptr with a type based on the static type of the pattern.
-  reachable_type_t* t = reach_type(c->reachable, pattern_type);
+  reach_type_t* t = reach_type(c->reach, pattern_type);
   LLVMTypeRef ptr_type = LLVMPointerType(t->use_type, 0);
   ptr = LLVMBuildIntToPtr(c->builder, ptr, ptr_type, "");
   LLVMValueRef value = LLVMBuildLoad(c->builder, ptr, "");
@@ -545,7 +545,7 @@ static bool static_value(compile_t* c, LLVMValueRef value, ast_t* type,
   // Get the type of the right-hand side of the pattern's eq() function.
   ast_t* param_type = eq_param_type(c, pattern);
 
-  if(!is_subtype(type, param_type, NULL))
+  if(!is_subtype(type, param_type, NULL, c->opt))
   {
     // Switch to dynamic value checking.
     assert(LLVMTypeOf(value) == c->object_ptr);
@@ -566,7 +566,7 @@ static bool static_capture(compile_t* c, LLVMValueRef value, ast_t* type,
   if(gen_localdecl(c, pattern) == NULL)
     return false;
 
-  if(!is_subtype(type, pattern_type, NULL))
+  if(!is_subtype(type, pattern_type, NULL, c->opt))
   {
     // Switch to dynamic capture.
     assert(LLVMTypeOf(value) == c->object_ptr);
@@ -674,7 +674,7 @@ LLVMValueRef gen_match(compile_t* c, ast_t* ast)
 
   if(needed && !is_control_type(type))
   {
-    reachable_type_t* t_phi = reach_type(c->reachable, type);
+    reach_type_t* t_phi = reach_type(c->reach, type);
     phi_type = t_phi->use_type;
   }
 
@@ -722,7 +722,7 @@ LLVMValueRef gen_match(compile_t* c, ast_t* ast)
     ast_t* pattern_type = ast_type(pattern);
     bool ok = true;
 
-    if(is_matchtype(match_type, pattern_type) != MATCHTYPE_ACCEPT)
+    if(is_matchtype(match_type, pattern_type, c->opt) != MATCHTYPE_ACCEPT)
     {
       // If there's no possible match, jump directly to the next block.
       LLVMBuildBr(c->builder, next_block);

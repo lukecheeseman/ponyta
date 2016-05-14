@@ -10,9 +10,10 @@ static bool is_ast_integer(ast_t* ast)
   return ast_id(ast) == TK_INT;
 }
 
-ast_t* evaluate_create_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_create_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  assert(receiver);
+  (void) receiver;
+  (void) opt;
   return ast_child(args);
 }
 
@@ -35,7 +36,8 @@ static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
   return lexint_cmp(lhs, rhs);
 }
 
-static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
+static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs,
+  pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_POSITIONALARGS);
   ast_t* lhs_arg = receiver;
@@ -45,13 +47,13 @@ static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
 
   if(!is_ast_integer(lhs_arg))
   {
-    ast_error(rhs_arg, "%s is not a compile-time integer expression", ast_get_print(lhs_arg));
+    ast_error(opt->check.errors, rhs_arg, "%s is not a compile-time integer expression", ast_get_print(lhs_arg));
     return false;
   }
 
   if(!is_ast_integer(rhs_arg))
   {
-    ast_error(rhs_arg, "%s is not a compile-time integer expression", ast_get_print(rhs_arg));
+    ast_error(opt->check.errors, rhs_arg, "%s is not a compile-time integer expression", ast_get_print(rhs_arg));
     return false;
   }
 
@@ -60,11 +62,11 @@ static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs)
   return true; 
 }
 
-ast_t* evaluate_add_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_add_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -88,11 +90,11 @@ ast_t* evaluate_add_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -111,13 +113,14 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args)
 
 typedef void (*lexint_method64_t)(lexint_t*, lexint_t*, uint64_t);
 
-static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args, lexint_method64_t operation)
+static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args,
+  lexint_method64_t operation, pass_opt_t* opt)
 {
   // First make both arguments postive, perform the operation and then
   // negate the result if necessary
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -136,7 +139,7 @@ static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args, lexint_method64
   {
     // FIXME: can only print 64 bit integers with ast_get_rpint
     // token method for printing should probably be changed then
-    ast_error(rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+    ast_error(opt->check.errors, rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
     return NULL;
   }
 
@@ -150,19 +153,20 @@ static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args, lexint_method64
   return result;
 }
 
-ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_div_mul_int(receiver, args, &lexint_mul64);
+  return evaluate_div_mul_int(receiver, args, &lexint_mul64, opt);
 }
 
-ast_t* evaluate_div_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_div_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_div_mul_int(receiver, args, &lexint_div64);
+  return evaluate_div_mul_int(receiver, args, &lexint_div64, opt);
 }
 
-ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
+  (void) opt;
   if(!is_ast_integer(receiver))
     return NULL;
 
@@ -176,11 +180,12 @@ ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args)
 
 typedef bool (*test_equality_t)(lexint_t*, lexint_t*);
 
-static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args, test_equality_t test)
+static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args,
+  test_equality_t test, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   lexint_t* lhs = ast_int(lhs_arg);
@@ -188,9 +193,7 @@ static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args, test_equalit
 
   BUILD(result, lhs_arg, NODE(test(lhs, rhs) ? TK_TRUE : TK_FALSE));
 
-  //FIXME: we need the options
-  pass_opt_t opt;
-  ast_t* bool_type = type_builtin(&opt, ast_type(lhs_arg), "Bool");
+  ast_t* bool_type = type_builtin(opt, ast_type(lhs_arg), "Bool");
 
   ast_settype(result, bool_type);
   return result;
@@ -226,41 +229,42 @@ static bool test_ge(lexint_t* lhs, lexint_t* rhs)
   return lexint_cmp_with_negative(lhs, rhs) >= 0;
 }
 
-ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_eq);
+  return evaluate_inequality_int(receiver, args, &test_eq, opt);
 }
 
-ast_t* evaluate_ne_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_ne_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_ne);
+  return evaluate_inequality_int(receiver, args, &test_ne, opt);
 }
 
-ast_t* evaluate_lt_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_lt_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_lt);
+  return evaluate_inequality_int(receiver, args, &test_lt, opt);
 }
 
-ast_t* evaluate_le_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_le_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_le);
+  return evaluate_inequality_int(receiver, args, &test_le, opt);
 }
 
-ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_ge_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_ge);
+  return evaluate_inequality_int(receiver, args, &test_ge, opt);
 }
 
-ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_inequality_int(receiver, args, &test_gt);
+  return evaluate_inequality_int(receiver, args, &test_gt, opt);
 }
 
-static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args, test_equality_t test)
+static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args,
+  test_equality_t test, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   lexint_t* lhs = ast_int(lhs_arg);
@@ -272,21 +276,21 @@ static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args, test_equality_t
   return ast_dup(rhs_arg);
 }
 
-ast_t* evaluate_min_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_min_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_min_max_int(receiver, args, &test_lt);
+  return evaluate_min_max_int(receiver, args, &test_lt, opt);
 }
 
-ast_t* evaluate_max_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_max_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_min_max_int(receiver, args, &test_gt);
+  return evaluate_min_max_int(receiver, args, &test_gt, opt);
 }
 
-ast_t* evaluate_and_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_and_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -297,11 +301,11 @@ ast_t* evaluate_and_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_or_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_or_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -312,11 +316,11 @@ ast_t* evaluate_or_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -327,9 +331,10 @@ ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_not_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
+  (void) opt;
   if(!is_ast_integer(receiver))
     return NULL;
 
@@ -341,11 +346,11 @@ ast_t* evaluate_not_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -356,11 +361,11 @@ ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args)
   return result;
 }
 
-ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* lhs_arg;
   ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg))
+  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -372,15 +377,14 @@ ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args)
 }
 
 // casting methods
-static void cast_to_type(ast_t* receiver, const char* type) {
-  pass_opt_t opt;
-  ast_t* new_type = type_builtin(&opt, ast_type(receiver), type);
+static void cast_to_type(ast_t* receiver, const char* type, pass_opt_t* opt) {
+  ast_t* new_type = type_builtin(opt, ast_type(receiver), type);
   assert(new_type);
 
   ast_settype(receiver, new_type);
 }
 
-ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   if(!is_ast_integer(receiver))
@@ -418,123 +422,124 @@ ast_t* evaluate_hash_int(ast_t* receiver, ast_t* args)
   lexint_add(result_int, result_int, &lt);
 
   // result will get duplicated in the cast method
-  cast_to_type(result, "U64");
+  cast_to_type(result, "U64", opt);
   return result;
 }
 
-ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_i8_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "I8");
+  cast_to_type(result, "I8", opt);
   return result;
 }
 
-ast_t* evaluate_i16_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_i16_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "I16");
+  cast_to_type(result, "I16", opt);
   return result;
 }
 
-ast_t* evaluate_i32_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_i32_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "I32");
+  cast_to_type(result, "I32", opt);
   return result;
 }
 
-ast_t* evaluate_i64_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_i64_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "I64");
+  cast_to_type(result, "I64", opt);
   return result;
 }
 
-ast_t* evaluate_i128_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_i128_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "I128");
+  cast_to_type(result, "I128", opt);
   return result;
 }
 
-ast_t* evaluate_ilong_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_ilong_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "ILong");
+  cast_to_type(result, "ILong", opt);
   return result;
 }
 
-ast_t* evaluate_isize_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_isize_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "ISize");
+  cast_to_type(result, "ISize", opt);
   return result;
 }
 
-ast_t* evaluate_u8_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_u8_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "U8");
+  cast_to_type(result, "U8", opt);
   return result;
 }
 
-ast_t* evaluate_u16_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_u16_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "U16");
+  cast_to_type(result, "U16", opt);
   return result;
 }
 
-ast_t* evaluate_u32_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_u32_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "U32");
+  cast_to_type(result, "U32", opt);
   return result;
 }
 
-ast_t* evaluate_u64_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_u64_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "U64");
+  cast_to_type(result, "U64", opt);
   return result;
 }
 
-ast_t* evaluate_u128_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_u128_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "U128");
+  cast_to_type(result, "U128", opt);
   return result;
 }
 
-ast_t* evaluate_ulong_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_ulong_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "ULong");
+  cast_to_type(result, "ULong", opt);
   return result;
 }
 
-ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
   ast_t* result = ast_dup(receiver);
-  cast_to_type(result, "USize");
+  cast_to_type(result, "USize", opt);
   return result;
 }
 
-static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
+static ast_t* cast_int_to_float(ast_t* receiver, const char* type,
+  pass_opt_t* opt)
 {
   //FIXME
   lexint_t* evaluated_int = ast_int(receiver);
@@ -551,18 +556,18 @@ static ast_t* cast_int_to_float(ast_t* receiver, const char* type)
 
   ast_t* result = ast_from(receiver, TK_FLOAT);
   ast_set_float(result, result_double);
-  cast_to_type(result, type);
+  cast_to_type(result, type, opt);
   return result;
 }
 
-ast_t* evaluate_f32_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_f32_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_int_to_float(receiver, "F32");
+  return cast_int_to_float(receiver, "F32", opt);
 }
 
-ast_t* evaluate_f64_int(ast_t* receiver, ast_t* args)
+ast_t* evaluate_f64_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
-  return cast_int_to_float(receiver, "F64");
+  return cast_int_to_float(receiver, "F64", opt);
 }

@@ -12,6 +12,32 @@
 #include <assert.h>
 #include <inttypes.h>
 
+bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
+{
+  ast_t* ast = *astp;
+
+  // FIXME: the type of expressions hasn't been resolved yet
+  ast_t* type = ast_type(ast);
+  if(type != NULL)
+    if(!evaluate_expressions(opt, &type))
+      return false;
+
+  if(ast_id(ast) == TK_CONSTANT)
+    return expr_constant(opt, astp);
+
+  ast_t* child = ast_child(ast);
+  while(child != NULL)
+  {
+    if(!evaluate_expressions(opt, &child))
+      return false;
+
+    child = ast_sibling(child);
+  }
+
+  return true;
+}
+
+
 bool ast_equal(ast_t* left, ast_t* right)
 {
   if(left == NULL || right == NULL)
@@ -173,6 +199,7 @@ static method_entry_t method_table[] = {
   // boolean operations
   { "Bool"    , "op_and"  , &evaluate_and_bool   },
   { "Bool"    , "op_or"   , &evaluate_or_bool    },
+  { "Bool"    , "op_not"  , &evaluate_not_bool    },
 
   // no entry in method table
   { NULL, NULL, NULL }
@@ -515,6 +542,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
     {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
       ast_t* condition_evaluated = evaluate(opt, condition, this);
+      if(condition_evaluated == NULL)
+        return NULL;
 
       ret = ast_id(condition_evaluated) == TK_TRUE ?
             evaluate(opt, then_branch, this):
@@ -530,6 +559,14 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       assert(name != NULL);
       ast_set_value(left, name, evaluate(opt, right, this));
       ret = right;
+      break;
+    }
+
+    case TK_ERROR:
+    {
+      ast_error(opt->check.errors, expression,
+        "evaluating expression resulted in an error");
+      ret = NULL;
       break;
     }
 

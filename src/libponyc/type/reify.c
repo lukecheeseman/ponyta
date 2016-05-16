@@ -126,31 +126,6 @@ static void reify_one(ast_t** astp, ast_t* typeparam, ast_t* typearg)
   }
 }
 
-bool evaluate_expressions(ast_t** astp, pass_opt_t* opt)
-{
-  ast_t* ast = *astp;
-
-  // FIXME: the type of expressions hasn't been resolved yet
-  ast_t* type = ast_type(ast);
-  if(type != NULL)
-    if(!evaluate_expressions(&type, opt))
-      return false;
-
-  if(ast_id(ast) == TK_CONSTANT)
-    return expr_constant(opt, astp);
-
-  ast_t* child = ast_child(ast);
-  while(child != NULL)
-  {
-    if(!evaluate_expressions(&child, opt))
-      return false;
-
-    child = ast_sibling(child);
-  }
-
-  return true;
-}
-
 bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors,
   pass_opt_t* opt)
 {
@@ -244,8 +219,6 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs, pass_opt_t* opt)
 
   assert(typeparam == NULL);
   assert(typearg == NULL);
-
-  assert(evaluate_expressions(&r_ast, opt));
 
   ast_free(typeparams);
 

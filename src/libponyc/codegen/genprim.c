@@ -373,6 +373,8 @@ static void vector_apply(compile_t* c, reach_type_t* t, reach_type_t* t_elem)
 
   LLVMBuildRet(c->builder, result);
   codegen_finishfun(c);
+
+  BOX_FUNCTION();
 }
 
 static void vector_update(compile_t* c, reach_type_t* t, reach_type_t* t_elem)

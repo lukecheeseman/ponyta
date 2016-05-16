@@ -6,6 +6,7 @@
 #include "../type/reify.h"
 #include "../type/subtype.h"
 #include "../../libponyrt/mem/pool.h"
+#include "../evaluate/evaluate.h"
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -318,6 +319,12 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
       body);
 
     ast_t* r_fun = reify(fun, typeparams, typeargs, opt);
+
+    // When we reify the method we then evaluate any compile-time expressions
+    // we leave it until this stage to ensure all type checing has been
+    // completed
+    assert(evaluate_expressions(opt, &r_fun));
+
     ast_free_unattached(fun);
     fun = r_fun;
   }

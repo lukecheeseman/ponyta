@@ -8,6 +8,7 @@
 #include "../type/lookup.h"
 #include "../type/subtype.h"
 #include "../type/reify.h"
+#include "../type/alias.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -298,7 +299,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       // fields etc. it is also likely that we would then go on to use some
       // of the methods in this class.
       ast_t* def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
-      if(ast_visit(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
       break;
     }
@@ -308,7 +309,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       // find the method and type check it
       ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
       ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
-      if(ast_visit(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
       break;
     }
@@ -333,6 +334,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     fun = r_fun;
     assert(fun != NULL);
   }
+  assert(evaluate_expressions(opt, &fun));
 
   // map each parameter to its argument value in the symbol table
   ast_t* params = ast_childidx(fun, 3);
@@ -368,12 +370,26 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     char obj_name[strlen(type_name) + 11 + 21];
     sprintf(obj_name, "%s_$instance_%" PRIu64, type_name, count++);
 
+    // get the return type
+    ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
+
+    // See if we can recover the constructed object to a val
+    ast_t* r_type = recover_type(ret_type, TK_VAL);
+    if(r_type == NULL)
+    {
+      ast_error(opt->check.errors, function,
+        "can't recover compile-time object to val capability");
+      return NULL;
+    }
+
+    ast_t* ret_cap = ast_childidx(ret_type, 3);
+    ast_t* val_cap = ast_from(ret_cap, TK_VAL);
+    ast_replace(&ret_cap, val_cap);
+
     BUILD(obj, receiver,
       NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
     ast_set_symtab(obj, ast_get_symtab(fun));
 
-    // get the return type
-    ast_t* ret_type = ast_childidx(ast_type(function), 3);
     ast_settype(obj, ast_dup(ret_type));
 
     // find the class definition and add the members of the object as child
@@ -572,7 +588,8 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
 
     default:
       assert(0);
-      ast_error(opt->check.errors, expression, "Cannot evaluate compile time expression");
+      ast_error(opt->check.errors, expression,
+        "cannot evaluate compile time expression");
       return NULL;
   }
   depth--;

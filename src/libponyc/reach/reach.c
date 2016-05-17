@@ -323,6 +323,9 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
     // When we reify the method we then evaluate any compile-time expressions
     // we leave it until this stage to ensure all type checing has been
     // completed
+    // FIXME: Can we do this any earlier? are there issues with doing this
+    // here? Is there any context we can do this from which we can return an
+    // error on reification?
     assert(evaluate_expressions(opt, &r_fun));
 
     ast_free_unattached(fun);

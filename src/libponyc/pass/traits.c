@@ -8,6 +8,7 @@
 #include "../type/subtype.h"
 #include "../type/reify.h"
 #include "../../libponyrt/mem/pool.h"
+#include "../evaluate/evaluate.h"
 #include <assert.h>
 
 
@@ -547,6 +548,15 @@ static bool add_method_from_trait(ast_t* entity, ast_t* method,
     (info->body_donor != NULL) &&
     (ast_id(method_body) != TK_NONE) &&
     (info->body_donor != (ast_t*)ast_data(method));
+
+  // We may have it that we inherit from two instances of the same trait
+  // but with different typeargs, this would cause us to have mutliple bodies
+  if(info->body_donor == (ast_t*)ast_data(method))
+  {
+    ast_t* typeargs_donor = ast_childidx(info->trait_ref, 2);
+    ast_t* typeargs = ast_childidx(trait_ref, 2);
+    multiple_bodies |= !ast_equal(typeargs_donor, typeargs);
+  }
 
   if(multiple_bodies ||
     ast_checkflag(existing_method, AST_FLAG_AMBIGUOUS) ||

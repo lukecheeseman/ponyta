@@ -542,3 +542,13 @@ TEST_F(VDTTest, TestBadConstraint)
 
   TEST_ERROR(src);
 }
+
+TEST_F(VDTTest, TestMultipleTraitInstantiationWithMethod)
+{
+  const char* src =
+    "trait T1[n: U32]\n"
+    "  fun foo(): U32 => n\n"
+    "class C1 is (T1[2] & T1[68])";
+
+  TEST_ERROR(src);
+}

@@ -38,11 +38,17 @@ bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
   return true;
 }
 
-
 bool ast_equal(ast_t* left, ast_t* right)
 {
   if(left == NULL || right == NULL)
     return left == NULL && right == NULL;
+
+  // Look through all of the constant expression directives
+  if(ast_id(left) == TK_CONSTANT)
+    return ast_equal(ast_child(left), right);
+
+  if(ast_id(right) == TK_CONSTANT)
+    return ast_equal(left, ast_child(right));
 
   if(ast_id(left) != ast_id(right))
     return false;
@@ -585,6 +591,11 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
       ret = NULL;
       break;
     }
+
+    // Artifact of looking through the constants in equivalence
+    case TK_CONSTANT:
+      ret = evaluate(opt, ast_child(expression), this);
+      break;
 
     default:
       assert(0);

@@ -320,17 +320,16 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
 
     ast_t* r_fun = reify(fun, typeparams, typeargs, opt);
 
-    // When we reify the method we then evaluate any compile-time expressions
-    // we leave it until this stage to ensure all type checing has been
-    // completed
-    // FIXME: Can we do this any earlier? are there issues with doing this
-    // here? Is there any context we can do this from which we can return an
-    // error on reification?
-    assert(evaluate_expressions(opt, &r_fun));
-
     ast_free_unattached(fun);
     fun = r_fun;
   }
+
+  // We only evaluate expressions in reachable methods and at this point we have
+  // enough information to ensure that expressions are typesafe.
+  // FIXME: Can we do this any earlier? are there issues with doing this
+  // here? Is there any context we can do this from which we can return an
+  // error on reification?
+  assert(evaluate_expressions(opt, &fun));
 
   m->r_fun = fun;
   set_method_types(r, m, opt);

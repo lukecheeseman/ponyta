@@ -552,3 +552,16 @@ TEST_F(VDTTest, TestMultipleTraitInstantiationWithMethod)
 
   TEST_ERROR(src);
 }
+
+TEST_F(VDTTest, TestNestedReifications)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "  fun apply(): U32 => n\n"
+    "class C2\n"
+    "  fun foo[m: U32](c: C1[#m]): U32 => c()\n"
+    "  fun bar[n: U32](c: C1[#n]): U32 => foo[#n](c)\n"
+    "  new create() => bar[12](C1[12])";
+
+  TEST_COMPILE(src);
+}

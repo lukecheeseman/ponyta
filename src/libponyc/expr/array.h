@@ -8,6 +8,7 @@
 PONY_EXTERN_C_BEGIN
 
 bool expr_array(pass_opt_t* opt, ast_t** astp);
+bool expr_vector(pass_opt_t* opt, ast_t** astp);
 
 PONY_EXTERN_C_END
 

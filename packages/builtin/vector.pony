@@ -80,7 +80,7 @@ class Vector[A, _size: USize]
     for value in values() do
       array.push(f(value))
     end
-    String.append("[").append(", ".join(array)).append("]")
+    String.append("{").append(", ".join(array)).append("}")
 
   fun size(): USize =>
     """

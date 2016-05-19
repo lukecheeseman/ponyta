@@ -121,6 +121,7 @@ bool is_type_literal(ast_t* type)
 
 #define CHAIN_CARD_BASE   0 // Basic type
 #define CHAIN_CARD_ARRAY  1 // Array member
+#define CHAIN_CARD_VECTOR 2 // Vector member
 
 typedef struct lit_chain_t
 {
@@ -418,6 +419,16 @@ static int uifset(pass_opt_t* opt, ast_t* type, lit_chain_t* chain)
         return uifset(opt, ast_child(type_args), chain->next);
       }
 
+      if(strcmp(ast_name(ast_childidx(type, 1)), "Vector") == 0)
+      {
+        if(chain->cardinality != CHAIN_CARD_VECTOR) // Incorrect cardinality
+          return UIF_NO_TYPES;
+
+        ast_t* type_args = ast_childidx(type, 2);
+        assert(ast_childcount(type_args) == 2);
+        return uifset(opt, ast_child(type_args), chain->next);
+      }
+
       if(chain->cardinality != CHAIN_CARD_BASE) // Incorrect cardinality
         return UIF_NO_TYPES;
 
@@ -594,7 +605,8 @@ static bool coerce_group(ast_t** astp, ast_t* target_type, lit_chain_t* chain,
   assert(astp != NULL);
   ast_t* literal_expr = *astp;
   assert(literal_expr != NULL);
-  assert(ast_id(literal_expr) == TK_TUPLE || ast_id(literal_expr) == TK_ARRAY);
+  assert(ast_id(literal_expr) == TK_TUPLE || ast_id(literal_expr) == TK_ARRAY
+         || ast_id(literal_expr) == TK_VECTOR);
   assert(chain != NULL);
   assert(cardinality != CHAIN_CARD_BASE);
 
@@ -606,7 +618,7 @@ static bool coerce_group(ast_t** astp, ast_t* target_type, lit_chain_t* chain,
   // Process each group element separately
   ast_t* p = ast_child(literal_expr);
 
-  if(ast_id(literal_expr) == TK_ARRAY)
+  if(ast_id(literal_expr) == TK_ARRAY || ast_id(literal_expr) == TK_VECTOR)
   {
     // The first child of an array AST is the forced type, skip it
     p = ast_sibling(p);
@@ -728,6 +740,11 @@ static bool coerce_literal_to_type(ast_t** astp, ast_t* target_type,
     case TK_FLOAT:
       return uif_type_from_chain(opt, literal_expr, target_type, chain,
         true, report_errors);
+
+    case TK_VECTOR:
+      if(!coerce_group(astp, target_type, chain, CHAIN_CARD_VECTOR, opt,
+        report_errors))
+        return false;
 
     case TK_ARRAY:
       if(!coerce_group(astp, target_type, chain, CHAIN_CARD_ARRAY, opt,

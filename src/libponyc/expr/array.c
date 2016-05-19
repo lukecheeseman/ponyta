@@ -11,8 +11,9 @@
 #include "../type/assemble.h"
 #include "../type/subtype.h"
 
-bool expr_array(pass_opt_t* opt, ast_t** astp)
+static bool expr_sequential(pass_opt_t* opt, ast_t** astp, bool is_array)
 {
+  const char* structure = is_array ? "array" : "vector";
   ast_t* ast = *astp;
   size_t size = ast_childcount(ast) - 1;
   ast_t* type = NULL;
@@ -33,7 +34,8 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
     if(is_control_type(c_type))
     {
       ast_error(opt->check.errors, ele,
-        "can't use an expression without a value in an array constructor");
+        "can't use an expression without a value in an %s constructor",
+        structure);
       ast_free_unattached(type);
       return false;
     }
@@ -54,9 +56,10 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
       {
         errorframe_t frame = NULL;
         ast_error_frame(&frame, ele,
-          "array element not a subtype of specified array type");
-        ast_error_frame(&frame, type_spec, "array type: %s",
-          ast_print_type(type));
+          "array element not a subtype of specified %s type",
+          structure);
+        ast_error_frame(&frame, type_spec, "%s type: %s",
+          structure, ast_print_type(type));
         ast_error_frame(&frame, c_type, "element type: %s",
           ast_print_type(c_type));
         errorframe_append(&frame, &info);
@@ -78,58 +81,84 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
     }
   }
 
-  BUILD(ref, ast, NODE(TK_REFERENCE, ID("Array")));
-
-  ast_t* a_type = alias(type);
-
-  BUILD(qualify, ast,
-    NODE(TK_QUALIFY,
-      TREE(ref)
-      NODE(TK_TYPEARGS, TREE(a_type))));
-
-  ast_free_unattached(type);
-
-  BUILD(dot, ast, NODE(TK_DOT, TREE(qualify) ID("create")));
-
-  ast_t* size_arg = ast_from_int(ast, size);
-  BUILD(size_arg_seq, ast, NODE(TK_SEQ, TREE(size_arg)));
-  ast_settype(size_arg, type_builtin(opt, ast, "USize"));
-  ast_settype(size_arg_seq, type_builtin(opt, ast, "USize"));
-
-  BUILD(call, ast,
-    NODE(TK_CALL,
-      NODE(TK_POSITIONALARGS, TREE(size_arg_seq))
-      NONE
-      TREE(dot)));
-
-  if(!expr_reference(opt, &ref) ||
-    !expr_qualify(opt, &qualify) ||
-    !expr_dot(opt, &dot) ||
-    !expr_call(opt, &call)
-    )
-    return false;
-
-  ast_swap(ast, call);
-  *astp = call;
-
-  for(ast_t* ele = ast_childidx(ast, 1); ele != NULL; ele = ast_sibling(ele))
+  if(is_array)
   {
-    BUILD(append_dot, ast, NODE(TK_DOT, TREE(*astp) ID("push")));
+    BUILD(ref, ast, NODE(TK_REFERENCE, ID("Array")));
 
-    BUILD(append, ast,
+    ast_t* a_type = alias(type);
+
+    BUILD(qualify, ast,
+      NODE(TK_QUALIFY,
+        TREE(ref)
+        NODE(TK_TYPEARGS, TREE(a_type))));
+
+    ast_free_unattached(type);
+
+    BUILD(dot, ast, NODE(TK_DOT, TREE(qualify) ID("create")));
+
+    ast_t* size_arg = ast_from_int(ast, size);
+    BUILD(size_arg_seq, ast, NODE(TK_SEQ, TREE(size_arg)));
+    ast_settype(size_arg, type_builtin(opt, ast, "USize"));
+    ast_settype(size_arg_seq, type_builtin(opt, ast, "USize"));
+
+    BUILD(call, ast,
       NODE(TK_CALL,
-        NODE(TK_POSITIONALARGS, TREE(ele))
+        NODE(TK_POSITIONALARGS, TREE(size_arg_seq))
         NONE
-        TREE(append_dot)));
+        TREE(dot)));
 
-    ast_replace(astp, append);
-
-    if(!expr_dot(opt, &append_dot) ||
-      !expr_call(opt, &append)
+    if(!expr_reference(opt, &ref) ||
+      !expr_qualify(opt, &qualify) ||
+      !expr_dot(opt, &dot) ||
+      !expr_call(opt, &call)
       )
       return false;
+
+    ast_swap(ast, call);
+    *astp = call;
+
+    for(ast_t* ele = ast_childidx(ast, 1); ele != NULL; ele = ast_sibling(ele))
+    {
+      BUILD(append_dot, ast, NODE(TK_DOT, TREE(*astp) ID("push")));
+
+      BUILD(append, ast,
+        NODE(TK_CALL,
+          NODE(TK_POSITIONALARGS, TREE(ele))
+          NONE
+          TREE(append_dot)));
+
+      ast_replace(astp, append);
+
+      if(!expr_dot(opt, &append_dot) ||
+        !expr_call(opt, &append)
+        )
+        return false;
+    }
+
+    ast_free_unattached(ast);
+    return true;
   }
 
-  ast_free_unattached(ast);
-  return true;
+  ast_t* size_arg = ast_from_int(ast, size);
+  ast_settype(size_arg, type_builtin(opt, ast, "USize"));
+
+  BUILD(typeargs, ast,
+    NODE(TK_TYPEARGS,
+      TREE(type)
+      TREE(size_arg)));
+
+  ast_t* vector_type = type_builtin_args(opt, ast, "Vector", typeargs);
+  ast_settype(ast, vector_type);
+  ast_error(opt->check.errors, ast, "literal vectors currently not supported");
+  return false;
+}
+
+bool expr_array(pass_opt_t* opt, ast_t** astp)
+{
+  return expr_sequential(opt, astp, true);
+}
+
+bool expr_vector(pass_opt_t* opt, ast_t** astp)
+{
+  return expr_sequential(opt, astp, false);
 }

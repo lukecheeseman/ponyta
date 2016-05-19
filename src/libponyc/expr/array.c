@@ -145,7 +145,7 @@ static bool expr_sequential(pass_opt_t* opt, ast_t** astp, bool is_array)
   BUILD(typeargs, ast,
     NODE(TK_TYPEARGS,
       TREE(type)
-      TREE(size_arg)));
+      NODE(TK_VALUEFORMALARG, TREE(size_arg))));
 
   ast_t* vector_type = type_builtin_args(opt, ast, "Vector", typeargs);
   ast_settype(ast, vector_type);

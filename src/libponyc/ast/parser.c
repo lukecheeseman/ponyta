@@ -371,6 +371,36 @@ DEF(nextarray);
   TERMINATE("array literal", TK_RSQUARE);
   DONE();
 
+// AS type ':'
+DEF(vectortype);
+  PRINT_INLINE();
+  SKIP(NULL, TK_AS);
+  RULE("type", type);
+  SKIP(NULL, TK_COLON);
+  DONE();
+
+// (LBRACE | LBRACE_NEW) rawseq {COMMA rawseq} RBRACE
+DEF(vector);
+  PRINT_INLINE();
+  AST_NODE(TK_VECTOR);
+  SKIP(NULL, TK_LBRACE, TK_LBRACE_NEW);
+  OPT RULE("element type", vectortype);
+  RULE("vector element", rawseq);
+  WHILE(TK_COMMA, RULE("vector element", rawseq));
+  TERMINATE("vector literal", TK_RBRACE);
+  DONE();
+
+// LBRACE_NEW rawseq {COMMA rawseq} RBRACE
+DEF(nextvector);
+  PRINT_INLINE();
+  AST_NODE(TK_VECTOR);
+  SKIP(NULL, TK_LBRACE_NEW);
+  OPT RULE("element type", vectortype);
+  RULE("vector element", rawseq);
+  WHILE(TK_COMMA, RULE("vector element", rawseq));
+  TERMINATE("vector literal", TK_RBRACE);
+  DONE();
+
 // COMMA (rawseq | dontcare) {COMMA (rawseq | dontcare)}
 DEF(tuple);
   INFIX_BUILD();
@@ -433,16 +463,16 @@ DEF(ffi);
   OPT TOKEN(NULL, TK_QUESTION);
   DONE();
 
-// ref | this | literal | tuple | array | object | lambda | ffi | location
+// ref | this | literal | tuple | array | vector | object | lambda | ffi | location
 DEF(atom);
-  RULE("value", ref, thisliteral, literal, groupedexpr, array, object, lambda,
-    ffi, location);
+  RULE("value", ref, thisliteral, literal, groupedexpr, array, vector,
+    object, lambda, ffi, location);
   DONE();
 
-// ref | this | literal | tuple | array | object | lambda | ffi | location
+// ref | this | literal | tuple | array | vector | object | lambda | ffi | location
 DEF(nextatom);
-  RULE("value", ref, thisliteral, literal, nextgroupedexpr, nextarray, object,
-    lambda, ffi, location);
+  RULE("value", ref, thisliteral, literal, nextgroupedexpr, nextarray,
+    nextvector, object, lambda, ffi, location);
   DONE();
 
 // DOT ID

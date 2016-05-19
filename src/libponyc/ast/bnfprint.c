@@ -82,6 +82,9 @@ static const char* antlr_post =
   "LSQUARE_NEW\n"
   "  : NEWLINE '['\n"
   "  ;\n\n"
+  "LBRACE_NEW\n"
+  "  : NEWLINE '{'\n"
+  "  ;\n\n"
   "MINUS_NEW\n"
   "  : NEWLINE '-'\n"
   "  ;\n\n"
@@ -378,6 +381,7 @@ static void bnf_token_set(bnf_t* bnf, token_id* tokens, bool clean)
       case TK_ID: p->name = "ID"; break;
       case TK_LPAREN_NEW: p->name = "LPAREN_NEW"; break;
       case TK_LSQUARE_NEW: p->name = "LSQUARE_NEW"; break;
+      case TK_LBRACE_NEW: p->name = "LBRACE_NEW"; break;
       case TK_MINUS_NEW: p->name = "MINUS_NEW"; break;
 
       default:

@@ -186,6 +186,7 @@ nextatom
   | literal
   | LPAREN_NEW (rawseq | '_') tuple? ')'
   | LSQUARE_NEW ('as' type ':')? rawseq (',' rawseq)* ']'
+  | LBRACE_NEW ('as' type ':')? rawseq (',' rawseq)* '}'
   | 'object' cap? ('is' type)? members 'end'
   | 'lambda' cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
   | '@' (ID | STRING) typeargs? ('(' | LPAREN_NEW) positional? named? ')' '?'?
@@ -198,6 +199,7 @@ atom
   | literal
   | ('(' | LPAREN_NEW) (rawseq | '_') tuple? ')'
   | ('[' | LSQUARE_NEW) ('as' type ':')? rawseq (',' rawseq)* ']'
+  | ('{' | LBRACE_NEW) ('as' type ':')? rawseq (',' rawseq)* '}'
   | 'object' cap? ('is' type)? members 'end'
   | 'lambda' cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq 'end'
   | '@' (ID | STRING) typeargs? ('(' | LPAREN_NEW) positional? named? ')' '?'?
@@ -392,6 +394,10 @@ LPAREN_NEW
 
 LSQUARE_NEW
   : NEWLINE '['
+  ;
+
+LBRACE_NEW
+  : NEWLINE '{'
   ;
 
 MINUS_NEW

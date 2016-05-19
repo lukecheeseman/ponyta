@@ -77,6 +77,8 @@ typedef enum token_id
   // Newline symbols, only used by lexer and parser
   TK_LPAREN_NEW,
   TK_LSQUARE_NEW,
+  TK_LBRACE_NEW,
+  TK_RBRACE_NEW,
   TK_MINUS_NEW,
 
   // Keywords
@@ -218,6 +220,7 @@ typedef enum token_id
   TK_CALL,
   TK_TUPLE,
   TK_ARRAY,
+  TK_VECTOR,
   TK_CASES,
   TK_CASE,
   TK_MATCH_CAPTURE,

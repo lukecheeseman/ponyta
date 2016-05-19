@@ -66,6 +66,7 @@ static const lextoken_t symbols[] =
   { ")", TK_RPAREN },
   { "[", TK_LSQUARE },
   { "]", TK_RSQUARE },
+  { "}", TK_RBRACE },
   { ",", TK_COMMA },
 
   { ".", TK_DOT },
@@ -95,6 +96,7 @@ static const lextoken_t symbols[] =
 
   { "(", TK_LPAREN_NEW },
   { "[", TK_LSQUARE_NEW },
+  { "{", TK_LBRACE_NEW },
   { "-", TK_MINUS_NEW },
 
   { NULL, (token_id)0 }
@@ -257,6 +259,7 @@ static const lextoken_t abstract[] =
   { "call", TK_CALL },
   { "tuple", TK_TUPLE },
   { "array", TK_ARRAY },
+  { "vector", TK_VECTOR },
   { "cases", TK_CASES },
   { "case", TK_CASE },
   { "try", TK_TRY_NO_CHECK },
@@ -1131,6 +1134,7 @@ static token_id newline_symbols(token_id raw_token, bool newline)
   {
     case TK_LPAREN:  return TK_LPAREN_NEW;
     case TK_LSQUARE: return TK_LSQUARE_NEW;
+    case TK_LBRACE:  return TK_LBRACE_NEW;
     case TK_MINUS:   return TK_MINUS_NEW;
     default:         return raw_token;
   }

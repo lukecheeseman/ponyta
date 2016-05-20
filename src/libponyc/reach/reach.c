@@ -930,6 +930,14 @@ static void reachable_expr(reach_t* r, ast_t* ast, pass_opt_t* opt)
       add_type(r, ast_type(ast), opt);
       break;
 
+    case TK_VECTOR:
+    {
+      ast_t* type = ast_type(ast);
+      add_type(r, type, opt);
+      reachable_method(r, type, stringtab("_update"), NULL, opt);
+      break;
+    }
+
     default: {}
   }
 

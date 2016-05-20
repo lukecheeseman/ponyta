@@ -149,8 +149,7 @@ static bool expr_sequential(pass_opt_t* opt, ast_t** astp, bool is_array)
 
   ast_t* vector_type = type_builtin_args(opt, ast, "Vector", typeargs);
   ast_settype(ast, vector_type);
-  ast_error(opt->check.errors, ast, "literal vectors currently not supported");
-  return false;
+  return true;
 }
 
 bool expr_array(pass_opt_t* opt, ast_t** astp)

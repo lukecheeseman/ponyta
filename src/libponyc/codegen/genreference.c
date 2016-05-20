@@ -4,6 +4,7 @@
 #include "gencall.h"
 #include "../expr/literal.h"
 #include "../type/subtype.h"
+#include "../type/cap.h"
 #include <string.h>
 #include <assert.h>
 
@@ -383,7 +384,6 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
     }
   }
 
-  // FIXME: typename will need to change to some reference
   LLVMValueRef inst = LLVMConstNamedStruct(t->structure, args, t->field_count + 1);
   LLVMValueRef g_inst =
     LLVMAddGlobal(c->module, t->structure, obj_name);
@@ -391,4 +391,35 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
   LLVMSetGlobalConstant(g_inst, true);
   LLVMSetLinkage(g_inst, LLVMInternalLinkage);
   return g_inst;
+}
+
+LLVMValueRef gen_vector(compile_t* c, ast_t* ast)
+{
+  ast_t* type = ast_type(ast);
+  reach_type_t* t = reach_type(c->reach, type);
+
+  // Static or virtual dispatch.
+  token_id cap = cap_dispatch(type);
+  LLVMValueRef func = reach_method(t, cap, stringtab("_update"), NULL)->func;
+
+  LLVMTypeRef f_type = LLVMGetElementType(LLVMTypeOf(func));
+  LLVMTypeRef params[3];
+  LLVMGetParamTypes(f_type, params);
+
+  LLVMValueRef args[3];
+  args[0] = gencall_alloc(c, t);
+
+  size_t index = 0;
+  ast_t* elem = ast_child(ast);
+  elem = ast_sibling(elem);
+  while(elem != NULL)
+  {
+    args[1] = LLVMConstInt(c->i64, index++, false);
+    args[2] = gen_assign_cast(c, params[2], gen_expr(c, elem), ast_type(elem));
+    codegen_call(c, func, args, 3);
+    codegen_debugloc(c, NULL);
+    elem = ast_sibling(elem);
+  }
+
+  return args[0];
 }

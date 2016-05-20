@@ -9,7 +9,9 @@
 #include "../type/subtype.h"
 #include "../type/reify.h"
 #include "../type/alias.h"
+#include "../type/assemble.h"
 #include "string.h"
+#include "../../libponyrt/mem/pool.h"
 #include <assert.h>
 #include <inttypes.h>
 
@@ -134,83 +136,113 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   return true;
 }
 
-typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*, pass_opt_t* opt);
+static method_entry_t* method_dup(method_entry_t* method)
+{
+  method_entry_t* m = POOL_ALLOC(method_entry_t);
+  memcpy(m, method, sizeof(method_entry_t));
+  return m;
+}
 
-typedef struct method_entry {
-  const char* type;
-  const char* name;
-  const method_ptr_t method;
-} method_entry_t;
+static size_t method_hash(method_entry_t* method)
+{
+  return ponyint_hash_ptr(method->name) ^ ponyint_hash_ptr(method->name);
+}
 
-// This table will have to be updated to be in the relevant classes
-static method_entry_t method_table[] = {
+static bool method_cmp(method_entry_t* a, method_entry_t* b)
+{
+  return a->name == b->name && a->type == b->type;
+}
+
+static void method_free(method_entry_t* method)
+{
+  POOL_FREE(method_entry_t, method);
+}
+
+DEFINE_HASHMAP(method_table, method_table_t, method_entry_t,
+  method_hash, method_cmp, ponyint_pool_alloc_size, ponyint_pool_free_size,
+  method_free);
+
+static method_table_t* method_table = NULL;
+
+static void add_method(const char* name, const char* type, method_ptr_t method)
+{
+  method_entry_t m = {name, type, method};
+  method_table_put(method_table, method_dup(&m));
+}
+
+static void init_method_table()
+{
+  if(method_table != NULL)
+    return;
+
+  method_table = POOL_ALLOC(method_table_t);
+  method_table_init(method_table, 8);
+
   // integer operations
-  { "integer" , "create"  , &evaluate_create_int },
-  { "integer" , "add"     , &evaluate_add_int    },
-  { "integer" , "sub"     , &evaluate_sub_int    },
-  { "integer" , "mul"     , &evaluate_mul_int    },
-  { "integer" , "div"     , &evaluate_div_int    },
+  add_method(stringtab("integer"), stringtab("create"), &evaluate_create_int);
+  add_method(stringtab("integer"), stringtab("create"), &evaluate_create_int);
+  add_method(stringtab("integer"), stringtab("add"), &evaluate_add_int);
+  add_method(stringtab("integer"), stringtab("sub"), &evaluate_sub_int);
+  add_method(stringtab("integer"), stringtab("mul"), &evaluate_mul_int);
+  add_method(stringtab("integer"), stringtab("div"), &evaluate_div_int);
 
-  { "integer" , "neg"     , &evaluate_neg_int    },
-  { "integer" , "eq"      , &evaluate_eq_int     },
-  { "integer" , "ne"      , &evaluate_ne_int     },
-  { "integer" , "lt"      , &evaluate_lt_int     },
-  { "integer" , "le"      , &evaluate_le_int     },
-  { "integer" , "gt"      , &evaluate_gt_int     },
-  { "integer" , "ge"      , &evaluate_ge_int     },
+  add_method(stringtab("integer"), stringtab("neg"), &evaluate_neg_int);
+  add_method(stringtab("integer"), stringtab("eq"), &evaluate_eq_int);
+  add_method(stringtab("integer"), stringtab("ne"), &evaluate_ne_int);
+  add_method(stringtab("integer"), stringtab("lt"), &evaluate_lt_int);
+  add_method(stringtab("integer"), stringtab("le"), &evaluate_le_int);
+  add_method(stringtab("integer"), stringtab("gt"), &evaluate_gt_int);
+  add_method(stringtab("integer"), stringtab("ge"), &evaluate_ge_int);
 
-  { "integer" , "min"     , &evaluate_min_int    },
-  { "integer" , "max"     , &evaluate_max_int    },
+  add_method(stringtab("integer"), stringtab("min"), &evaluate_min_int);
+  add_method(stringtab("integer"), stringtab("max"), &evaluate_max_int);
 
-  { "integer" , "hash"    , &evaluate_hash_int   },
+  add_method(stringtab("integer"), stringtab("hash"), &evaluate_hash_int);
 
-  { "integer" , "op_and"  , &evaluate_and_int    },
-  { "integer" , "op_or"   , &evaluate_or_int     },
-  { "integer" , "op_xor"  , &evaluate_xor_int    },
-  { "integer" , "op_not"  , &evaluate_not_int    },
-  { "integer" , "shl"     , &evaluate_shl_int    },
-  { "integer" , "shr"     , &evaluate_shr_int    },
+  add_method(stringtab("integer"), stringtab("op_and"), &evaluate_and_int);
+  add_method(stringtab("integer"), stringtab("op_or"), &evaluate_or_int);
+  add_method(stringtab("integer"), stringtab("op_xor"), &evaluate_xor_int);
+  add_method(stringtab("integer"), stringtab("op_not"), &evaluate_not_int);
+  add_method(stringtab("integer"), stringtab("shl"), &evaluate_shl_int);
+  add_method(stringtab("integer"), stringtab("shr"), &evaluate_shr_int);
 
   // integer casting methods
-  { "integer" , "i8"      , &evaluate_i8_int     },
-  { "integer" , "i16"     , &evaluate_i16_int    },
-  { "integer" , "i32"     , &evaluate_i32_int    },
-  { "integer" , "i64"     , &evaluate_i64_int    },
-  { "integer" , "i128"    , &evaluate_i128_int   },
-  { "integer" , "ilong"   , &evaluate_ilong_int  },
-  { "integer" , "isize"   , &evaluate_isize_int  },
-  { "integer" , "u8"      , &evaluate_u8_int     },
-  { "integer" , "u16"     , &evaluate_u16_int    },
-  { "integer" , "u32"     , &evaluate_u32_int    },
-  { "integer" , "u64"     , &evaluate_u64_int    },
-  { "integer" , "u128"    , &evaluate_u128_int   },
-  { "integer" , "ulong"   , &evaluate_ulong_int  },
-  { "integer" , "usize"   , &evaluate_usize_int  },
-  { "integer" , "f32"     , &evaluate_f32_int    },
-  { "integer" , "f64"     , &evaluate_f64_int    },
+  add_method(stringtab("integer"), stringtab("i8"), &evaluate_i8_int);
+  add_method(stringtab("integer"), stringtab("i16"), &evaluate_i16_int);
+  add_method(stringtab("integer"), stringtab("i32"), &evaluate_i32_int);
+  add_method(stringtab("integer"), stringtab("i64"), &evaluate_i64_int);
+  add_method(stringtab("integer"), stringtab("i128"), &evaluate_i128_int);
+  add_method(stringtab("integer"), stringtab("ilong"), &evaluate_ilong_int);
+  add_method(stringtab("integer"), stringtab("isize"), &evaluate_isize_int);
+  add_method(stringtab("integer"), stringtab("u8"), &evaluate_u8_int);
+  add_method(stringtab("integer"), stringtab("u16"), &evaluate_u16_int);
+  add_method(stringtab("integer"), stringtab("u32"), &evaluate_u32_int);
+  add_method(stringtab("integer"), stringtab("u64"), &evaluate_u64_int);
+  add_method(stringtab("integer"), stringtab("u128"), &evaluate_u128_int);
+  add_method(stringtab("integer"), stringtab("ulong"), &evaluate_ulong_int);
+  add_method(stringtab("integer"), stringtab("usize"), &evaluate_usize_int);
+  add_method(stringtab("integer"), stringtab("f32"), &evaluate_f32_int);
+  add_method(stringtab("integer"), stringtab("f64"), &evaluate_f64_int);
 
   //float operations
-  { "float"   , "add"     , &evaluate_add_float  },
-  { "float"   , "sub"     , &evaluate_sub_float  },
-  { "float"   , "mul"     , &evaluate_mul_float  },
-  { "float"   , "div"     , &evaluate_div_float  },
+  add_method(stringtab("float"), stringtab("add"), &evaluate_add_float);
+  add_method(stringtab("float"), stringtab("sub"), &evaluate_sub_float);
+  add_method(stringtab("float"), stringtab("mul"), &evaluate_mul_float);
+  add_method(stringtab("float"), stringtab("div"), &evaluate_div_float);
 
-  { "float"   , "neg"     , &evaluate_neg_float  },
-  { "float"   , "eq"      , &evaluate_eq_float   },
-  { "float"   , "ne"      , &evaluate_ne_float   },
-  { "float"   , "lt"      , &evaluate_lt_float   },
-  { "float"   , "le"      , &evaluate_le_float   },
-  { "float"   , "gt"      , &evaluate_gt_float   },
-  { "float"   , "ge"      , &evaluate_ge_float   },
+  add_method(stringtab("float"), stringtab("neg"), &evaluate_neg_float);
+  add_method(stringtab("float"), stringtab("eq"), &evaluate_eq_float);
+  add_method(stringtab("float"), stringtab("ne"), &evaluate_ne_float);
+  add_method(stringtab("float"), stringtab("lt"), &evaluate_lt_float);
+  add_method(stringtab("float"), stringtab("le"), &evaluate_le_float);
+  add_method(stringtab("float"), stringtab("gt"), &evaluate_gt_float);
+  add_method(stringtab("float"), stringtab("ge"), &evaluate_ge_float);
 
   // boolean operations
-  { "Bool"    , "op_and"  , &evaluate_and_bool   },
-  { "Bool"    , "op_or"   , &evaluate_or_bool    },
-  { "Bool"    , "op_not"  , &evaluate_not_bool    },
-
-  // no entry in method table
-  { NULL, NULL, NULL }
-};
+  add_method(stringtab("Bool"), stringtab("op_and"), &evaluate_and_bool);
+  add_method(stringtab("Bool"), stringtab("op_or"), &evaluate_or_bool);
+  add_method(stringtab("Bool"), stringtab("op_not"), &evaluate_not_bool);
+}
 
 static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
   const char* operation)
@@ -220,11 +252,13 @@ static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
     is_float(type) || ast_id(receiver) == TK_FLOAT ? "float" :
     ast_name(ast_childidx(type, 1));
 
-  for (int i = 0; method_table[i].name != NULL; ++i) {
-    if (!strcmp(type_name, method_table[i].type) && !strcmp(operation, method_table[i].name))
-      return method_table[i].method;
-  }
-  return NULL;
+  method_entry_t m1 = {stringtab(type_name), stringtab(operation), NULL};
+  method_entry_t* m2 = method_table_get(method_table, &m1);
+
+  if(m2 == NULL)
+    return NULL;
+
+  return m2->method;
 }
 
 // TODO: is this wrong?
@@ -273,6 +307,7 @@ static uint64_t count = 0;
 static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* this)
 {
+  init_method_table();
   ast_t* typeargs = NULL;
   if(ast_id(ast_childidx(function, 1)) == TK_TYPEARGS)
   {
@@ -596,6 +631,41 @@ ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this) {
     case TK_CONSTANT:
       ret = evaluate(opt, ast_child(expression), this);
       break;
+
+    case TK_VECTOR:
+    {
+      // get the vector type
+      ast_t* type = ast_type(expression);
+
+      // See if we can recover the constructed object to a val
+      ast_t* r_type = recover_type(type, TK_VAL);
+      if(r_type == NULL)
+      {
+        ast_error(opt->check.errors, expression,
+          "can't recover compile-time object to val capability");
+        return NULL;
+      }
+
+      type = set_cap_and_ephemeral(type, TK_VAL, ast_id(ast_childidx(type, 3)));
+
+      BUILD(obj, expression,
+        NODE(TK_CONSTANT_OBJECT, ID("stephen") NODE(TK_MEMBERS)))
+      (void) obj;
+
+      ast_t* elem = ast_childidx(expression, 1);
+      while(elem != NULL)
+      {
+        ast_t* evaluated_elem = evaluate(opt, elem, this);
+        if(evaluated_elem == NULL)
+          return NULL;
+
+        elem = ast_sibling(elem);
+      }
+
+
+      assert(0);
+      break;
+    }
 
     default:
       assert(0);

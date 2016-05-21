@@ -12,6 +12,7 @@
 #include "../type/reify.h"
 #include "../type/alias.h"
 #include "../type/assemble.h"
+#include "../expr/literal.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -319,9 +320,8 @@ static const char* get_lvalue_name(ast_t* ast)
   return NULL;
 }
 
-static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
+static const char* object_hygienic_name(pass_opt_t* opt, const char* type_name)
 {
-  const char* type_name = ast_name(ast_childidx(type, 1));
   const char* s = package_hygienic_id(&opt->check);
   size_t buf_size = strlen(type_name) + strlen(s) + 2;
   char* buffer = (char*)ponyint_pool_alloc_size(buf_size);
@@ -436,7 +436,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   if(ast_id(fun) == TK_NEW)
   {
     const char* type_name = ast_name(ast_childidx(type, 1));
-    const char* obj_name = object_hygienic_name(opt, type);
+    const char* obj_name = object_hygienic_name(opt, type_name);
 
     // get the return type
     ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
@@ -652,20 +652,23 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* type = ast_type(expression);
 
       // first ensure that the vector class has been type checked
-      ast_t* def = ast_get(expression, ast_name(ast_childidx(type, 1)), NULL);
+      ast_t* def = ast_get(expression, stringtab("Vector"), NULL);
       if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
 
       // See if we can recover the constructed vector to a val
-      type = recover_type(type, TK_VAL);
-      if(type == NULL)
+      if(!is_type_literal(type))
       {
-        ast_error(opt->check.errors, expression,
-          "can't recover compile-time object to val capability");
-        return NULL;
+        type = recover_type(type, TK_VAL);
+        if(type == NULL)
+        {
+          ast_error(opt->check.errors, expression,
+            "can't recover compile-time object to val capability");
+          return NULL;
+        }
       }
-      const char* vec_name = object_hygienic_name(opt, type);
 
+      const char* vec_name = object_hygienic_name(opt, stringtab("Vector"));
       BUILD(obj, expression,
         NODE(TK_CONSTANT_OBJECT, ID(vec_name) NODE(TK_MEMBERS)))
       ast_settype(obj, type);

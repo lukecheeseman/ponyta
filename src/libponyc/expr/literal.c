@@ -121,7 +121,6 @@ bool is_type_literal(ast_t* type)
 
 #define CHAIN_CARD_BASE   0 // Basic type
 #define CHAIN_CARD_ARRAY  1 // Array member
-#define CHAIN_CARD_VECTOR 2 // Vector member
 
 typedef struct lit_chain_t
 {
@@ -421,7 +420,7 @@ static int uifset(pass_opt_t* opt, ast_t* type, lit_chain_t* chain)
 
       if(strcmp(ast_name(ast_childidx(type, 1)), "Vector") == 0)
       {
-        if(chain->cardinality != CHAIN_CARD_VECTOR) // Incorrect cardinality
+        if(chain->cardinality != CHAIN_CARD_ARRAY) // Incorrect cardinality
           return UIF_NO_TYPES;
 
         ast_t* type_args = ast_childidx(type, 2);
@@ -597,7 +596,6 @@ static bool uif_type_from_chain(pass_opt_t* opt, ast_t* literal,
   return true;
 }
 
-
 // Coerce a literal group (tuple or array) to be the specified target type
 static bool coerce_group(ast_t** astp, ast_t* target_type, lit_chain_t* chain,
   size_t cardinality, pass_opt_t* options, bool report_errors)
@@ -606,7 +604,9 @@ static bool coerce_group(ast_t** astp, ast_t* target_type, lit_chain_t* chain,
   ast_t* literal_expr = *astp;
   assert(literal_expr != NULL);
   assert(ast_id(literal_expr) == TK_TUPLE || ast_id(literal_expr) == TK_ARRAY
-         || ast_id(literal_expr) == TK_VECTOR);
+         || ast_id(literal_expr) == TK_VECTOR
+         || ast_id(literal_expr) == TK_MEMBERS);
+  // TK_MEMBERS case is only for coerece a literal compile-time vector
   assert(chain != NULL);
   assert(cardinality != CHAIN_CARD_BASE);
 
@@ -652,6 +652,19 @@ static bool coerce_group(ast_t** astp, ast_t* target_type, lit_chain_t* chain,
   return true;
 }
 
+// This method coerces a constant object which is expected to be a vector
+// to have members of the correct type. This should be the only instance
+// of a compile-time constant that we encounter in coercion
+static bool coerce_constant_object(ast_t** astp, ast_t* target_type,
+  lit_chain_t* chain, pass_opt_t* options, bool report_errors)
+{
+  assert(astp != NULL);
+  ast_t* literal_expr = *astp;
+  assert(is_literal(target_type, "Vector"));
+  ast_t* members = ast_childidx(literal_expr, 1);
+  return coerce_group(&members, target_type, chain, CHAIN_CARD_ARRAY,
+                      options, report_errors);
+}
 
 // Coerce a literal control block to be the specified target type
 static bool coerce_control_block(ast_t** astp, ast_t* target_type,
@@ -741,17 +754,26 @@ static bool coerce_literal_to_type(ast_t** astp, ast_t* target_type,
       return uif_type_from_chain(opt, literal_expr, target_type, chain,
         true, report_errors);
 
+    // FIXME: can this just use CHAIN_CARD_VECTOR
     case TK_VECTOR:
-      if(!coerce_group(astp, target_type, chain, CHAIN_CARD_VECTOR, opt,
+      if(!coerce_group(astp, target_type, chain, CHAIN_CARD_ARRAY, opt,
         report_errors))
         return false;
+      break;
 
     case TK_ARRAY:
       if(!coerce_group(astp, target_type, chain, CHAIN_CARD_ARRAY, opt,
         report_errors))
         return false;
-
       break;
+
+    // We get here when we have a literal vector whose type we do not yet know
+    case TK_CONSTANT_OBJECT:
+      if(!coerce_constant_object(astp, target_type, chain, opt, report_errors))
+        return false;
+
+      ast_settype(literal_expr, target_type);
+      return true;
 
     case TK_SEQ:
     {

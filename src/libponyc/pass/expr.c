@@ -263,6 +263,8 @@ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options)
 
     case TK_CONSTANT:   r = expr_constant(options, astp); break;
 
+    case TK_CONSTANT_OBJECT:
+
     case TK_LAMBDA:
       if(!expr_lambda(options, astp))
         return AST_FATAL;

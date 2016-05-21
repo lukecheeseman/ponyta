@@ -266,6 +266,10 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
       return false;
     }
 
+    // type check the typeparam in case it is a value typeparameter
+    if(ast_visit(&typeparam, NULL, pass_expr, opt, PASS_EXPR) != AST_OK)
+      return false;
+
     // Reify the constraint.
     ast_t* constraint = ast_childidx(typeparam, 1);
     ast_t* bind_constraint = bind_type(constraint);

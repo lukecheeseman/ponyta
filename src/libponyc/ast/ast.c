@@ -1490,6 +1490,12 @@ static void print_type(printbuf_t* buffer, ast_t* type)
       }
     }
 
+    case TK_CONSTANT_OBJECT:
+      // FIXME: this is really that useful for error messages but what more can
+      // we do?
+      printbuf(buffer, ast_name(ast_child(type)));
+      break;
+
     case TK_NONE:
       break;
 

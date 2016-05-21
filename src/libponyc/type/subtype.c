@@ -1432,6 +1432,11 @@ bool is_vector(ast_t* type)
   return is_literal(type, "Vector");
 }
 
+bool is_matrix(ast_t* type)
+{
+  return is_literal(type, "Matrix");
+}
+
 bool is_pointer(ast_t* type)
 {
   return is_literal(type, "Pointer");

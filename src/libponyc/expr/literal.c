@@ -660,7 +660,6 @@ static bool coerce_constant_object(ast_t** astp, ast_t* target_type,
 {
   assert(astp != NULL);
   ast_t* literal_expr = *astp;
-  assert(is_literal(target_type, "Vector"));
   ast_t* members = ast_childidx(literal_expr, 1);
   return coerce_group(&members, target_type, chain, CHAIN_CARD_ARRAY,
                       options, report_errors);

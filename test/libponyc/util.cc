@@ -9,6 +9,7 @@
 #include <codegen/codegen.h>
 #include <pass/pass.h>
 #include <pkg/package.h>
+#include <evaluate/evaluate.h>
 
 #include "util.h"
 #include <string.h>

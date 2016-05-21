@@ -6,6 +6,7 @@
 #include "../libponyc/pass/pass.h"
 #include "../libponyc/ast/stringtab.h"
 #include "../libponyc/ast/treecheck.h"
+#include "../libponyc/evaluate/evaluate.h"
 #include <platform.h>
 #include "../libponyrt/options/options.h"
 
@@ -232,6 +233,7 @@ static bool compile_package(const char* path, pass_opt_t* opt,
 int main(int argc, char* argv[])
 {
   stringtab_init();
+  methodtab_init();
 
   pass_opt_t opt;
   pass_opt_init(&opt);

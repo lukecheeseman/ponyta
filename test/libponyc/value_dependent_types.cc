@@ -309,17 +309,6 @@ TEST_F(VDTTest, IsSubTypeClassTraitWithGenericValueDependentType)
   TEST_COMPILE(src);
 }
 
-TEST_F(VDTTest, ExpressionEqualityOfTypeArgs)
-{
-  const char* src =
-    "class C1[n: U32]\n"
-
-    "class C2\n"
-    "  let c: C1[4] = C1[#(1 + 3)]";
-
-  TEST_COMPILE(src);
-}
-
 TEST_F(VDTTest, ArbitraryValueDependentType)
 {
   const char* src =
@@ -391,6 +380,30 @@ TEST_F(VDTTest, BadParamFuctionReturnType)
 // FIXME: these tests fails as the operations cannot be found due to builtin
 // not being included -- fail in dot_or_tilde, these do not fail when
 // run outside of the testing framework
+TEST_F(VDTTest, DISABLED_IsSubTypeClassWithCompileConstantGenericValueDependentType)
+{
+  const char* src =
+    "trait T1[A: (U32 | U64), n: A]\n"
+
+    "class C1 is T1[U32, 4]\n"
+
+    "interface Test\n"
+    "  fun z(c1: C1, t1: T1[U32, #(1+3)])";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, DISABLED_ExpressionEqualityOfTypeArgs)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+
+    "class C2\n"
+    "  let c: C1[4] = C1[#(1 + 3)]";
+
+  TEST_COMPILE(src);
+}
+
 TEST_F(VDTTest, DISABLED_ValueTypeSumOfInputTypes)
 {
   const char* src =
@@ -498,19 +511,6 @@ TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstantError)
     "    let c2: C1[408] = c1.join[618]()";
 
   TEST_ERROR(src);
-}
-
-TEST_F(VDTTest, IsSubTypeClassWithCompileConstantGenericValueDependentType)
-{
-  const char* src =
-    "trait T1[A: (U32 | U64), n: A]\n"
-
-    "class C1 is T1[U32, 4]\n"
-
-    "interface Test\n"
-    "  fun z(c1: C1, t1: T1[U32, #(1+3)])";
-
-  TEST_COMPILE(src);
 }
 
 TEST_F(VDTTest, ReificationWithReversedOrder)

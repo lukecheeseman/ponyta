@@ -7,6 +7,7 @@
 #include "../pkg/platformfuns.h"
 #include "../pass/names.h"
 #include "../type/assemble.h"
+#include "../type/cap.h"
 
 #include <assert.h>
 
@@ -383,12 +384,12 @@ static void vector_update(compile_t* c, reach_type_t* t, reach_type_t* t_elem)
 
   LLVMTypeRef params[3];
   params[0] = t->use_type;
-  params[1] = c->intptr;
+  params[1] = c->intptr; //TODO: check this
   params[2] = t_elem->use_type;
   start_function(c, m, t_elem->use_type, params, 3);
 
   LLVMValueRef ptr = LLVMGetParam(m->func, 0);
-  LLVMValueRef index[2];
+  LLVMValueRef index[3];
   index[0] = LLVMConstInt(c->i32, 0, false);
   index[1] = LLVMConstInt(c->i32, 1, false);
   index[2] = LLVMGetParam(m->func, 1);

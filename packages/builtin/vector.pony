@@ -68,6 +68,20 @@ class Vector[A, _size: USize]
     end
     elems
 
+  fun reduce[B = box->A](f: {(B, box->A): B^} val, start: B): B^ =>
+    var i: USize = 0
+    var acc = consume start
+    while i < _size do
+      acc = f(consume acc, _apply(i = i + 1))
+    end
+    acc
+
+  fun map[B = box->A](f: {(box->A): B^} val): Vector[B, # _size] ref ? =>
+    Vector[B, #_size].generate(
+      lambda (i: USize)(f, me: Vector[A, #_size] box = this): B^ ? =>
+        f(me.apply(i))
+      end)
+
   fun copy_to(dst: Seq[this->A!]) ? =>
     var i: USize = 0
     while i < _size do

@@ -119,6 +119,7 @@ ast_t* ast_get_value(ast_t* ast, const char* name);
 bool ast_set(ast_t* ast, const char* name, ast_t* value, sym_status_t status,
   bool allow_shadowing);
 bool ast_set_value(ast_t* ast, const char* name, ast_t* value);
+ast_t* ast_update_value(ast_t* ast, const char* name, ast_t* value);
 void ast_setstatus(ast_t* ast, const char* name, sym_status_t status);
 void ast_inheritstatus(ast_t* dst, ast_t* src);
 void ast_inheritbranch(ast_t* dst, ast_t* src);

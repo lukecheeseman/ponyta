@@ -189,36 +189,81 @@ static bool is_lvalue(pass_opt_t* opt, ast_t* ast, bool need_value)
   return false;
 }
 
-static const char* get_lvalue_name(ast_t* ast)
+// TODO: this needs some way of stopping assignments to var outside of a
+// constant expression
+ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant)
 {
-  switch(ast_id(ast))
+  (void) opt;
+  // Return names for only those values which we permit
+  // to appear within compile time expressions
+  assert(left != NULL);
+  assert(right != NULL);
+
+  if(ast_id(right) == TK_NONE)
+    return NULL;
+
+  switch(ast_id(left))
   {
-    case TK_VAR:
-    case TK_LET:
-      return ast_name(ast_child(ast));
-/*
     case TK_VARREF:
+      if(!check_constant)
+      {
+        const char* name = ast_name(ast_child(left));
+        ast_t* value = ast_update_value(left, name, right);
+        return value;
+      }
+      return NULL;
+
+    case TK_VAR:
+      if(!check_constant)
+      {
+        const char* name = ast_name(ast_child(left));
+        assert(ast_set_value(left, name, right));
+      }
+      return NULL;
+
+    case TK_PARAM:
+    case TK_LET:
+      if(!check_constant || ast_checkconstant(right))
+      {
+        const char* name = ast_name(ast_child(left));
+        assert(ast_set_value(left, name, right));
+      }
+      return NULL;
+
+    case TK_EMBEDREF:
+    case TK_FLETREF:
+      if(!check_constant || ast_checkconstant(right))
+      {
+        const char* name = ast_name(ast_childidx(left, 1));
+        assert(ast_set_value(left, name, right));
+      }
+      return NULL;
+
+    default: {}
+/*
+    case TK_TUPLE:
     {
-      ast_t* id = ast_child(ast);
-      return assign_id(t, id, false, need_value);
+      ast_t* left_child = ast_child(left);
+      ast_t* right_child = ast_child(right);
+
+      while(left_child != NULL)
+      {
+        map_value(opt, left_child, right_child);
+        left_child = ast_sibling(left_child);
+        right_child = ast_sibling(right_child);
+      }
+
+      return;
     }
 
-    case TK_LETREF:
+    case TK_SEQ:
     {
-      ast_error(ast, "can't assign to a let local");
-      return false;
+      if(ast_id(left) == ast_id(right) && ast_id(left) == TK_SEQ)
+        map_value(opt, ast_child(left), ast_child(right));
+      else
+        map_value(opt, ast_child(left), right);
+      return;
     }
-
-    case TK_FVARREF:
-    {
-      AST_GET_CHILDREN(ast, left, right);
-
-      if(ast_id(left) == TK_THIS)
-        return assign_id(t, right, false, need_value);
-
-      return true;
-    }
-
     case TK_FLETREF:
     {
       AST_GET_CHILDREN(ast, left, right);
@@ -257,35 +302,9 @@ static const char* get_lvalue_name(ast_t* ast)
       return assign_id(t, right, true, need_value);
     }
 
-    case TK_TUPLE:
-    {
-      // A tuple is an lvalue if every component expression is an lvalue.
-      ast_t* child = ast_child(ast);
-
-      while(child != NULL)
-      {
-        if(!is_lvalue(t, child, need_value))
-          return false;
-
-        child = ast_sibling(child);
-      }
-
-      return true;
-    }
-
-    case TK_SEQ:
-    {
-      // A sequence is an lvalue if it has a single child that is an lvalue.
-      // This is used because the components of a tuple are sequences.
-      ast_t* child = ast_child(ast);
-
-      if(ast_sibling(child) != NULL)
-        return false;
-
-      return is_lvalue(t, child, need_value);
-    }
+      ast_error(opt->check.errors, left,
+                "no support for this assignment of compile-time expression");
 */
-    default: {};
   }
   return NULL;
 }
@@ -613,10 +632,7 @@ bool expr_assign(pass_opt_t* opt, ast_t* ast)
   ast_settype(ast, consume_type(l_type, TK_NONE));
   ast_inheritflags(ast);
 
-  const char* name = get_lvalue_name(left);
-  if(name && ast_checkconstant(right))
-    ast_set_value(left, name, right);
-
+  map_value(opt, left, right, true);
   return true;
 }
 

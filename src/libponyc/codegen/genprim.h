@@ -17,7 +17,11 @@ void genprim_platform_methods(compile_t* c, reach_type_t* t);
 
 void genprim_vector_trace(compile_t* c, reach_type_t* t);
 
+void genprim_matrix_trace(compile_t* c, reach_type_t* t);
+
 void genprim_vector_methods(compile_t* c, reach_type_t* t);
+
+void genprim_matrix_methods(compile_t* c, reach_type_t* t);
 
 void genprim_builtins(compile_t* c);
 

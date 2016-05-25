@@ -13,6 +13,7 @@
 #include "../type/alias.h"
 #include "../type/assemble.h"
 #include "../expr/literal.h"
+#include "../expr/operator.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -33,7 +34,14 @@ bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
       return false;
 
   if(ast_id(ast) == TK_CONSTANT)
+  {
+    //FIXME: this hack is dues to nesting constants in constants
+    // the breaking example involved a matrix where the dimensions were
+    // the dims did not have an evaluated type after reification
+    ast_t* expr = ast_child(ast);
+    evaluate_expressions(opt, &expr);
     return expr_constant(opt, astp);
+  }
 
   ast_t* child = ast_child(ast);
   while(child != NULL)
@@ -42,6 +50,13 @@ bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
       return false;
 
     child = ast_sibling(child);
+  }
+
+  // FIXME: We may have to reassign some expressions
+  if(ast_id(ast) == TK_ASSIGN)
+  {
+    AST_GET_CHILDREN(ast, right, left);
+    map_value(opt, left, right, true);
   }
 
   return true;
@@ -102,31 +117,75 @@ bool contains_valueparamref(ast_t* ast) {
   return false;
 }
 
+static bool eval_error(ast_t* ast)
+{
+  return (ast == NULL || ast_id(ast) == TK_ERROR ||
+          ast_id(ast) == TK_VALUEFORMALPARAMREF);
+}
+
 bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   // If we see a compile time expression
   // we first evaluate it then replace this node with the result
   ast_t *ast = *astp;
+
+  // We set this here as we may not yet be able to evaluate the expressions
+  // due to references, but we need to know for assignment what we believe
+  // to be a compile tim expression.
   assert(ast_id(ast) == TK_CONSTANT);
+  ast_setconstant(ast);
 
   ast_t* expression = ast_child(ast);
-  ast_settype(ast, ast_type(expression));
+  ast_t* expr_type = ast_type(expression);
 
   if(is_typecheck_error(ast_type(expression)))
     return false;
 
+  // See if we can recover the expression to val capability
+  if(!is_type_literal(expr_type))
+  {
+    expr_type = recover_type(expr_type, TK_VAL);
+    if(expr_type == NULL)
+    {
+      ast_error(opt->check.errors, expression,
+        "can't recover compile-time object to val capability");
+      return false;
+    }
+  }
+  ast_settype(ast, expr_type);
+
   if(contains_valueparamref(expression))
     return true;
 
+  // TODO: explaing the types of error
   // evaluate the expression passing NULL as this as we aren't
   // evaluate a method on an object
   ast_t* evaluated = evaluate(opt, expression, NULL, 0);
-  if (evaluated == NULL)
+  if(eval_error(evaluated) && evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
-    ast_error(opt->check.errors, expression, "could not evaluate compile time expression");
+    ast_error(opt->check.errors, expression,
+              "could not evaluate compile time expression");
     return false;
   }
+
+  if(eval_error(evaluated) && ast_id(evaluated) == TK_ERROR)
+  {
+    ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
+    ast_error(opt->check.errors, expression,
+              "unresolved error occurred during evaluation");
+    ast_error_continue(opt->check.errors, evaluated,
+              "error originated from here");
+    return false;
+  }
+
   ast_setconstant(evaluated);
+
+  //FIXME: bro plz don't check again, there has to be a nicer way of handling
+  //this, the issue is that in templates which use value parms in constant
+  //expressions, we won't know anything at the template stage to evaluate things
+  //like types and so on
+  if(contains_valueparamref(evaluated))
+    return true;
 
   ast_t* type = ast_type(evaluated);
   if(ast_id(type) == TK_NOMINAL)
@@ -134,7 +193,8 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
     ast_t* cap = ast_childidx(type, 3);
     if(ast_id(cap) != TK_VAL)
     {
-      ast_error(opt->check.errors, expression, "result of compile time expression must be val");
+      ast_error(opt->check.errors, expression,
+                "result of compile time expression must be val");
       return false;
     }
   }
@@ -150,7 +210,6 @@ typedef struct method_entry_t {
   const char* name;
   const method_ptr_t method;
 } method_entry_t;
-
 
 static method_entry_t* method_dup(method_entry_t* method)
 {
@@ -301,31 +360,15 @@ static ast_t* ast_get_base_type(ast_t* ast)
   return NULL;
 }
 
-static const char* get_lvalue_name(ast_t* ast)
-{
-  switch(ast_id(ast))
-  {
-    case TK_VAR:
-    case TK_LET:
-    case TK_REFERENCE:
-      return ast_name(ast_child(ast));
-
-    case TK_EMBEDREF:
-    case TK_FLETREF:
-      return ast_name(ast_childidx(ast, 1));
-
-    default:
-      assert(0);
-  }
-  return NULL;
-}
-
+static int count = 0;
 static const char* object_hygienic_name(pass_opt_t* opt, const char* type_name)
 {
-  const char* s = package_hygienic_id(&opt->check);
-  size_t buf_size = strlen(type_name) + strlen(s) + 2;
+  // FIXME: use hygienic naming
+//  const char* s = package_hygienic_id(&opt->check);
+  (void) opt;
+  size_t buf_size = strlen(type_name) + 21 + 2;
   char* buffer = (char*)ponyint_pool_alloc_size(buf_size);
-  snprintf(buffer, buf_size, "%s_%s", type_name, s);
+  snprintf(buffer, buf_size, "%s_%d", type_name, count++);
   return stringtab_consume(buffer, buf_size);
 }
 
@@ -344,8 +387,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   AST_GET_CHILDREN(function, receiver, func_id);
   ast_t* evaluated_receiver = evaluate(opt, receiver, this, depth + 1);
-  if(evaluated_receiver == NULL)
-    return NULL;
+  if(eval_error(evaluated_receiver))
+    return evaluated_receiver;
 
   // First lookup to see if we have a special method to evaluate the expression
   ast_t* type = ast_get_base_type(evaluated_receiver);
@@ -376,14 +419,15 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     {
       // find the method and type check it
       ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
-      ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
-      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+      //ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
+      if(ast_visit_scope(&type_def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
       break;
     }
 
     case TK_BEREF:
-      ast_error(opt->check.errors, function, "cannot evaluate compile-time behaviours");
+      ast_error(opt->check.errors, function,
+                "cannot evaluate compile-time behaviours");
       return NULL;
 
     default: break;
@@ -402,10 +446,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     fun = r_fun;
     assert(fun != NULL);
   }
-  // FIXME: evaluate_expressions will also need a depth
-  // TODO: do we need this step, we're about to go an evaluate it anyway so we
-  // can just ignore it
-  assert(evaluate_expressions(opt, &fun));
 
   // map each parameter to its argument value in the symbol table
   ast_t* params = ast_childidx(fun, 3);
@@ -413,8 +453,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* parameter = ast_child(params);
   while(argument != NULL)
   {
-    const char* param_name = ast_name(ast_child(parameter));
-    ast_set_value(parameter, param_name, argument);
+    map_value(opt, parameter, argument, false);
     argument = ast_sibling(argument);
     parameter = ast_sibling(parameter);
   }
@@ -424,10 +463,12 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   // push the receiver and evaluate the body
   ast_t* evaluated = evaluate(opt, body, evaluated_receiver, depth + 1);
-  if(evaluated == NULL)
+  if(eval_error(evaluated))
   {
-    ast_error(opt->check.errors, function, "function is not a compile time expression");
-    return NULL;
+    if(evaluated == NULL)
+      ast_error(opt->check.errors, function,
+                "function is not a compile time expression");
+    return evaluated;
   }
 
   // If the method is a constructor then we need to build a compile time object
@@ -444,11 +485,11 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     // TODO: move this to later so that we don't require things to be
     // val until the leave they leave the compile time expression
     // See if we can recover the constructed object to a val
-    type = recover_type(ret_type, TK_VAL);
+    ret_type = recover_type(ret_type, TK_VAL);
     if(type == NULL)
     {
       ast_error(opt->check.errors, function,
-        "can't recover compile-time object to val capability");
+                "can't recover compile-time object to val capability");
       return NULL;
     }
 
@@ -469,7 +510,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       switch(ast_id(member))
       {
         case TK_FVAR:
-          ast_error(opt->check.errors, member, "compile time objects fields must be read-only");
+          ast_error(opt->check.errors, member,
+                    "compile time objects fields must be read-only");
           return NULL;
 
         case TK_EMBED:
@@ -499,6 +541,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
        opt->evaluation_depth);
     return NULL;
   }
+
   switch(ast_id(expression)) {
     // Literal cases where we can return the value
     case TK_NONE:
@@ -507,6 +550,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_INT:
     case TK_FLOAT:
     case TK_CONSTANT_OBJECT:
+    case TK_ERROR:
       return expression;
 
     case TK_FUNREF:
@@ -518,12 +562,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_THIS:
       return this == NULL ? expression : this;
 
-    // We do not allow var references to be used in compile time expressions
     case TK_VARREF:
-    case TK_FVARREF:
-      ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
-      return NULL;
-
     case TK_PARAMREF:
     case TK_LETREF:
     {
@@ -531,44 +570,48 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
+        ast_error(opt->check.errors, expression,
+                  "compile time expression can only use read-only variables");
         return NULL;
       }
 
       ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
-      if(value == NULL)
+      if(eval_error(value))
       {
-        ast_error(opt->check.errors, expression, "variable is not a compile time expression");
-        return NULL;
+        if(value == NULL)
+          ast_error(opt->check.errors, expression,
+                    "variable is not a compile-time expression");
+        return value;
       }
+
       return value;
     }
 
+    case TK_FVARREF:
     case TK_EMBEDREF:
     case TK_FLETREF:
     {
-      // this will need to know the object
       ast_t *type = ast_type(expression);
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
       {
-        ast_error(opt->check.errors, expression, "compile time expression can only use read-only variables");
+        ast_error(opt->check.errors, expression,
+                  "compile time expression can only use read-only variables");
         return NULL;
       }
 
       AST_GET_CHILDREN(expression, receiver, id);
       ast_t* evaluated_receiver = evaluate(opt, receiver, this, depth + 1);
-      if(evaluated_receiver == NULL)
-      {
-        ast_error(opt->check.errors, receiver, "could not evaluate receiver");
-        return NULL;
-      }
+      if(eval_error(evaluated_receiver))
+        return evaluated_receiver;
 
       ast_t* field = ast_get_value(evaluated_receiver, ast_name(id));
-      if(field == NULL)
+      if(eval_error(field))
       {
-        ast_error(opt->check.errors, expression, "could not find field");
-        return NULL;
+        if(field == NULL)
+          ast_error(opt->check.errors, expression,
+                    "field is not a compile-time expression");
+        return field;
       }
       return field;
     }
@@ -579,11 +622,8 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
         evaluated = evaluate(opt, p, this, depth + 1);
-        if(evaluated == NULL)
-        {
-          ast_error(opt->check.errors, p, "could not evaluate compile time expression");
-          return NULL;
-        }
+        if(eval_error(evaluated))
+          return evaluated;
       }
       return evaluated;
     }
@@ -601,8 +641,9 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       while(argument != NULL)
       {
         ast_t* evaluated_argument = evaluate(opt, argument, this, depth + 1);
-        if(evaluated_argument == NULL)
-          return NULL;
+        if(eval_error(evaluated_argument))
+          return evaluated_argument;
+
         ast_append(evaluated_positional_args, evaluated_argument);
         argument = ast_sibling(argument);
       }
@@ -616,8 +657,8 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
       ast_t* condition_evaluated = evaluate(opt, condition, this, depth + 1);
-      if(condition_evaluated == NULL)
-        return NULL;
+      if(eval_error(condition_evaluated))
+        return condition_evaluated;
 
       return ast_id(condition_evaluated) == TK_TRUE ?
             evaluate(opt, then_branch, this, depth + 1):
@@ -628,21 +669,14 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     {
       AST_GET_CHILDREN(expression, right, left);
 
-      const char* name = get_lvalue_name(left);
-      assert(name != NULL);
-      ast_set_value(left, name, evaluate(opt, right, this, depth + 1));
-      return right;
+      ast_t* evaluated_right = evaluate(opt, right, this, depth + 1);
+      if(eval_error(evaluated_right))
+        return evaluated_right;
+
+      ast_t* old = map_value(opt, left, evaluated_right, false);
+      return old == NULL ? right: old;
     }
 
-    case TK_ERROR:
-    {
-      ast_error(opt->check.errors, expression,
-        "evaluating expression resulted in an error");
-      //TODO: return the error node here so we can propagate up
-      return NULL;
-    }
-
-    // Artifact of looking through the constants in equivalence
     case TK_CONSTANT:
       return evaluate(opt, ast_child(expression), this, depth + 1);
 
@@ -678,14 +712,57 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       while(elem != NULL)
       {
         ast_t* evaluated_elem = evaluate(opt, elem, this, depth + 1);
-        if(evaluated_elem == NULL)
-          return NULL;
+        if(eval_error(evaluated_elem))
+          return evaluated_elem;
 
         ast_append(obj_members, evaluated_elem);
         elem = ast_sibling(elem);
       }
 
       return obj;
+    }
+
+    case TK_VALUEFORMALPARAMREF:
+      return expression;
+
+    case TK_WHILE:
+    {
+      AST_GET_CHILDREN(expression, cond, thenbody, elsebody);
+      //FIXME: currently not supporting the else branch
+      ast_t* evaluated_cond = evaluate(opt, cond, this, depth + 1);
+      if(eval_error(evaluated_cond))
+        return evaluated_cond;
+
+      assert(ast_id(evaluated_cond) == TK_TRUE ||
+             ast_id(evaluated_cond) == TK_FALSE);
+
+      while(ast_id(evaluated_cond) == TK_TRUE)
+      {
+        ast_t* evaluated_then = evaluate(opt, thenbody, this, depth + 1);
+        if(eval_error(evaluated_then))
+          return evaluated_then;
+
+        evaluated_cond = evaluate(opt, cond, this, depth + 1);
+        if(eval_error(evaluated_cond))
+          return evaluated_cond;
+      }
+
+      //FIXME: return the correct value
+      return evaluated_cond;
+    }
+
+    case TK_TRY:
+    {
+      AST_GET_CHILDREN(expression, trybody, elsebody);
+      ast_t* evaluated_try = evaluate(opt, trybody, this, depth + 1);
+      if(eval_error(evaluated_try))
+      {
+        if(evaluated_try == NULL || ast_id(evaluated_try) != TK_ERROR)
+          return evaluated_try;
+
+        return evaluate(opt, elsebody, this, depth + 1);
+      }
+      return evaluated_try;
     }
 
     default:

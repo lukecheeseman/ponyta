@@ -901,6 +901,29 @@ bool ast_set_value(ast_t* ast, const char* name, ast_t* value)
     && symtab_set_value(ast->symtab, name, value);
 }
 
+// TODO: is there anyway of incorporating this into set_value
+ast_t* ast_update_value(ast_t* ast, const char* name, ast_t* value)
+{
+  do
+  {
+    if(ast->symtab != NULL)
+    {
+      sym_status_t status2;
+      ast_t* old = (ast_t*)symtab_find_value(ast->symtab, name, &status2);
+
+      if(old != NULL)
+      {
+        symtab_set_value(ast->symtab, name, value);
+        return old;
+      }
+    }
+
+    ast = ast->parent;
+  } while((ast != NULL) && (token_get_id(ast->t) != TK_PROGRAM));
+
+  return NULL;
+}
+
 ast_t* ast_get_value(ast_t* ast, const char* name)
 {
   return ast_get_from_symtab(ast, name, NULL, &symtab_find_value);
@@ -1488,6 +1511,7 @@ static void print_type(printbuf_t* buffer, ast_t* type)
         buf[len] = '\0';
         printbuf(buffer, buf);
       }
+      break;
     }
 
     case TK_CONSTANT_OBJECT:

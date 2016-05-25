@@ -285,7 +285,8 @@ static bool make_vector_struct(compile_t* c, reach_type_t* t)
   reach_type_t* elem_reach_type = reach_type(c->reach, elem_type);
 
   assert(lexint_cmp64(size_val, UINT32_MAX) <= 0);
-  elements[1] = LLVMArrayType(elem_reach_type->use_type, (unsigned int) size_val->low);
+  elements[1] = LLVMArrayType(elem_reach_type->use_type,
+                              (unsigned int) size_val->low);
 
   LLVMStructSetBody(t->structure, elements, 2, false);
   ponyint_pool_free_size(buf_size, elements);
@@ -502,6 +503,7 @@ static void make_debug_final(compile_t* c, reach_type_t* t)
   assert(0);
 }
 
+// TODO: we should probably rename this method
 static void make_pointer_methods(compile_t* c, reach_type_t* t)
 {
   if(ast_id(t->ast) != TK_NOMINAL)

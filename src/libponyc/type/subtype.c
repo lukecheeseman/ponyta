@@ -1321,23 +1321,29 @@ static bool is_arrow_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
 static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
   pass_opt_t* opt)
 {
-  ast_t* value = ast_child(sub);
+  ast_t* sub_value = ast_child(sub);
   switch(ast_id(super)) {
     case TK_VALUEFORMALARG: {
       ast_t *super_value = ast_child(super);
       ast_t *super_type = ast_type(super_value);
-      ast_t *sub_type = ast_type(value);
+      ast_t *sub_type = ast_type(sub_value);
 
       // The type of these should be equal so we first check this
       if(!is_eqtype(sub_type, super_type, errorf, opt))
         return false;
 
-      if(!ast_equal(value, super_value))
+      if(!evaluate_expressions(opt, &sub_value))
+        return false;
+
+      if(!evaluate_expressions(opt, &super_value))
+        return false;
+
+      if(!ast_equal(sub_value, super_value))
       {
         if(errorf != NULL)
         {
-          ast_error(opt->check.errors, value, "values may not be the same");
-          ast_error_continue(opt->check.errors, value, "sub value");
+          ast_error(opt->check.errors, sub_value, "values may not be the same");
+          ast_error_continue(opt->check.errors, sub_value, "sub value");
           ast_error_continue(opt->check.errors, sub, "sub value used in type");
           ast_error_continue(opt->check.errors, super_value, "super value");
           ast_error_continue(opt->check.errors, super, "super value used in type");

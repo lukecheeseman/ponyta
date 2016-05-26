@@ -293,8 +293,6 @@ static bool check_arg_types(pass_opt_t* opt, ast_t* params, ast_t* positional,
     if(ast_visit(&p_type, NULL, pass_expr, opt, PASS_EXPR) != AST_OK)
       return false;
 
-    evaluate_expressions(opt, &p_type);
-
     errorframe_t info = NULL;
     if(!is_subtype(a_type, p_type, &info, opt))
     {
@@ -479,8 +477,6 @@ static bool method_application(pass_opt_t* opt, ast_t* ast, bool partial)
   // otherwise values will have no assigned type
   if(ast_visit(&result, NULL, pass_expr, opt, PASS_EXPR) != AST_OK)
     return false;
-
-  evaluate_expressions(opt, &result);
 
   if(!check_arg_types(opt, params, positional, incomplete, partial))
     return false;

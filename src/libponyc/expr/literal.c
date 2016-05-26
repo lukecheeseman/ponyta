@@ -8,6 +8,7 @@
 #include "../type/reify.h"
 #include "../ast/token.h"
 #include "../ast/stringtab.h"
+#include "../evaluate/evaluate.h"
 #include <string.h>
 #include <assert.h>
 
@@ -823,6 +824,17 @@ static bool coerce_literal_to_type(ast_t** astp, ast_t* target_type,
         return false;
 
       break;
+    }
+
+    case TK_CONSTANT:
+    {
+      ast_t* expr = ast_child(literal_expr);
+      if(!coerce_literal_to_type(&expr, target_type, chain, opt,
+        report_errors))
+        return false;
+
+     expr_constant(opt, &literal_expr); 
+     return true;
     }
 
     default:

@@ -219,7 +219,8 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 
 typedef ast_t* (*method_ptr_t)(ast_t*, ast_t*, pass_opt_t* opt);
 
-typedef struct method_entry_t {
+typedef struct method_entry_t
+{
   const char* type;
   const char* name;
   const method_ptr_t method;

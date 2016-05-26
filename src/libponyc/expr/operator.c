@@ -208,8 +208,7 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
       if(!check_constant)
       {
         const char* name = ast_name(ast_child(left));
-        ast_t* value = ast_update_value(left, name, right);
-        return value;
+        return ast_update_value(left, name, right);
       }
       return NULL;
 
@@ -230,6 +229,7 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
       }
       return NULL;
 
+    // TODO: we need to prevent reassignment here
     case TK_EMBEDREF:
     case TK_FLETREF:
       if(!check_constant || ast_checkconstant(right))
@@ -238,6 +238,7 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
         assert(ast_set_value(left, name, right));
       }
       return NULL;
+
 
     default: {}
 /*

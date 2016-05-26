@@ -202,15 +202,13 @@ static bool names_valueparam(pass_opt_t* opt, ast_t** astp, ast_t* def)
     return false;
   }
 
-  // FIXME: do this in a single BUILD plz
   BUILD(ref, ast,
-    NODE(TK_VALUEFORMALPARAMREF,
-      TREE(id)));
-
-  REPLACE(astp,
     NODE(TK_VALUEFORMALARG,
-      TREE(ref)));
+      NODE(TK_VALUEFORMALPARAMREF,
+      TREE(id))
+     ));
 
+  ast_replace(astp, ref);
   ast_setdata(*astp, def);
   return true;
 }

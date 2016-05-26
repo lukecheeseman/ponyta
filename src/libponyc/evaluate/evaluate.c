@@ -23,6 +23,8 @@
 static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* scope,
                        int depth);
 
+static bool evaluate_expression(pass_opt_t* opt, ast_t** astp);
+
 bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
@@ -40,7 +42,7 @@ bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
     // the dims did not have an evaluated type after reification
     ast_t* expr = ast_child(ast);
     evaluate_expressions(opt, &expr);
-    return expr_constant(opt, astp);
+    return evaluate_expression(opt, astp);
   }
 
   ast_t* child = ast_child(ast);
@@ -126,7 +128,7 @@ static bool eval_error(ast_t* ast)
 bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   // If we see a compile time expression
   // we first evaluate it then replace this node with the result
-  ast_t *ast = *astp;
+  ast_t* ast = *astp;
 
   // We set this here as we may not yet be able to evaluate the expressions
   // due to references, but we need to know for assignment what we believe
@@ -152,6 +154,18 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
     }
   }
   ast_settype(ast, expr_type);
+
+  return true;
+}
+
+static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
+{
+  ast_t* ast = *astp;
+
+  assert(ast_id(ast) == TK_CONSTANT);
+  ast_setconstant(ast);
+
+  ast_t* expression = ast_child(ast);
 
   if(contains_valueparamref(expression))
     return true;
@@ -418,10 +432,10 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     case TK_FUNREF:
     {
       // find the method and type check it
-      ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
-      ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
-      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
-        return NULL;
+      //ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
+      //ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
+      //if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+      //  return NULL;
       break;
     }
 

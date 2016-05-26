@@ -419,8 +419,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     {
       // find the method and type check it
       ast_t* type_def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
-      //ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
-      if(ast_visit_scope(&type_def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+      ast_t* def = ast_get(type_def, ast_name(func_id), NULL);
+      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
       break;
     }

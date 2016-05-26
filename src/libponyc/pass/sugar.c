@@ -237,46 +237,6 @@ static ast_result_t sugar_entity(pass_opt_t* opt, ast_t* ast, bool add_create,
   return sugar_case_methods(opt, ast);
 }
 
-static ast_result_t sugar_typeparam_constraints(pass_opt_t* opt, ast_t* ast)
-{
-  assert(ast != NULL);
-
-  switch(ast_id(ast))
-  {
-    case TK_NOMINAL:
-    {
-      ast_t* cap = ast_childidx(ast, 3);
-      if(ast_id(cap) != TK_NONE && ast_id(cap) != TK_VAL)
-      {
-        ast_error(opt->check.errors, ast,
-          "value parameter must have val capability");
-        return AST_ERROR;
-      }
-
-      return AST_OK;
-    }
-
-    case TK_ISECTTYPE:
-    case TK_UNIONTYPE:
-    {
-      AST_GET_CHILDREN(ast, left, right);
-      if(sugar_typeparam_constraints(opt, left) != AST_OK)
-        return AST_ERROR;
-
-      if(sugar_typeparam_constraints(opt, right) != AST_OK)
-        return AST_ERROR;
-
-      return AST_OK;
-    }
-
-    default:
-      ast_error(opt->check.errors, ast,
-        "unsupported type as value constraint");
-      return AST_ERROR;
-  }
-  return AST_OK;
-}
-
 static ast_result_t sugar_typeparam(pass_opt_t* opt, ast_t* ast)
 {
   AST_GET_CHILDREN(ast, id, constraint);
@@ -284,9 +244,6 @@ static ast_result_t sugar_typeparam(pass_opt_t* opt, ast_t* ast)
 
   if(!is_name_type(name)) {
     ast_setid(ast, TK_VALUEFORMALPARAM);
-
-    return sugar_typeparam_constraints(opt, constraint);
-  //TODO: do we need to consider ephemerality
 
   } else if(ast_id(constraint) == TK_NONE) {
     REPLACE(&constraint,

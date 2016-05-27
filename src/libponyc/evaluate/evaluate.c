@@ -159,7 +159,8 @@ typedef struct cache_entry_t
 static cache_entry_t* cache_entry_dup(cache_entry_t* entry)
 {
   cache_entry_t* c = POOL_ALLOC(cache_entry_t);
-  memcpy(c, entry, sizeof(cache_entry_t));
+  c->ast = ast_dup(entry->ast);
+  c->value = ast_dup(entry->value);
   return c;
 }
 
@@ -185,18 +186,25 @@ DEFINE_HASHMAP(cache, cache_t, cache_entry_t,
 
 static cache_t cache;
 
-static void obj_cache(ast_t** obj)
+static void cache_ast(ast_t* ast, ast_t* value)
 {
-  cache_entry_t c1 = {*obj, *obj};
+  cache_entry_t c1 = {ast, value};
   cache_entry_t* c2 = cache_get(&cache, &c1);
 
   if(c2 != NULL)
-  {
-    ast_replace(obj, c2->value);
     return;
-  }
 
   cache_put(&cache, cache_entry_dup(&c1));
+}
+
+static ast_t* search_cache(ast_t* ast)
+{
+  cache_entry_t c1 = {ast, NULL};
+  cache_entry_t* c2 = cache_get(&cache, &c1);
+
+  if(c2 != NULL)
+    return ast_dup(c2->value);
+  return NULL;
 }
 
 void eval_cache_init()
@@ -261,6 +269,13 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
 static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
+  ast_t* cached = search_cache(ast);
+  if(cached != NULL)
+  {
+    // TODO: do we need to dup here
+    ast_replace(astp, cached);
+    return true;
+  }
 
   assert(ast_id(ast) == TK_CONSTANT);
   ast_setconstant(ast);
@@ -313,6 +328,7 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     }
   }
 
+  cache_ast(ast, evaluated);
   ast_replace(astp, evaluated);
   return true;
 }
@@ -640,7 +656,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       }
       member = ast_sibling(member);
     }
-    obj_cache(&obj);
     return obj;
   }
 
@@ -752,20 +767,19 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       assert(ast_id(named) == TK_NONE);
 
       // build up the evaluated arguments
-      ast_t* evaluated_positional_args = ast_from(positional, ast_id(positional));
+      ast_t* evaluated_args = ast_from(positional, ast_id(positional));
       ast_t* argument = ast_child(positional);
       while(argument != NULL)
       {
-        ast_t* evaluated_argument = evaluate(opt, argument, this, depth + 1);
-        if(eval_error(evaluated_argument))
-          return evaluated_argument;
+        ast_t* evaluated_arg = evaluate(opt, argument, this, depth + 1);
+        if(eval_error(evaluated_arg))
+          return evaluated_arg;
 
-        ast_append(evaluated_positional_args, evaluated_argument);
+        ast_append(evaluated_args, evaluated_arg);
         argument = ast_sibling(argument);
       }
 
-      return evaluate_method(opt, function, evaluated_positional_args, this,
-                             depth);
+      return evaluate_method(opt, function, evaluated_args, this, depth);
     }
 
     case TK_IF:
@@ -834,7 +848,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
         ast_append(obj_members, evaluated_elem);
         elem = ast_sibling(elem);
       }
-      obj_cache(&obj);
       return obj;
     }
 

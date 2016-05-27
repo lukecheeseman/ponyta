@@ -329,7 +329,12 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
   // FIXME: Can we do this any earlier? are there issues with doing this
   // here? Is there any context we can do this from which we can return an
   // error on reification?
-  assert(evaluate_expressions(opt, &fun));
+  if(!evaluate_expressions(opt, &fun))
+  {
+    //FIXME: this is currently for debugging
+    errors_print(opt->check.errors);
+    assert(0);
+  }
 
   m->r_fun = fun;
   set_method_types(r, m, opt);
@@ -700,6 +705,9 @@ static reach_type_t* add_nominal(reach_t* r, ast_t* type, pass_opt_t* opt)
 
 static reach_type_t* add_type(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
+  // evaluate any expressions we see in the type
+  evaluate_expressions(opt, &type);
+
   switch(ast_id(type))
   {
     case TK_UNIONTYPE:

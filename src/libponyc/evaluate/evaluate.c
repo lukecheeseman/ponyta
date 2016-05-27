@@ -209,7 +209,7 @@ static ast_t* search_cache(ast_t* ast)
 
 void eval_cache_init()
 {
-  cache_init(&cache, 50);
+  cache_init(&cache, 512);
 }
 
 void eval_cache_done()
@@ -272,7 +272,6 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
   ast_t* cached = search_cache(ast);
   if(cached != NULL)
   {
-    // TODO: do we need to dup here
     ast_replace(astp, cached);
     return true;
   }
@@ -523,6 +522,20 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   // First lookup to see if we have a special method to evaluate the expression
   ast_t* type = ast_get_base_type(evaluated_receiver);
+
+  ast_t* function_call = ast_dup(type);
+  ast_append(function_call, func_id);
+  ast_append(function_call, args);
+  if(typeargs != NULL)
+    ast_append(function_call, typeargs);
+
+  ast_t* cached = search_cache(function_call);
+  if(cached != NULL)
+  {
+    ast_free(function_call);
+    return cached;
+  }
+
   method_ptr_t builtin_method
     = lookup_method(evaluated_receiver, type, ast_name(func_id));
   if(builtin_method != NULL)
@@ -659,6 +672,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     return obj;
   }
 
+  cache_ast(function_call, evaluated);
+  ast_free(function_call);
   return evaluated;
 }
 

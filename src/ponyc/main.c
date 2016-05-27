@@ -234,6 +234,7 @@ int main(int argc, char* argv[])
 {
   stringtab_init();
   methodtab_init();
+  eval_cache_init();
 
   pass_opt_t opt;
   pass_opt_init(&opt);

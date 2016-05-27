@@ -91,6 +91,9 @@ bool ast_equal(ast_t* left, ast_t* right)
     case TK_FLOAT:
       return ast_float(left) == ast_float(right);
 
+    case TK_CONSTANT_OBJECT:
+      return ast_equal(ast_childidx(left, 1), ast_childidx(right, 1));
+
     default:
       break;
   }
@@ -108,6 +111,103 @@ bool ast_equal(ast_t* left, ast_t* right)
   }
 
   return l_child == NULL && r_child == NULL;
+}
+
+static size_t ast_hash(ast_t* ast)
+{
+  switch(ast_id(ast))
+  {
+    case TK_ID:
+    case TK_STRING:
+      return ponyint_hash_str(ast_name(ast));
+
+    case TK_INT:
+    {
+      lexint_t* val = ast_int(ast);
+      return val->low ^ val->high;
+    }
+
+    case TK_FLOAT:
+      return (size_t)ast_float(ast);
+
+    case TK_CONSTANT_OBJECT:
+      return ast_hash(ast_childidx(ast, 1));
+
+    default:
+      break;
+  }
+
+  size_t hash = ast_id(ast);
+  ast_t* child = ast_child(ast);
+
+  while(child)
+  {
+    hash ^= ast_hash(child);
+    child = ast_sibling(child);
+  }
+
+  return hash;
+
+}
+
+typedef struct cache_entry_t
+{
+  ast_t* ast;
+  ast_t* value;
+} cache_entry_t;
+
+static cache_entry_t* cache_entry_dup(cache_entry_t* entry)
+{
+  cache_entry_t* c = POOL_ALLOC(cache_entry_t);
+  memcpy(c, entry, sizeof(cache_entry_t));
+  return c;
+}
+
+static size_t cache_hash(cache_entry_t* entry)
+{
+  return ast_hash(entry->ast);
+}
+
+static bool cache_cmp(cache_entry_t* a, cache_entry_t* b)
+{
+  return a->ast == b->ast || ast_equal(a->ast, b->ast);
+}
+
+static void cache_free(cache_entry_t* cache)
+{
+  POOL_FREE(cache_entry_t, cache);
+}
+
+DECLARE_HASHMAP(cache, cache_t, cache_entry_t);
+DEFINE_HASHMAP(cache, cache_t, cache_entry_t,
+  cache_hash, cache_cmp, ponyint_pool_alloc_size, ponyint_pool_free_size,
+  cache_free);
+
+static cache_t cache;
+
+static void obj_cache(ast_t** obj)
+{
+  cache_entry_t c1 = {*obj, *obj};
+  cache_entry_t* c2 = cache_get(&cache, &c1);
+
+  if(c2 != NULL)
+  {
+    ast_replace(obj, c2->value);
+    return;
+  }
+
+  cache_put(&cache, cache_entry_dup(&c1));
+}
+
+void eval_cache_init()
+{
+  cache_init(&cache, 50);
+}
+
+void eval_cache_done()
+{
+  cache_destroy(&cache);
+  memset(&cache, 0, sizeof(cache_t));
 }
 
 bool contains_valueparamref(ast_t* ast) {
@@ -540,6 +640,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       }
       member = ast_sibling(member);
     }
+    obj_cache(&obj);
     return obj;
   }
 
@@ -733,7 +834,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
         ast_append(obj_members, evaluated_elem);
         elem = ast_sibling(elem);
       }
-
+      obj_cache(&obj);
       return obj;
     }
 

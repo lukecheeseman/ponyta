@@ -21,5 +21,6 @@ void ponyc_shutdown(pass_opt_t* options)
   package_done();
   codegen_shutdown(options);
   methodtab_done();
+  eval_cache_done();
   stringtab_done();
 }

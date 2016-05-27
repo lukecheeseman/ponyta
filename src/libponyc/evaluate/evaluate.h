@@ -12,4 +12,7 @@ bool ast_equal(ast_t* left, ast_t* right);
 void methodtab_init();
 void methodtab_done();
 
+void eval_cache_init();
+void eval_cache_done();
+
 #endif

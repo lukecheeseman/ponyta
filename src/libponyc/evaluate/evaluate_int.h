@@ -1,7 +1,6 @@
 #include "../ast/ast.h"
 #include "../pass/pass.h"
 
-//TODO: preferably with errorframes
 ast_t* evaluate_create_int(ast_t* receiver, ast_t* args, pass_opt_t* opt);
 ast_t* evaluate_add_int(ast_t* receiver, ast_t* args, pass_opt_t* opt);
 ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args, pass_opt_t* opt);

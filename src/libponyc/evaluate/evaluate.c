@@ -6,6 +6,7 @@
 #include "../evaluate/evaluate_bool.h"
 #include "../evaluate/evaluate_float.h"
 #include "../evaluate/evaluate_int.h"
+#include "../evaluate/evaluate_string.h"
 #include "../evaluate/evaluate_vector.h"
 #include "../type/lookup.h"
 #include "../type/subtype.h"
@@ -445,6 +446,9 @@ void methodtab_init()
   add_method(stringtab("Bool"), stringtab("op_or"), &evaluate_or_bool);
   add_method(stringtab("Bool"), stringtab("op_not"), &evaluate_not_bool);
 
+  // string operations
+  add_method(stringtab("String"), stringtab("add"), &evaluate_add_string);
+
   // vector operations
   add_method(stringtab("Vector"), stringtab("_apply"), &evaluate_apply_vector);
 }
@@ -697,6 +701,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_FLOAT:
     case TK_CONSTANT_OBJECT:
     case TK_ERROR:
+    case TK_STRING:
       return expression;
 
     case TK_FUNREF:

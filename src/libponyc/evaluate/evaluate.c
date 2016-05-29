@@ -309,12 +309,13 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 
   ast_setconstant(evaluated);
 
-  //FIXME: bro plz don't check again, there has to be a nicer way of handling
-  //this, the issue is that in templates which use value parms in constant
-  //expressions, we won't know anything at the template stage to evaluate things
-  //like types and so on
+  //FIXME: check that the following code is not needed, we abort if we resulted
+  // in valueparamref
   if(contains_valueparamref(evaluated))
     return true;
+
+  // ensure the expressions has the correct type
+  ast_settype(evaluated, ast_type(ast));
 
   ast_t* type = ast_type(evaluated);
   if(ast_id(type) == TK_NOMINAL)
@@ -637,17 +638,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     // get the return type
     ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
 
-    // TODO: move this to later so that we don't require things to be
-    // val until the leave they leave the compile time expression
-    // See if we can recover the constructed object to a val
-    ret_type = recover_type(ret_type, TK_VAL);
-    if(type == NULL)
-    {
-      ast_error(opt->check.errors, function,
-                "can't recover compile-time object to val capability");
-      return NULL;
-    }
-
     BUILD(obj, receiver,
       NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
     ast_set_symtab(obj, ast_get_symtab(fun));
@@ -846,18 +836,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* def = ast_get(expression, stringtab("Vector"), NULL);
       if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
-
-      // See if we can recover the constructed vector to a val
-      if(!is_type_literal(type))
-      {
-        type = recover_type(type, TK_VAL);
-        if(type == NULL)
-        {
-          ast_error(opt->check.errors, expression,
-            "can't recover compile-time object to val capability");
-          return NULL;
-        }
-      }
 
       const char* vec_name = object_hygienic_name(opt, stringtab("Vector"));
       BUILD(obj, expression,

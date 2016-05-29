@@ -495,15 +495,20 @@ static ast_t* ast_get_base_type(ast_t* ast)
   return NULL;
 }
 
-static int count = 0;
-static const char* object_hygienic_name(pass_opt_t* opt, const char* type_name)
+// generate a hygienic name for an object of a given type
+static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
 {
-  // FIXME: use hygienic naming
-//  const char* s = package_hygienic_id(&opt->check);
-  (void) opt;
-  size_t buf_size = strlen(type_name) + 21 + 2;
+  assert(ast_id(type) == TK_NOMINAL);
+  const char* type_name = ast_name(ast_childidx(type, 1));
+  ast_t* def = ast_get(type, type_name, NULL);
+
+  frame_push(&opt->check, ast_nearest(def, TK_PACKAGE));
+  const char* s = package_hygienic_id(&opt->check);
+  frame_pop(&opt->check);
+
+  size_t buf_size = strlen(type_name) + strlen(s) + 2;
   char* buffer = (char*)ponyint_pool_alloc_size(buf_size);
-  snprintf(buffer, buf_size, "%s_%d", type_name, count++);
+  snprintf(buffer, buf_size, "%s_%s", type_name, s);
   return stringtab_consume(buffer, buf_size);
 }
 
@@ -633,7 +638,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   if(ast_id(fun) == TK_NEW)
   {
     const char* type_name = ast_name(ast_childidx(type, 1));
-    const char* obj_name = object_hygienic_name(opt, type_name);
+    const char* obj_name = object_hygienic_name(opt, type);
 
     // get the return type
     ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
@@ -837,7 +842,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
         return NULL;
 
-      const char* vec_name = object_hygienic_name(opt, stringtab("Vector"));
+      const char* vec_name = object_hygienic_name(opt, type);
       BUILD(obj, expression,
         NODE(TK_CONSTANT_OBJECT, ID(vec_name) NODE(TK_MEMBERS)))
       ast_settype(obj, type);

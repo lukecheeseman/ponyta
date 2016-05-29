@@ -582,7 +582,14 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   }
 
   // lookup the reified defintion of the function
-  ast_t* fun = lookup(opt, receiver, type, ast_name(func_id));
+  // we push the package from where the function came from so that the lookup
+  // proceeds as if we were in the correct package as we may, through private
+  // methods within public methods, require access to private memebers.
+  ast_t* def = ast_get(function, ast_name(ast_childidx(type, 1)), NULL);
+  frame_push(&opt->check, ast_nearest(def, TK_PACKAGE));
+  ast_t* fun = lookup(opt, def, type, ast_name(func_id));
+  frame_pop(&opt->check);
+
   if(fun == NULL)
     return NULL;
 

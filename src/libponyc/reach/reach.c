@@ -324,11 +324,9 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
     fun = r_fun;
   }
 
-  // We only evaluate expressions in reachable methods and at this point we have
-  // enough information to ensure that expressions are typesafe.
-  // FIXME: Can we do this any earlier? are there issues with doing this
-  // here? Is there any context we can do this from which we can return an
-  // error on reification?
+  // We evaluate expressions in reachable methods and at this point we have
+  // enough information to ensure that expressions are typesafe. This also means
+  // that we only evaluate expressions in reachable methods.
   if(!evaluate_expressions(opt, &fun))
   {
     //FIXME: this is currently for debugging

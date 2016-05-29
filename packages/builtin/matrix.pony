@@ -1,8 +1,8 @@
 use "collections"
 class Matrix[A, n: USize, dims: Vector[USize, #n] val]
-  embed _data: Vector[A, # alloc()]
+  embed _data: Vector[A, # _alloc()]
 
-  fun tag alloc(): USize =>
+  fun tag _alloc(): USize =>
     var i: USize = 0
     var acc: USize = 1
     while i < n do
@@ -15,13 +15,13 @@ class Matrix[A, n: USize, dims: Vector[USize, #n] val]
     Create a matrix of elements, populating them with random memory. This
     is only allowed for a vector of numbers.
     """
-    _data = Vector[A, # alloc()]._create()
+    _data = Vector[A, # _alloc()]._create()
 
   new generate(f: {ref(USize): A^ ?} ref) ? =>
     """
     Create a matrix initiliased using a generator function
     """
-    _data = Vector[A, # alloc()].generate(f)
+    _data = Vector[A, # _alloc()].generate(f)
 
   fun size(i: USize): USize ? =>
     dims(i)

@@ -1,5 +1,5 @@
 use "collections"
-class Matrix[A, n: USize, dims: Vector[USize, #n] val]
+class Matrix[A, n: USize, dims: Vector[USize, # n] val]
   embed _data: Vector[A, # _alloc()]
 
   fun tag _alloc(): USize =>
@@ -26,7 +26,7 @@ class Matrix[A, n: USize, dims: Vector[USize, #n] val]
   fun size(i: USize): USize ? =>
     dims(i)
 
-  fun _calculate_address(indices: Vector[USize, #n]): USize ? =>
+  fun _calculate_address(indices: Vector[USize, # n]): USize ? =>
     if n == 0 then return 0 end
     var address: USize = 0
     var i: USize = 0
@@ -38,8 +38,8 @@ class Matrix[A, n: USize, dims: Vector[USize, #n] val]
     if indices(i) > dims(i) then error end
     address + indices(i)
     
-  fun apply(indices: Vector[USize, #n]): this->A ? =>
+  fun apply(indices: Vector[USize, # n]): this->A ? =>
     _data._apply(_calculate_address(indices))
 
-  fun ref update(indices: Vector[USize, #n], value: A): A^ ? =>
+  fun ref update(indices: Vector[USize, # n], value: A): A^ ? =>
     _data._update(_calculate_address(indices), consume value)

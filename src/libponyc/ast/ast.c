@@ -1468,6 +1468,8 @@ static void print_type(printbuf_t* buffer, ast_t* type)
 
     case TK_CONSTANT:
     {
+      printbuf(buffer, ast_get_print(ast_child(type)));
+      break;
       // TODO: write/find an expression pretty printer
       // Instead of writing a printer for all expressions
       // for now we just steal the source code

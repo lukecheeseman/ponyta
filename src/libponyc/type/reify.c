@@ -65,9 +65,6 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
   ast_setreified(*astp);
 
   ast_t* constraint = ast_childidx(typeparam, 1);
-  assert(ast_id(constraint) != TK_TYPEPARAMREF);
-  // Values can be constrained by other type parameters
-  // we want to use the reified version of that parameter
 
   ast_settype(*astp, constraint);
 }

@@ -349,7 +349,7 @@ LLVMValueRef gen_string(compile_t* c, ast_t* ast)
 
 static LLVMValueRef gen_constant_vector(compile_t* c, ast_t* ast)
 {
-  AST_GET_CHILDREN(ast, name, actual_type, members);
+  AST_GET_CHILDREN(ast, name, members);
   const char* obj_name = ast_name(name);
   LLVMValueRef obj = LLVMGetNamedGlobal(c->module, obj_name);
   if(obj != NULL)
@@ -389,14 +389,14 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
   if(is_vector(type))
     return gen_constant_vector(c, ast);
 
-  AST_GET_CHILDREN(ast, name, actual_type, members);
+  AST_GET_CHILDREN(ast, name, members);
   const char* obj_name = ast_name(name);
   LLVMValueRef obj = LLVMGetNamedGlobal(c->module, obj_name);
   if(obj != NULL)
     return obj;
 
   AST_GET_CHILDREN(type, package, id);
-  reach_type_t* t = reach_type(c->reach, actual_type);
+  reach_type_t* t = reach_type(c->reach, type);
 
   uint32_t field_count = t->field_count + 1;
   LLVMValueRef args[field_count];

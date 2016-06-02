@@ -63,10 +63,6 @@ static void reify_valueformalparamref(ast_t** astp, ast_t* typeparam, ast_t* typ
 
   ast_replace(astp, ast_child(typearg));
   ast_setreified(*astp);
-
-  ast_t* constraint = ast_childidx(typeparam, 1);
-
-  ast_settype(*astp, constraint);
 }
 
 static void reify_arrow(ast_t** astp)

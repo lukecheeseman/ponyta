@@ -627,15 +627,14 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     }
 
     BUILD(obj, receiver,
-      NODE(TK_CONSTANT_OBJECT, ID(obj_name) TREE(ret_type) NODE(TK_MEMBERS)))
+      NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
     ast_set_symtab(obj, ast_get_symtab(fun));
-
     ast_settype(obj, ast_dup(ret_type));
 
     // find the class definition and add the members of the object as child
     // nodes
     ast_t* class_def = ast_get(receiver, type_name, NULL);
-    ast_t* obj_members = ast_childidx(obj, 2);
+    ast_t* obj_members = ast_childidx(obj, 1);
     ast_t* members = ast_childidx(class_def, 4);
     ast_t* member = ast_child(members);
     while(member != NULL)
@@ -829,10 +828,10 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
 
       const char* vec_name = object_hygienic_name(opt, type);
       BUILD(obj, expression,
-        NODE(TK_CONSTANT_OBJECT, ID(vec_name) TREE(type) NODE(TK_MEMBERS)))
+        NODE(TK_CONSTANT_OBJECT, ID(vec_name) NODE(TK_MEMBERS)))
       ast_settype(obj, type);
 
-      ast_t* obj_members = ast_childidx(obj, 2);
+      ast_t* obj_members = ast_childidx(obj, 1);
       ast_t* elem = ast_childidx(expression, 1);
       while(elem != NULL)
       {

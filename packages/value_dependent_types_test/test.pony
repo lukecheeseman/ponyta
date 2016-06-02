@@ -25,6 +25,7 @@ actor Main is TestList
     test(_TestCompileTimeObjectMethod)
     test(_TestCompileTimeDependentObject)
     test(_TestCompileTimeObjectEmbeddedField)
+    test(_TestTraitValueType)
 //    test(_TestFunctionCallWithMatch)
 
 class C1[n: U32]
@@ -277,3 +278,20 @@ class iso _TestCompileTimeObjectEmbeddedField is UnitTest
     h.assert_eq[U32](c2.x, 78)
     let x = #(C4(2123).c.x)
     h.assert_eq[U32](x, 2123)
+
+trait T1
+  fun foo(): U32
+class C5 is T1
+  fun foo(): U32 => 2
+class C6 is T1
+  fun foo(): U32 => 19
+class C7[t: T1 val]
+  fun apply(): U32 => t.foo()
+
+class iso _TestTraitValueType is UnitTest
+
+  fun name(): String => "VDT/TraitValueType"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[U32](C7[# C5].apply(), 2)
+    h.assert_eq[U32](C7[# C6].apply(), 19)

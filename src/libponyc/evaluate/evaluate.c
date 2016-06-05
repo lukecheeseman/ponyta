@@ -920,6 +920,12 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       return evaluated_try;
     }
 
+    case TK_CONSUME:
+    {
+      ast_t* consumed = ast_childidx(expression, 1);
+      return evaluate(opt, consumed, this, depth + 1);
+    }
+
     default:
       ast_error(opt->check.errors, expression,
         "cannot evaluate compile time expression");

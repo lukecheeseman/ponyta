@@ -312,4 +312,5 @@ class iso _TestCompileTimeVariable is UnitTest
     let c = # C2(79)
     h.assert_eq[U32](c.x, # c.x)
     //FIXME: the following isn't returning the correct value
+    // it's grabbed the earlier C2 with 48 as the field
     //h.assert_eq[U32](c(), # c())

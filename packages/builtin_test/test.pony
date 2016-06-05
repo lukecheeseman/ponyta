@@ -45,6 +45,7 @@ actor Main is TestList
     test(_TestValtrace)
     test(_TestCCallback)
     test(_TestVector)
+    test(_TestLiteralVector)
     test(_TestNestedVector)
     test(_TestVectorTrace)
 
@@ -887,6 +888,40 @@ class iso _TestVector is UnitTest
     end
 
     let vector2 = Vector[String, 2].init(["E", "F"].values())
+    h.assert_eq[USize](vector2.size(), 2)
+
+    let array2 = ["E", "F"]
+    i = 0
+    while i < vector2.size() do
+      h.assert_eq[String](vector2(i), array2(i))
+      i = i + 1
+    end
+
+    let vector3: Vector[String, 6] = vector1.add[2](vector2)
+    h.assert_eq[USize](vector3.size(), 6)
+
+    let array3 = ["A", "B", "C", "D", "E", "F"]
+    i = 0
+    while i < vector3.size() do
+      h.assert_eq[String](vector3(i), array3(i))
+      i = i + 1
+    end
+
+class iso _TestLiteralVector is UnitTest
+  fun name(): String => "builtin/Vector"
+
+  fun apply(h: TestHelper) ? =>
+    let vector1 = {"A", "B", "C", "D"}
+    h.assert_eq[USize](vector1.size(), 4)
+
+    let array1 = ["A", "B", "C", "D"]
+    var i: USize = 0
+    while i < vector1.size() do
+      h.assert_eq[String](vector1(i), array1(i))
+      i = i + 1
+    end
+
+    let vector2 = {"E", "F"}
     h.assert_eq[USize](vector2.size(), 2)
 
     let array2 = ["E", "F"]

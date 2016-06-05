@@ -26,7 +26,7 @@ actor Main is TestList
     test(_TestCompileTimeDependentObject)
     test(_TestCompileTimeObjectEmbeddedField)
     test(_TestTraitValueType)
-//    test(_TestFunctionCallWithMatch)
+    test(_TestCompileTimeVector)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -194,24 +194,6 @@ class iso _TestFunctionCall is UnitTest
       h.assert_eq[U32](#fib(8), fib(8))
       h.assert_eq[U32](#fib(20), fib(20))
 
-/*
-class iso _TestFunctionCallWithMatch is UnitTest
-
-  fun name(): String => "VDT/fac"
-
-  fun fac(n: U32): U32 =>
-    match n
-      | 0 => 1
-    else
-      n * fac(n-1)
-    end
-
-   fun apply(h: TestHelper) =>
-      h.assert_eq[U32](#fac(1), fac(1))
-      h.assert_eq[U32](#fac(8), fac(8))
-      h.assert_eq[U32](#fac(20), fac(20))
-*/
-
 class iso _TestFunctionCallNamedArgs is UnitTest
 
   fun name(): String => "VDT/named"
@@ -295,3 +277,19 @@ class iso _TestTraitValueType is UnitTest
   fun apply(h: TestHelper) =>
     h.assert_eq[U32](C7[# C5].apply(), 2)
     h.assert_eq[U32](C7[# C6].apply(), 19)
+
+class iso _TestCompileTimeVector is UnitTest
+
+  fun name(): String => "VDT/CompileTimeVector"
+
+  fun apply(h: TestHelper) =>
+    let v1: Vector[U32, 4] = {1, 2, 3, 4}
+    let v2: Vector[U32, 4] val = # {1, 2, 3, 4}
+    try
+      h.assert_eq[USize](v1.size(), v2.size())
+      for i in Range(0, 4) do
+        h.assert_eq[U32](v1(i), v2(i))
+      end
+    else
+      h.fail()
+    end

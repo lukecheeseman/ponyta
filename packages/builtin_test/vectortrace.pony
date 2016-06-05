@@ -20,7 +20,7 @@ actor _VectorTrace
       h.assert_eq[String]("aardvark", v(1))
       h.assert_eq[String]("meerkat", v(2))
     else
-      h.assert_true(false)
+      h.fail()
     end
     h.complete(true)
 
@@ -30,7 +30,7 @@ actor _VectorTrace
       let v = recover Vector[String, 3].init([s1, s2, s3].values()) end
       _VectorTrace.three(h, consume v)
     else
-      h.assert_true(false)
+      h.fail()
     end
 
   be one(h: TestHelper) =>

@@ -84,6 +84,8 @@ bool ast_equal(ast_t* left, ast_t* right)
     case TK_FLOAT:
       return ast_float(left) == ast_float(right);
 
+    // In this case we only compare the names of the objects using identity
+    // equivalence
     case TK_CONSTANT_OBJECT:
       return ast_equal(ast_child(left), ast_child(right));
 

@@ -142,7 +142,6 @@ static size_t ast_hash(ast_t* ast)
   }
 
   return hash;
-
 }
 
 typedef struct cache_entry_t
@@ -307,6 +306,8 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
               "error originated from here");
     return false;
   }
+
+  ast_setconstant(evaluated);
 
   // Our result may contain a valueparamref, e.g. a lookup of a variable
   // assigned to a value paramter

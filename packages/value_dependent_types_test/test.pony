@@ -27,6 +27,7 @@ actor Main is TestList
     test(_TestCompileTimeObjectEmbeddedField)
     test(_TestTraitValueType)
     test(_TestCompileTimeVector)
+    test(_TestCompileTimeVariable)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -290,6 +291,25 @@ class iso _TestCompileTimeVector is UnitTest
       for i in Range(0, 4) do
         h.assert_eq[U32](v1(i), v2(i))
       end
+
+      h.assert_eq[U32](v2(0), # v2(0))
+      h.assert_eq[U32](v2(1), # v2(1))
+      h.assert_eq[U32](v2(2), # v2(2))
+      h.assert_eq[U32](v2(3), # v2(3))
     else
       h.fail()
     end
+
+class iso _TestCompileTimeVariable is UnitTest
+
+  fun name(): String => "VDT/CompileTimeVariable"
+
+  fun apply(h: TestHelper) =>
+    let x: U32 = # (1 + 2)
+    let y: U32 = # (x * 2)
+    h.assert_eq[U32]((1+2)*2, # y)
+
+    let c = # C2(79)
+    h.assert_eq[U32](c.x, # c.x)
+    //FIXME: the following isn't returning the correct value
+    //h.assert_eq[U32](c(), # c())

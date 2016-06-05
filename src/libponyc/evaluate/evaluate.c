@@ -552,10 +552,8 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   if(builtin_method != NULL)
     return builtin_method(evaluated_receiver, args, opt);
 
-  // We ensure that we have type checked the method before we attempt to
-  // evaluate it, this is so that we do not attempt to evaluate erroneuos
-  // functions and also as we require that expressions have been correctly
-  // desugared and types assigned.
+  // We cannot evaluate compile-time behaviours, we shouldn't get here as we
+  // cannot construct compile-time actors.
   if(ast_id(function) == TK_BEREF)
   {
     ast_error(opt->check.errors, function,
@@ -616,6 +614,18 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     const char* type_name = ast_name(ast_childidx(type, 1));
     const char* obj_name = object_hygienic_name(opt, type);
 
+    // find the class definition and add the members of the object as child
+    // nodes
+    ast_t* class_def = ast_get(receiver, type_name, NULL);
+    assert(class_def != NULL);
+
+    if(ast_id(class_def) == TK_ACTOR)
+    {
+      ast_error(opt->check.errors, function,
+        "cannot construct compile-time actors");
+      return NULL;
+    }
+
     // get the return type
     ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
     ret_type = recover_type(ret_type, TK_VAL);
@@ -631,9 +641,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     ast_set_symtab(obj, ast_get_symtab(fun));
     ast_settype(obj, ast_dup(ret_type));
 
-    // find the class definition and add the members of the object as child
-    // nodes
-    ast_t* class_def = ast_get(receiver, type_name, NULL);
     ast_t* obj_members = ast_childidx(obj, 1);
     ast_t* members = ast_childidx(class_def, 4);
     ast_t* member = ast_child(members);

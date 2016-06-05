@@ -29,22 +29,13 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp);
 bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
-
-  // FIXME: the type of expressions hasn't been resolved yet
   ast_t* type = ast_type(ast);
   if(type != NULL)
     if(!evaluate_expressions(opt, &type))
       return false;
 
   if(ast_id(ast) == TK_CONSTANT)
-  {
-    //FIXME: this hack is dues to nesting constants in constants
-    // the breaking example involved a matrix where the dimensions were
-    // the dims did not have an evaluated type after reification
-    ast_t* expr = ast_child(ast);
-    evaluate_expressions(opt, &expr);
     return evaluate_expression(opt, astp);
-  }
 
   ast_t* child = ast_child(ast);
   while(child != NULL)
@@ -55,7 +46,8 @@ bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
     child = ast_sibling(child);
   }
 
-  // FIXME: We may have to reassign some expressions
+  // If we see an assignment then map it as we may be evaluating expressions on
+  // a reified method
   if(ast_id(ast) == TK_ASSIGN)
   {
     AST_GET_CHILDREN(ast, right, left);
@@ -282,13 +274,17 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 
   ast_t* expression = ast_child(ast);
 
+  // We can't evaluate expressions which stil have references to value
+  // parameters so we simply stop, indicating no error yet.
   if(contains_valueparamref(expression))
     return true;
 
-  // TODO: explaing the types of error
-  // evaluate the expression passing NULL as this as we aren't
-  // evaluate a method on an object
+  // evaluate the expression passing NULL as 'this' as we aren't
+  // evaluating a method on an object
   ast_t* evaluated = evaluate(opt, expression, NULL, 0);
+
+  // We may not have errored in a couple of ways, NULL, is some error that
+  // occured as we could not evaluate the expression
   if(eval_error(evaluated) && evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
@@ -297,6 +293,9 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     return false;
   }
 
+  // TK_ERROR means we encountered some error expression and it hasn't been
+  // resolved. We will error out on this case, using this to provide static
+  // assertions.
   if(eval_error(evaluated) && ast_id(evaluated) == TK_ERROR)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
@@ -307,10 +306,8 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     return false;
   }
 
-  ast_setconstant(evaluated);
-
-  //FIXME: check that the following code is not needed, we abort if we resulted
-  // in valueparamref
+  // Our result may contain a valueparamref, e.g. a lookup of a variable
+  // assigned to a value paramter
   if(contains_valueparamref(evaluated))
     return true;
 
@@ -328,6 +325,8 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
   }
   ast_settype(ast, type);
 
+  // cache the result of evaluation so that we don't evaluate the same
+  // expressions again and then rewrite the AST
   cache_ast(ast, evaluated);
   ast_replace(astp, evaluated);
   return true;
@@ -377,6 +376,7 @@ static void add_method(const char* name, const char* type, method_ptr_t method)
   method_table_put(&method_table, method_dup(&m));
 }
 
+// builds the method lookup table for the supported primitive operations
 void methodtab_init()
 {
   method_table_init(&method_table, 20);
@@ -476,7 +476,7 @@ static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
   return m2->method;
 }
 
-// TODO: is this wrong?
+// look through the types to find the unerlying NOMINAL types
 static ast_t* ast_get_base_type(ast_t* ast)
 {
   ast_t* type = ast_type(ast);
@@ -699,10 +699,14 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_THIS:
       return this == NULL ? expression : this;
 
+    // variable lookups, checking that the variable has the correct capabilities
+    // and that it has been mapped to some value.
     case TK_VARREF:
     case TK_PARAMREF:
     case TK_LETREF:
     {
+      // TODO: we should be able to remove the check for a capability once we
+      // have mutable objects in compile-time expressions.
       ast_t *type = ast_type(expression);
       ast_t* cap = ast_childidx(type, 3);
       if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
@@ -724,6 +728,8 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       return value;
     }
 
+    // similary to variable lookups, except we need to first evaluate the
+    // receiver.
     case TK_FVARREF:
     case TK_EMBEDREF:
     case TK_FLETREF:
@@ -751,6 +757,22 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
         return field;
       }
       return field;
+    }
+
+    // evaluating a destructive read, we don't return NULL on assigning to a
+    // previously unmapped variable as NULL is used for errors. Note that the
+    // result could not be used in this case anyway as the typesystem would
+    // already have dissallowed the expression.
+    case TK_ASSIGN:
+    {
+      AST_GET_CHILDREN(expression, right, left);
+
+      ast_t* evaluated_right = evaluate(opt, right, this, depth + 1);
+      if(eval_error(evaluated_right))
+        return evaluated_right;
+
+      ast_t* old = map_value(opt, left, evaluated_right, false);
+      return old == NULL ? right: old;
     }
 
     case TK_SEQ:
@@ -788,31 +810,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       return evaluate_method(opt, function, evaluated_args, this, depth);
     }
 
-    case TK_IF:
-    case TK_ELSEIF:
-    {
-      AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
-      ast_t* condition_evaluated = evaluate(opt, condition, this, depth + 1);
-      if(eval_error(condition_evaluated))
-        return condition_evaluated;
-
-      return ast_id(condition_evaluated) == TK_TRUE ?
-            evaluate(opt, then_branch, this, depth + 1):
-            evaluate(opt, else_branch, this, depth + 1);
-    }
-
-    case TK_ASSIGN:
-    {
-      AST_GET_CHILDREN(expression, right, left);
-
-      ast_t* evaluated_right = evaluate(opt, right, this, depth + 1);
-      if(eval_error(evaluated_right))
-        return evaluated_right;
-
-      ast_t* old = map_value(opt, left, evaluated_right, false);
-      return old == NULL ? right: old;
-    }
-
     case TK_CONSTANT:
       return evaluate(opt, ast_child(expression), this, depth + 1);
 
@@ -848,10 +845,23 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_VALUEFORMALPARAMREF:
       return expression;
 
+    // evaluation of control flow structures, if, while, try
+    case TK_IF:
+    case TK_ELSEIF:
+    {
+      AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
+      ast_t* condition_evaluated = evaluate(opt, condition, this, depth + 1);
+      if(eval_error(condition_evaluated))
+        return condition_evaluated;
+
+      return ast_id(condition_evaluated) == TK_TRUE ?
+            evaluate(opt, then_branch, this, depth + 1):
+            evaluate(opt, else_branch, this, depth + 1);
+    }
+
     case TK_WHILE:
     {
       AST_GET_CHILDREN(expression, cond, thenbody, elsebody);
-      //FIXME: currently not supporting the else branch
       ast_t* evaluated_cond = evaluate(opt, cond, this, depth + 1);
       if(eval_error(evaluated_cond))
         return evaluated_cond;
@@ -859,23 +869,35 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       assert(ast_id(evaluated_cond) == TK_TRUE ||
              ast_id(evaluated_cond) == TK_FALSE);
 
+      // the condition didn't hold on the first iteration so we evaluate the
+      // else
+      if(ast_id(evaluated_cond) == TK_FALSE)
+        return evaluate(opt, elsebody, this, depth + 1);
+
+      // the condition held so evaluate the while returning the file iteration
+      // result as the evaluated result
+      ast_t* evaluated_while = NULL;
       while(ast_id(evaluated_cond) == TK_TRUE)
       {
-        ast_t* evaluated_then = evaluate(opt, thenbody, this, depth + 1);
-        if(eval_error(evaluated_then))
-          return evaluated_then;
+        evaluated_while = evaluate(opt, thenbody, this, depth + 1);
+        if(eval_error(evaluated_while))
+          return evaluated_while;
 
         evaluated_cond = evaluate(opt, cond, this, depth + 1);
         if(eval_error(evaluated_cond))
           return evaluated_cond;
       }
 
-      //FIXME: return the correct value
-      return evaluated_cond;
+      assert(!eval_error(evaluated_while));
+      return evaluated_while;
     }
 
     case TK_TRY:
     {
+      // evaluate the try expression but this may result in a TK_ERROR result,
+      // so test if this is the case after evaluation, if so evaluate the else
+      // branch
+
       AST_GET_CHILDREN(expression, trybody, elsebody);
       ast_t* evaluated_try = evaluate(opt, trybody, this, depth + 1);
       if(eval_error(evaluated_try))

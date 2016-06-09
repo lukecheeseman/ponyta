@@ -1,8 +1,11 @@
 # Syntax
 ## Value-Dependent Types
-* similar to generics, but using a leading lowercase identitifer
+* similar to generics, but using a leading lowercase identifier
 * one must also provide a type constraint on the value
 * example: class C1[n: U32]
+* type arguments must be compile-time expressions and must be prefixed with '#'
+* literals may be provided without a '#' for syntatic convinience
+* example: C1[2] or C1[# 2]
 
 ## Compile-Time Expressions
 * '# \<postfix\>' is the bnf that is used

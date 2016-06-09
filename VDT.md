@@ -5,7 +5,7 @@
 * example: class C1[n: U32]
 
 ## Compile-Time Expressions
-* '#' <postfix> is the bnf that is used
+* '# <postfix>' is the bnf that is used
 * putting a '#' in front of an expression tells the compiler to try to evaluate the expression
 
 # Rules for compile-time expressions

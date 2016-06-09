@@ -16,7 +16,7 @@
 * Primitive literal values such as integers, floating-point values, boolean and strings are compile-time values.
 * Basic (e.g. add, and) methods defined for these primitives are compile-time expressions.
 * let constants which have been assigned compile-time expressions are usable within compile-time expressions.
-* var variables declared within compile-time expressions are usable within compile-time expressions.
+* var variables declared within compile-time expressions are usable within the same compile-time expression.
 * Only classes defined without using var fields may be instantiated as compile-time objects.
 * Compile-time expressions must be recoverable to val capability values.
 * Field lookups on compile-time objects are compile-time expressions.

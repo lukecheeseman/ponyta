@@ -1,3 +1,13 @@
+# Syntax
+## Value-Depdenent Types
+* similar to generics, but using a leading lowercase identitifer
+* one must also provide a type constraint on the value
+* example: class C1[n: U32]
+
+## Compile-Time Expressions
+* '#' <postfix> is the bnf that is used
+* putting a '#' in front of an expression tells the compiler to try to evaluate the expression
+
 # Rules for compile-time expressions
 
 * Primitive literal values such as integers, floating-point values, boolean and strings are compile-time values.
@@ -8,6 +18,7 @@
 * Compile-time expressions must be recoverable to val capability values.
 * Field lookups on compile-time objects are compile-time expressions.
 * Methods built using these rules, and using compile-time values for arguments, can be used within compile-time expressions.
+* If the result of a compile-time expression is an error then compilation fails
 * Actors and behaviours cannot be used in compile-time expressions.
 
 # Examples
@@ -79,4 +90,13 @@ actor Main
   new create(env: Env) =>
     let c = C2[# C1(42)]
     let x = c()
+```
+
+```pony
+primitive Assert
+  fun apply(b: Bool) ? => if not b then error end
+
+actor Main
+  new create(env: Env) =>
+    # Assert(U32(10) < U32(2))
 ```

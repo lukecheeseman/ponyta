@@ -1,5 +1,5 @@
 # Syntax
-## Value-Depdenent Types
+## Value-Dependent Types
 * similar to generics, but using a leading lowercase identitifer
 * one must also provide a type constraint on the value
 * example: class C1[n: U32]

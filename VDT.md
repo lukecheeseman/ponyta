@@ -1,6 +1,6 @@
 # Syntax
 ## Value-Dependent Types
-* similar to generics, but using a leading lowercase identifier
+* similar to generics, but using a leading lowercase identifier for parameters
 * one must also provide a type constraint on the value
 * example: class C1[n: U32]
 * type arguments must be compile-time expressions and must be prefixed with '#'

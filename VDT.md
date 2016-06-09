@@ -11,6 +11,51 @@
 * Actors and behaviours cannot be used in compile-time expressions.
 
 # Examples
+```pony
+actor Main
+  new create(env: Env) =>
+    let x: U32 = #((1 + 3) * 18)
+```
+
+```pony
+actor Main
+  new create(env: Env) =>
+    let x: String = #("Hello" + " " + "World" + "!")
+```
+
+```pony
+actor Main
+  new create(env: Env) =>
+    let x: U32 = # 42
+    let y: U32 = # x + 12
+```
+
+```pony
+actor Main
+  fun fac(n: U32): U32 =>
+    var i: U32 = 0
+    var result: U32 = 1
+    while (i = i + 1) <= n do
+      result = result * i
+    else
+      result
+    end
+
+  new create(env: Env) =>
+    let x = # fac(10)
+```
+
+```pony
+class C1
+  let x: U32
+  new create(x': U32) => x = x'
+  fun apply(): U32 => x * x
+
+actor Main
+  new create(env: Env) =>
+    let c = # C1(42)
+    let x = # c()
+```
 
 ```pony
 class C1[n: U32]
@@ -19,5 +64,19 @@ class C1[n: U32]
 actor Main
   new create(env: Env) =>
     let c = C1[2]
+    let x = c()
+```
+
+```pony
+class C1
+  let x: U32
+  new create(x': U32) => x = x'
+
+class C2[c: C1 val]
+  fun apply(): U32 => c.x
+
+actor Main
+  new create(env: Env) =>
+    let c = C2[# C1(42)]
     let x = c()
 ```

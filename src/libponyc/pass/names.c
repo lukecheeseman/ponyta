@@ -191,16 +191,10 @@ static bool names_typeparam(pass_opt_t* opt, ast_t** astp, ast_t* def)
 
 static bool names_valueparam(pass_opt_t* opt, ast_t** astp, ast_t* def)
 {
+  (void) opt;
   ast_t* ast = *astp;
-  AST_GET_CHILDREN(ast, package, id, typeargs, cap, ephemeral);
+  AST_GET_CHILDREN(ast, package, id);
   assert(ast_id(package) == TK_NONE);
-
-  if(ast_id(typeargs) != TK_NONE)
-  {
-    ast_error(opt->check.errors, typeargs,
-      "can't qualify a type parameter with type arguments");
-    return false;
-  }
 
   REPLACE(astp,
     NODE(TK_VALUEFORMALARG,

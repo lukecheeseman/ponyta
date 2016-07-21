@@ -24,10 +24,11 @@ char* LLVMGetHostCPUName();
 void LLVMSetUnsafeAlgebra(LLVMValueRef inst);
 void LLVMSetReturnNoAlias(LLVMValueRef fun);
 void LLVMSetDereferenceable(LLVMValueRef fun, uint32_t i, size_t size);
+LLVMValueRef LLVMConstNaN(LLVMTypeRef type);
 
 #define GEN_NOVALUE ((LLVMValueRef)1)
 
-#define GEN_NOTNEEDED (LLVMConstInt(c->i1, 1, false))
+#define GEN_NOTNEEDED (LLVMConstInt(c->ibool, 0, false))
 
 typedef struct compile_local_t compile_local_t;
 DECLARE_HASHMAP(compile_locals, compile_locals_t, compile_local_t);
@@ -76,6 +77,7 @@ typedef struct compile_t
   const char* str_Pointer;
   const char* str_Maybe;
   const char* str_Array;
+  const char* str_String;
   const char* str_Platform;
   const char* str_Main;
   const char* str_Env;
@@ -109,6 +111,7 @@ typedef struct compile_t
   const char* str__event_notify;
 
   LLVMCallConv callconv;
+  LLVMLinkage linkage;
   LLVMContextRef context;
   LLVMTargetMachineRef machine;
   LLVMTargetDataRef target_data;
@@ -118,6 +121,7 @@ typedef struct compile_t
   LLVMMetadataRef di_unit;
 
   LLVMTypeRef void_type;
+  LLVMTypeRef ibool;
   LLVMTypeRef i1;
   LLVMTypeRef i8;
   LLVMTypeRef i16;
@@ -139,6 +143,8 @@ typedef struct compile_t
   LLVMTypeRef actor_pad;
   LLVMTypeRef trace_type;
   LLVMTypeRef trace_fn;
+  LLVMTypeRef serialise_type;
+  LLVMTypeRef serialise_fn;
   LLVMTypeRef dispatch_type;
   LLVMTypeRef dispatch_fn;
   LLVMTypeRef final_fn;

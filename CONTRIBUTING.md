@@ -3,13 +3,28 @@ Contributing
 
 It's good to hear that you want to contribute to Pony!
 
-First of all please [search existing issues][complete-issue-list]. Apart from bug reports you will find feature requests and work currently in progress too. If you cannot find a suitable issue — [create a new one][new-issue]. Potential pull requests are no exception. Before you start working, let's have a discussion and agree on the solution and scope.
+There are a number of ways to contribute to Pony. As this document is a little long, feel free to jump to the section that applies to you currently:
 
-Each of [bug report](#bug-report), [feature request](#feature-request) or [pull request](#pull-request)
-has to cover different aspects described below.
+* [Feature request](#feature-request)
+* [Bug report](#bug-report)
+* [Pull request](#pull-request)
+
+Additional notes regarding formatting:
+
+* [Documentation formatting](#documentation-formatting)
+* [Code formatting](#code-formatting)
+* [Standard Library File Naming](#standard-library-file-naming)
+
+Feature request
+---------------
+For any feature requests or enhancements to the Pony distribution, it is quite likely that you have to go through our [RFC process](https://github.com/ponylang/rfcs). Before opening or submitting any feature requests, please make sure you are familiar with the RFC process and follow the process as required.
+
+If you submit a pull request to implement a new feature without going through the RFC process, it may be closed with a polite request to submit an RFC first.
 
 Bug report
 ----------
+First of all please [search existing issues][complete-issue-list] to make sure your issue hasn't already been reported. If you cannot find a suitable issue — [create a new one][new-issue].
+
 Provide the following details:
 
   - short summary of what you was trying to achieve,
@@ -20,14 +35,8 @@ Provide the following details:
 
 If possible, try to isolate the problem and provide just enough code to demonstrate it. Add any related information which might help to fix the issue.
 
-Feature request
----------------
-Define a context and a problem the feature solves. List potential use cases and give some code examples.
-
 Pull request
 ------------
-Provide the same information as you would for a [feature request](#feature-request).
-
 Before issuing a pull request we ask that you squash all your commits into a single logical commit. While your PR is in review, we may ask for additional changes, please do not squash those commits while the review is underway. Once everything is good, we'll then ask you to further squash those commits before merging. We ask that you not squash while a review is underway as it can make it hard to follow what is going on. Additionally, we ask that you:
 
 * [Write a good commit message](http://chris.beams.io/posts/git-commit/)
@@ -35,7 +44,7 @@ Before issuing a pull request we ask that you squash all your commits into a sin
 
 If you aren't sure how to squash multiple commits into one, Steve Klabnik wrote [a handy guide](http://blog.steveklabnik.com/posts/2012-11-08-how-to-squash-commits-in-a-github-pull-request) that you can refer to.
 
-We keep a [CHANGELOG](CHANGELOG.md) of all software changes with behavioural effects in ponyc. If your PR includes such changes (rather than say a documentation update), please make sure that as part of PR, you have also updated the CHANGELOG.
+We keep a [CHANGELOG](CHANGELOG.md) of all software changes with behavioural effects in ponyc. If your PR includes such changes (rather than say a documentation update), please make sure that as part of PR, you have also updated the CHANGELOG. The entries in the CHANGELOG are in time-ascending order, so please add your change description to the bottom of the appropriate section ("Fixed", "Added", or "Changed") of the "unreleased" log.
 
 Documentation Formatting
 ---------------
@@ -80,3 +89,16 @@ Try to avoid doing it. A commit that changes the formatting for large chunks of 
 
 [complete-issue-list]: //github.com/ponylang/ponyc/search?q=&type=Issues&utf8=%E2%9C%93
 [new-issue]: //github.com/ponylang/ponyc/issues/new
+
+Standard Library File Naming
+---------------
+As of July 2016, the have adopted the following guidelines for naming files in the Pony standard library. New additions to the standard library should conform to this standard:
+
+- The *file name* of Pony source files should be based on the name of the *principal type* defined in that file.
+    + The *principal type* in a file is the type that makes up the bulk of the significant lines of code in the file or is conceptually more important or fundamental than all other types in the file. For example, if a file defines a trait type and a group of small class types that all provide that trait, then the trait type should be considered the *principal type*.
+    + If there are multiple types defined in the file which all have equal significance and a shared name prefix, then the shared prefix should be used as the *principal type name*. For example, a file that defines `PacketFoo`, `PacketBar`, and `PacketBaz` types should use `Packet` as the *principal type name*, even if no `Packet` type is defined.
+    + If there are multiple significant types defined in the file which do not have a shared name prefix, then this should be taken as a hint that these types should probably be defined in separate files instead of together in one file.
+- The *file name* should be directly derived from the *principal type name* using a consistent reproducible scheme of case conversion.
+    + The *file name* should be the "snake case" version of the *principal type name*. That is, each word in the *principal type name* (as defined by transitions from lowercase to uppercase letters) should be separated with the underscore character (`_`) and lowercased to generate the *file name*. For example, a file that defines the `ContentsLog` type should be named `contents_log.pony`.
+    + If the *principal type* is a private type (its name beginning with an underscore character), then the *file name* should also be prefixed with an underscore character to highlight the fact that it defines a private type. For example, a file that defines the `_ClientConnection` type should be named `_client_connection.pony`.
+    + If the *principal type* name contains an acronym (a sequence of uppercase letters with no lowercase letters between them), then the entire acronym should be considered as a single word when converting to snake case. Note that if there is another word following the acronym, its first letter will also be uppercase, but should not be considered part of the sequence of uppercase letters that form the acronym. For example, a file that defines the `SSLContext` type should be named `ssl_context.pony`.

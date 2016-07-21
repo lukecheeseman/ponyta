@@ -10,8 +10,8 @@ class Readline is ANSINotify
   let _notify: ReadlineNotify
   let _out: OutStream
   let _path: (FilePath | None)
-  let _history: Array[String]
-  let _queue: Array[String] = Array[String]
+  embed _history: Array[String]
+  embed _queue: Array[String] = Array[String]
   let _maxlen: USize
 
   var _edit: String iso = recover String end
@@ -302,29 +302,14 @@ class Readline is ANSINotify
     """
     let promise = Promise[String]
 
-    promise.next[String](
-      recover this~_fulfill_prompt(term) end,
-      recover this~_reject_prompt(term) end
+    promise.next[Any tag](
+      recover term~prompt() end,
+      recover term~dispose() end
       )
 
     _notify(line, promise)
     _cur_pos = 0
     _blocked = true
-
-  fun tag _fulfill_prompt(term: ANSITerm, value: String): String =>
-    """
-    Tell the terminal, which will call `this.prompt(value)`.
-    """
-    term.prompt(value)
-    value
-
-  fun tag _reject_prompt(term: ANSITerm): String ? =>
-    """
-    Tell the terminal we've closed. Raise an error to reject any remaining
-    promise chain.
-    """
-    term.dispose()
-    error
 
   fun ref _refresh_line() =>
     """

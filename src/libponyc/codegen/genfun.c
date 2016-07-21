@@ -185,9 +185,11 @@ static void make_prototype(compile_t* c, reach_type_t* t,
 
   if(n->name == c->str__final)
   {
-    // Store the finaliser and use the C calling convention.
+    // Store the finaliser and use the C calling convention and an external
+    // linkage.
     t->final_fn = m->func;
     LLVMSetFunctionCallConv(m->func, LLVMCCallConv);
+    LLVMSetLinkage(m->func, LLVMExternalLinkage);
   }
 }
 
@@ -356,7 +358,7 @@ static bool genfun_fun(compile_t* c, reach_type_t* t, reach_method_t* m)
     // cast even if the body type is not a tuple.
     ast_t* body_type = ast_type(body);
 
-    if(ast_id(result) == TK_TUPLETYPE)
+    if((ast_id(result) == TK_TUPLETYPE) && (ast_id(body_type) != TK_TUPLETYPE))
       body_type = result;
 
     LLVMValueRef ret = gen_assign_cast(c, r_type, value, body_type);

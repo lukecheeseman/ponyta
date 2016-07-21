@@ -417,7 +417,7 @@ ast_result_t pass_names(ast_t** astp, pass_opt_t* options)
   {
     case TK_NOMINAL:
       if(!names_nominal(options, *astp, astp, false))
-        return AST_ERROR;
+        return AST_FATAL;
       break;
 
     case TK_REFERENCE:
@@ -427,7 +427,7 @@ ast_result_t pass_names(ast_t** astp, pass_opt_t* options)
 
     case TK_ARROW:
       if(!names_arrow(options, astp))
-        return AST_ERROR;
+        return AST_FATAL;
       break;
 
     default: {}

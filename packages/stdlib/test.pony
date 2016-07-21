@@ -20,6 +20,8 @@ use builtin_test = "builtin_test"
 use bureaucracy = "bureaucracy"
 use capsicum = "capsicum"
 use collections = "collections"
+use collections_persistent = "collections/persistent"
+use crypto = "crypto"
 use debug = "debug"
 use files = "files"
 use glob = "glob"
@@ -41,6 +43,7 @@ use term = "term"
 use time = "time"
 use value_dependent_types_test = "value_dependent_types_test"
 use itertools = "itertools"
+use serialise = "serialise"
 
 actor Main is TestList
   new create(env: Env) => PonyTest(env, this)
@@ -51,6 +54,8 @@ actor Main is TestList
     builtin_test.Main.make().tests(test)
     bureaucracy.Main.make().tests(test)
     collections.Main.make().tests(test)
+    collections_persistent.Main.make().tests(test)
+    crypto.Main.make().tests(test)
     files.Main.make().tests(test)
 
     ifdef not windows then
@@ -69,7 +74,7 @@ actor Main is TestList
       // The process package currently only supports posix
       process.Main.make().tests(test)
     end
-    
+
     regex.Main.make().tests(test)
 
     ifdef not windows then
@@ -82,3 +87,4 @@ actor Main is TestList
     time.Main.make().tests(test)
     value_dependent_types_test.Main.make().tests(test)
     itertools.Main.make().tests(test)
+    serialise.Main.make().tests(test)

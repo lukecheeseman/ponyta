@@ -54,6 +54,8 @@ const char* pass_name(pass_id pass)
     case PASS_DOCS: return "docs";
     case PASS_EXPR: return "expr";
     case PASS_FINALISER: return "final";
+    case PASS_REACH: return "reach";
+    case PASS_PAINT: return "paint";
     case PASS_LLVM_IR: return "ir";
     case PASS_BITCODE: return "bitcode";
     case PASS_ASM: return "asm";
@@ -106,7 +108,7 @@ void pass_opt_done(pass_opt_t* options)
 
   if(options->print_stats)
   {
-    printf(
+    fprintf(stderr,
       "\nStats:"
       "\n  Names: " __zu
       "\n  Default caps: " __zu
@@ -157,8 +159,8 @@ static bool visit_pass(ast_t** astp, pass_opt_t* options, pass_id last_pass,
     return false;
   }
 
-  //printf("Pass %s (last %s) on %s\n", pass_name(pass), pass_name(last_pass),
-  //  ast_get_print(*astp));
+  //fprintf(stderr, "Pass %s (last %s) on %s\n", pass_name(pass),
+  //  pass_name(last_pass), ast_get_print(*astp));
 
   if(ast_visit(astp, pre_fn, post_fn, options, pass) != AST_OK)
   {
@@ -279,7 +281,7 @@ bool ast_passes_subtree(ast_t** astp, pass_opt_t* options, pass_id last_pass)
 
 bool generate_passes(ast_t* program, pass_opt_t* options)
 {
-  if(options->limit < PASS_LLVM_IR)
+  if(options->limit < PASS_REACH)
     return true;
 
   return codegen(program, options);

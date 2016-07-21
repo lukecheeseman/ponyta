@@ -61,6 +61,12 @@ ifdef destdir
   endif
 endif
 
+ifeq ($(OSTYPE),osx)
+  symlink.flags = -sf
+else
+  symlink.flags = -srf
+endif
+
 prefix ?= /usr/local
 destdir ?= $(prefix)/lib/pony/$(tag)
 
@@ -70,7 +76,8 @@ BUILD_FLAGS = -march=$(arch) -Werror -Wconversion \
 LINKER_FLAGS = -march=$(arch)
 AR_FLAGS = -rcs
 ALL_CFLAGS = -std=gnu11 -fexceptions \
-  -DPONY_VERSION=\"$(tag)\" -DPONY_COMPILER=\"$(CC)\" -DPONY_ARCH=\"$(arch)\"
+  -DPONY_VERSION=\"$(tag)\" -DPONY_COMPILER=\"$(CC)\" -DPONY_ARCH=\"$(arch)\" \
+  -DPONY_BUILD_CONFIG=\"$(config)\"
 ALL_CXXFLAGS = -std=gnu++11 -fno-rtti
 
 # Determine pointer size in bits.
@@ -495,10 +502,10 @@ ifeq ($$(symlink),yes)
 	@mkdir -p $(prefix)/bin
 	@mkdir -p $(prefix)/lib
 	@mkdir -p $(prefix)/include
-	$(SILENT)ln -sf $(destdir)/bin/ponyc $(prefix)/bin/ponyc
-	$(SILENT)ln -sf $(destdir)/lib/libponyrt.a $(prefix)/lib/libponyrt.a
-	$(SILENT)ln -sf $(destdir)/lib/libponyc.a $(prefix)/lib/libponyc.a
-	$(SILENT)ln -sf $(destdir)/include/pony.h $(prefix)/include/pony.h
+	$(SILENT)ln $(symlink.flags) $(destdir)/bin/ponyc $(prefix)/bin/ponyc
+	$(SILENT)ln $(symlink.flags) $(destdir)/lib/libponyrt.a $(prefix)/lib/libponyrt.a
+	$(SILENT)ln $(symlink.flags) $(destdir)/lib/libponyc.a $(prefix)/lib/libponyc.a
+	$(SILENT)ln $(symlink.flags) $(destdir)/include/pony.h $(prefix)/include/pony.h
 endif
 endef
 
@@ -514,9 +521,14 @@ uninstall:
 test: all
 	@$(PONY_BUILD_DIR)/libponyc.tests
 	@$(PONY_BUILD_DIR)/libponyrt.tests
-	@$(PONY_BUILD_DIR)/ponyc -d -s packages/stdlib
+	@$(PONY_BUILD_DIR)/ponyc -d -s --verify packages/stdlib
 	@./stdlib
 	@rm stdlib
+
+test-examples: all
+	@PONYPATH=. $(PONY_BUILD_DIR)/ponyc -d -s examples
+	@./examples1
+	@rm examples1
 
 ifeq ($(git),yes)
 setversion:

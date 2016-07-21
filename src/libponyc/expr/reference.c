@@ -190,6 +190,7 @@ bool expr_provides(pass_opt_t* opt, ast_t* ast)
 bool expr_param(pass_opt_t* opt, ast_t* ast)
 {
   AST_GET_CHILDREN(ast, id, type, init);
+  ast_settype(ast, type);
   bool ok = true;
 
   if(ast_id(init) != TK_NONE)
@@ -218,9 +219,6 @@ bool expr_param(pass_opt_t* opt, ast_t* ast)
 
     ast_free_unattached(init_type);
   }
-
-  if(ok)
-    ast_settype(ast, type);
 
   return ok;
 }
@@ -764,7 +762,7 @@ bool expr_addressof(pass_opt_t* opt, ast_t* ast)
   if(!ok)
   {
     ast_error(opt->check.errors, ast,
-      "the & operator can only be used for FFI arguments");
+      "the addressof operator can only be used for FFI arguments");
     return false;
   }
 
@@ -843,7 +841,7 @@ bool expr_digestof(pass_opt_t* opt, ast_t* ast)
 
     default:
       ast_error(opt->check.errors, ast,
-        "identity must be for a field, local, parameter or this");
+        "can only get the digest of a field, local, parameter or this");
       return false;
   }
 
@@ -996,6 +994,37 @@ bool expr_this(pass_opt_t* opt, ast_t* ast)
     return false;
   }
 
+  // Unless this is a field lookup, treat an incomplete `this` as a tag.
+  ast_t* parent = ast_parent(ast);
+  bool incomplete_ok = false;
+
+  if((ast_id(parent) == TK_DOT) && (ast_child(parent) == ast))
+  {
+    ast_t* right = ast_sibling(ast);
+    assert(ast_id(right) == TK_ID);
+    ast_t* find = lookup_try(opt, ast, nominal, ast_name(right));
+
+    if(find != NULL)
+    {
+      switch(ast_id(find))
+      {
+        case TK_FVAR:
+        case TK_FLET:
+        case TK_EMBED:
+          incomplete_ok = true;
+          break;
+
+        default: {}
+      }
+    }
+  }
+
+  if(!incomplete_ok && is_this_incomplete(t, ast))
+  {
+    ast_t* tag_type = set_cap_and_ephemeral(nominal, TK_TAG, TK_NONE);
+    ast_replace(&nominal, tag_type);
+  }
+
   if(arrow)
     type = ast_parent(nominal);
   else
@@ -1035,6 +1064,7 @@ bool expr_tuple(pass_opt_t* opt, ast_t* ast)
         // At least one tuple member is literal, so whole tuple is
         ast_free(type);
         make_literal_type(ast);
+        ast_inheritflags(ast);
         return true;
       }
 
@@ -1071,13 +1101,11 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
   // If still nominal, check constraints.
   ast_t* def = (ast_t*)ast_data(ast);
 
-  // Special case: don't check the constraint of a Pointer. This allows a
-  // Pointer[Pointer[A]], which is normally not allowed, as a Pointer[A] is
-  // not a subtype of Any.
-  ast_t* id = ast_child(def);
-  const char* name = ast_name(id);
-
-  if(!strcmp(name, "Pointer"))
+  // Special case: don't check the constraint of a Pointer or an Array. These
+  // builtin types have no contraint on their type parameter, and it is safe
+  // to bind a struct as a type argument (which is not safe on any user defined
+  // type, as that type might then be used for pattern matching).
+  if(is_pointer(ast) || is_literal(ast, "Array"))
     return true;
 
   ast_t* typeparams = ast_childidx(def, 1);
@@ -1086,7 +1114,7 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
   if(!reify_defaults(typeparams, typeargs, true, opt))
     return false;
 
-  if(!strcmp(name, "MaybePointer"))
+  if(is_maybe(ast))
   {
     // MaybePointer[A] must be bound to a struct.
     assert(ast_childcount(typeargs) == 1);
@@ -1116,11 +1144,14 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
     if(!ok)
     {
       ast_error(opt->check.errors, ast,
-        "%s is not allowed: the type argument to MaybePointer must be a struct",
+        "%s is not allowed: "
+        "the type argument to MaybePointer must be a struct",
         ast_print_type(ast));
 
       return false;
     }
+
+    return true;
   }
 
   return check_constraints(typeargs, typeparams, typeargs, true, opt);
@@ -1254,6 +1285,13 @@ static bool check_main_create(pass_opt_t* opt, ast_t* ast)
     return true;
 
   bool ok = true;
+
+  if(ast_id(ast) != TK_NEW)
+  {
+    ast_error(opt->check.errors, ast,
+      "the create method of a Main actor must be a constructor");
+    ok = false;
+  }
 
   if(ast_id(typeparams) != TK_NONE)
   {
@@ -1458,6 +1496,9 @@ bool expr_fun(pass_opt_t* opt, ast_t* ast)
   if(!check_primitive_init(opt, ast) || !check_finaliser(opt, ast))
     return false;
 
+  if(!check_main_create(opt, ast))
+    return false;
+
   switch(ast_id(ast))
   {
     case TK_NEW:
@@ -1471,9 +1512,6 @@ bool expr_fun(pass_opt_t* opt, ast_t* ast)
       }
 
       if(!check_fields_defined(opt, ast))
-        ok = false;
-
-      if(!check_main_create(opt, ast))
         ok = false;
 
       return ok;

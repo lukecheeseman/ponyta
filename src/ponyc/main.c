@@ -52,7 +52,8 @@ enum
   OPT_BNF,
   OPT_ANTLR,
   OPT_ANTLRRAW,
-  OPT_PIC
+  OPT_PIC,
+  OPT_EXTFUN
 };
 
 static opt_arg_t args[] =
@@ -89,6 +90,7 @@ static opt_arg_t args[] =
   {"antlr", '\0', OPT_ARG_NONE, OPT_ANTLR},
   {"antlrraw", '\0', OPT_ARG_NONE, OPT_ANTLRRAW},
   {"pic", '\0', OPT_ARG_NONE, OPT_PIC},
+  {"extfun", '\0', OPT_ARG_NONE, OPT_EXTFUN},
   OPT_ARGS_FINISH
 };
 
@@ -146,6 +148,8 @@ static void usage()
     "    =docs\n"
     "    =expr\n"
     "    =final\n"
+    "    =reach\n"
+    "    =paint\n"
     "    =ir           Output LLVM IR.\n"
     "    =bitcode      Output LLVM bitcode.\n"
     "    =asm          Output assembly.\n"
@@ -158,6 +162,7 @@ static void usage()
     "    =columns      Defaults to the terminal width.\n"
     "  --immerr        Report errors immediately rather than deferring.\n"
     "  --verify        Verify LLVM IR.\n"
+    "  --extfun        Set function default linkage to external.\n"
     "  --files         Print source file names as each is processed.\n"
     "  --bnf           Print out the Pony grammar as human readable BNF.\n"
     "  --antlr         Print out the Pony grammar as an ANTLR file.\n"
@@ -177,6 +182,7 @@ static void usage()
     "                  usage N times its current value. This is a floating\n"
     "                  point value. Defaults to 2.0.\n"
     "  --ponynoyield   Do not yield the CPU when no work is available.\n"
+    "  --ponynoblock   Do not send block messages to the cycle detector.\n"
     );
 }
 
@@ -220,10 +226,10 @@ static bool compile_package(const char* path, pass_opt_t* opt,
     return false;
 
   if(print_program_ast)
-    ast_print(program);
+    ast_fprint(stderr, program);
 
   if(print_package_ast)
-    ast_print(ast_child(program));
+    ast_fprint(stderr, ast_child(program));
 
   bool ok = generate_passes(program, opt);
   ast_free(program);
@@ -258,7 +264,7 @@ int main(int argc, char* argv[])
     switch(id)
     {
       case OPT_VERSION:
-        printf("%s\n", PONY_VERSION);
+        printf("%s [%s]\n", PONY_VERSION, PONY_BUILD_CONFIG);
         return 0;
 
       case OPT_DEBUG: opt.release = false; break;
@@ -300,6 +306,7 @@ int main(int argc, char* argv[])
       case OPT_WIDTH: ast_setwidth(atoi(s.arg_val)); break;
       case OPT_IMMERR: errors_set_immediate(opt.check.errors, true); break;
       case OPT_VERIFY: opt.verify = true; break;
+      case OPT_EXTFUN: opt.extfun = true; break;
       case OPT_FILENAMES: opt.print_filenames = true; break;
       case OPT_CHECKTREE: opt.check_tree = true; break;
 

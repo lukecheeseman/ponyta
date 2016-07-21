@@ -2,7 +2,7 @@ class RingBuffer[A]
   """
   A ring buffer.
   """
-  let _array: Array[A]
+  embed _array: Array[A]
   let _mod: USize
   var _write: USize = 0
 
@@ -11,7 +11,7 @@ class RingBuffer[A]
     Create a ring buffer with a fixed size. The size will be rounded up to the
     next power of 2.
     """
-    let n = len.max(2).ponyint_next_pow2()
+    let n = len.max(2).next_pow2()
     _mod = n - 1
     _array = Array[A](n)
 
@@ -40,7 +40,7 @@ class RingBuffer[A]
     """
     The available space in the ring.
     """
-    _array.space()
+    _mod + 1
 
   fun apply(i: USize): this->A ? =>
     """

@@ -37,7 +37,8 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
     else
       _alloc = _size + 1
       _ptr = Pointer[U8]._alloc(_alloc)
-      data._cstring()._copy_to(_ptr, _alloc)
+      data._cstring()._copy_to(_ptr, _size)
+      _set(_size, 0)
     end
 
   new from_cstring(str: Pointer[U8], len: USize = 0) =>
@@ -206,7 +207,13 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
     null terminator.
     """
     if _alloc <= len then
-      _alloc = len.min(len.max_value() - 1) + 1
+      let max = len.max_value() - 1
+      let min_alloc = len.min(max) + 1
+      if min_alloc <= (max / 2) then
+        _alloc = min_alloc.next_pow2()
+      else
+        _alloc = min_alloc.min(max)
+      end
       _ptr = _ptr._realloc(_alloc)
     end
     this
@@ -234,6 +241,8 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
     """
     Truncates the string at the minimum of len and space. Ensures there is a
     null terminator. Does not check for null terminators inside the string.
+
+    Note that memory is not freed by this operation.
     """
     _size = len.min(_alloc - 1)
     _set(_size, 0)
@@ -422,6 +431,34 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
       i = i - 1
     end
     error
+
+  fun contains(s: String box, offset: ISize = 0, nth: USize = 0): Bool =>
+    """
+    Returns true if contains s as a substring, false otherwise.
+    """
+    var i = offset_to_index(offset)
+    var steps = nth + 1
+
+    while i < _size do
+      var j: USize = 0
+
+      var same = while j < s._size do
+        if _ptr._apply(i + j) != s._ptr._apply(j) then
+          break false
+        end
+        j = j + 1
+        true
+      else
+        false
+      end
+
+      if same and ((steps = steps - 1) == 1) then
+        return true
+      end
+
+      i = i + 1
+    end
+    false
 
   fun count(s: String box, offset: ISize = 0): USize =>
     """
@@ -831,9 +868,8 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
         while i < _size do
           (let c, let len) = utf32(i.isize())
 
-          try
+          if chars.contains(c) then
             // If we find a delimeter, add the current string to the array.
-            chars.find(c)
             occur = occur + 1
 
             if (n > 0) and (occur >= n) then
@@ -889,7 +925,10 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
         try
           match utf32(i.isize())
           | (0xFFFD, 1) => None
-          | (let c: U32, _) => chars.find(c)
+          | (let c: U32, _) =>
+            if not chars.contains(c) then
+              break
+            end
           end
         else
           break
@@ -917,7 +956,9 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
       while i < _size do
         try
           (let c, let len) = utf32(i.isize())
-          chars.find(c)
+          if not chars.contains(c) then
+            break
+          end
           i = i + len.usize()
         else
           break
@@ -1124,11 +1165,7 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
     // Check for leading minus
     let minus = (index < _size) and (_ptr._apply(index) == '-')
     if minus then
-      // Named variables need until issue #220 is fixed
-      // if A(-1) > A(0) then
-      let neg: A = -1
-      let zero: A = 0
-      if neg > zero then
+      if A(-1) > A(0) then
         // We're reading an unsigned type, negative not allowed, int not found
         return (0, 0)
       end
@@ -1162,7 +1199,11 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
         break
       end
 
-      let new_value: A = (value * base') + digit
+      let new_value: A = if minus then
+        (value * base') - digit
+      else
+        (value * base') + digit
+      end
 
       if (new_value / base') != value then
         // Overflow
@@ -1173,8 +1214,6 @@ class val String is (Seq[U8] & Comparable[String box] & Stringable)
       had_digit = true
       index = index + 1
     end
-
-    if minus then value = -value end
 
     // Check result
     if not had_digit then

@@ -103,7 +103,7 @@ static LLVMValueRef special_case_platform(compile_t* c, ast_t* ast)
   bool is_target;
 
   if(os_is_target(method_name, c->opt->release, &is_target, c->opt))
-    return LLVMConstInt(c->i1, is_target ? 1 : 0, false);
+    return LLVMConstInt(c->ibool, is_target ? 1 : 0, false);
 
   ast_error(c->opt->check.errors, ast, "unknown Platform setting");
   return NULL;
@@ -226,6 +226,15 @@ static bool call_needs_receiver(ast_t* postfix, reach_type_t* t)
   return true;
 }
 
+static void set_descriptor(compile_t* c, reach_type_t* t, LLVMValueRef value)
+{
+  if(t->underlying == TK_STRUCT)
+    return;
+
+  LLVMValueRef desc_ptr = LLVMBuildStructGEP(c->builder, value, 0, "");
+  LLVMBuildStore(c->builder, t->desc, desc_ptr);
+}
+
 LLVMValueRef gen_funptr(compile_t* c, ast_t* ast)
 {
   assert((ast_id(ast) == TK_FUNREF) || (ast_id(ast) == TK_BEREF));
@@ -325,9 +334,12 @@ LLVMValueRef gen_call(compile_t* c, ast_t* ast)
         // If we're constructing an embed field, pass a pointer to the field
         // as the receiver. Otherwise, allocate an object.
         if((ast_id(parent) == TK_ASSIGN) && (ast_id(sibling) == TK_EMBEDREF))
+        {
           args[0] = gen_fieldptr(c, sibling);
-        else
+          set_descriptor(c, t, args[0]);
+        } else {
           args[0] = gencall_alloc(c, t);
+        }
         break;
       }
 
@@ -389,33 +401,37 @@ LLVMValueRef gen_pattern_eq(compile_t* c, ast_t* pattern, LLVMValueRef r_value)
 {
   // This is used for structural equality in pattern matching.
   ast_t* pattern_type = ast_type(pattern);
-  AST_GET_CHILDREN(pattern_type, package, id);
 
-  // Special case equality on primitive types.
-  if(ast_name(package) == c->str_builtin)
+  if(ast_id(pattern_type) == TK_NOMINAL)
   {
-    const char* name = ast_name(id);
+    AST_GET_CHILDREN(pattern_type, package, id);
 
-    if((name == c->str_Bool) ||
-      (name == c->str_I8) ||
-      (name == c->str_I16) ||
-      (name == c->str_I32) ||
-      (name == c->str_I64) ||
-      (name == c->str_I128) ||
-      (name == c->str_ILong) ||
-      (name == c->str_ISize) ||
-      (name == c->str_U8) ||
-      (name == c->str_U16) ||
-      (name == c->str_U32) ||
-      (name == c->str_U64) ||
-      (name == c->str_U128) ||
-      (name == c->str_ULong) ||
-      (name == c->str_USize) ||
-      (name == c->str_F32) ||
-      (name == c->str_F64)
-      )
+    // Special case equality on primitive types.
+    if(ast_name(package) == c->str_builtin)
     {
-      return gen_eq_rvalue(c, pattern, r_value);
+      const char* name = ast_name(id);
+
+      if((name == c->str_Bool) ||
+        (name == c->str_I8) ||
+        (name == c->str_I16) ||
+        (name == c->str_I32) ||
+        (name == c->str_I64) ||
+        (name == c->str_I128) ||
+        (name == c->str_ILong) ||
+        (name == c->str_ISize) ||
+        (name == c->str_U8) ||
+        (name == c->str_U16) ||
+        (name == c->str_U32) ||
+        (name == c->str_U64) ||
+        (name == c->str_U128) ||
+        (name == c->str_ULong) ||
+        (name == c->str_USize) ||
+        (name == c->str_F32) ||
+        (name == c->str_F64)
+        )
+      {
+        return gen_eq_rvalue(c, pattern, r_value);
+      }
     }
   }
 
@@ -456,7 +472,7 @@ static LLVMValueRef declare_ffi_vararg(compile_t* c, const char* f_name,
 }
 
 static LLVMValueRef declare_ffi(compile_t* c, const char* f_name,
-  reach_type_t* t, ast_t* args, bool err)
+  reach_type_t* t, ast_t* args, bool err, bool intrinsic)
 {
   ast_t* last_arg = ast_childlast(args);
 
@@ -480,40 +496,97 @@ static LLVMValueRef declare_ffi(compile_t* c, const char* f_name,
     reach_type_t* pt = reach_type(c->reach, p_type);
     assert(pt != NULL);
 
-    f_params[count++] = pt->use_type;
+    // An intrinsic that takes a Bool should be i1, not ibool.
+    if(intrinsic && is_bool(pt->ast))
+      f_params[count++] = c->i1;
+    else
+      f_params[count++] = pt->use_type;
+
     arg = ast_sibling(arg);
   }
 
-  // We may have generated the function by generating a parameter type.
-  LLVMValueRef func = LLVMGetNamedFunction(c->module, f_name);
+  LLVMTypeRef r_type;
 
-  if(func == NULL)
+  if(t->underlying == TK_TUPLETYPE)
   {
-    LLVMTypeRef r_type;
+    // Can't use the named type. Build an unnamed type with the same
+    // elements.
+    unsigned int count = LLVMCountStructElementTypes(t->use_type);
+    size_t buf_size = count * sizeof(LLVMTypeRef);
+    LLVMTypeRef* e_types = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
+    LLVMGetStructElementTypes(t->use_type, e_types);
 
-    if(t->underlying == TK_TUPLETYPE)
+    if(intrinsic)
     {
-      // Can't use the named type. Build an unnamed type with the same
-      // elements.
-      unsigned int count = LLVMCountStructElementTypes(t->use_type);
-      size_t buf_size = count * sizeof(LLVMTypeRef);
-      LLVMTypeRef* e_types = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
-      LLVMGetStructElementTypes(t->use_type, e_types);
-      r_type = LLVMStructTypeInContext(c->context, e_types, count, false);
-      ponyint_pool_free_size(buf_size, e_types);
-    } else {
-      r_type = t->use_type;
+      ast_t* child = ast_child(t->ast);
+      size_t i = 0;
+
+      while(child != NULL)
+      {
+        // A Bool in an intrinsic tuple return type is an i1, not an ibool.
+        if(is_bool(child))
+          e_types[i] = c->i1;
+
+        child = ast_sibling(child);
+        i++;
+      }
     }
 
-    LLVMTypeRef f_type = LLVMFunctionType(r_type, f_params, count, false);
-    func = LLVMAddFunction(c->module, f_name, f_type);
-
-    if(!err)
-      LLVMAddFunctionAttr(func, LLVMNoUnwindAttribute);
+    r_type = LLVMStructTypeInContext(c->context, e_types, count, false);
+    ponyint_pool_free_size(buf_size, e_types);
+  } else {
+    // An intrinsic that returns a Bool returns an i1, not an ibool.
+    if(intrinsic && is_bool(t->ast))
+      r_type = c->i1;
+    else
+      r_type = t->use_type;
   }
+
+  LLVMTypeRef f_type = LLVMFunctionType(r_type, f_params, count, false);
+  LLVMValueRef func = LLVMAddFunction(c->module, f_name, f_type);
+
+  if(!err)
+    LLVMAddFunctionAttr(func, LLVMNoUnwindAttribute);
 
   ponyint_pool_free_size(buf_size, f_params);
   return func;
+}
+
+static LLVMValueRef cast_ffi_arg(compile_t* c, LLVMValueRef arg,
+  LLVMTypeRef param)
+{
+  if(arg == NULL)
+    return NULL;
+
+  LLVMTypeRef arg_type = LLVMTypeOf(arg);
+
+  if(param == c->i1)
+  {
+    // If the parameter is an i1, it must be from an LLVM intrinsic. In that
+    // case, the argument must be a Bool encoded as an ibool.
+    if(arg_type != c->ibool)
+      return NULL;
+
+    // Truncate the Bool's i8 representation to i1.
+    return LLVMBuildTrunc(c->builder, arg, c->i1, "");
+  }
+
+  switch(LLVMGetTypeKind(param))
+  {
+    case LLVMPointerTypeKind:
+    {
+      if(LLVMGetTypeKind(arg_type) == LLVMIntegerTypeKind)
+        arg = LLVMBuildIntToPtr(c->builder, arg, param, "");
+      else
+        arg = LLVMBuildBitCast(c->builder, arg, param, "");
+
+      break;
+    }
+
+    default: {}
+  }
+
+  return arg;
 }
 
 LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
@@ -542,10 +615,10 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
       // Define using the declared types.
       AST_GET_CHILDREN(decl, decl_id, decl_ret, decl_params, decl_err);
       err = (ast_id(decl_err) == TK_QUESTION);
-      func = declare_ffi(c, f_name, t, decl_params, err);
+      func = declare_ffi(c, f_name, t, decl_params, err, false);
     } else if(!strncmp(f_name, "llvm.", 5)) {
       // Intrinsic, so use the exact types we supply.
-      func = declare_ffi(c, f_name, t, args, err);
+      func = declare_ffi(c, f_name, t, args, err, true);
     } else {
       // Make it varargs.
       func = declare_ffi_vararg(c, f_name, t, err);
@@ -573,13 +646,8 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
   {
     f_args[i] = gen_expr(c, arg);
 
-    if(!vararg && (LLVMGetTypeKind(f_params[i]) == LLVMPointerTypeKind))
-    {
-      if(LLVMGetTypeKind(LLVMTypeOf(f_args[i])) == LLVMIntegerTypeKind)
-        f_args[i] = LLVMBuildIntToPtr(c->builder, f_args[i], f_params[i], "");
-      else
-        f_args[i] = LLVMBuildBitCast(c->builder, f_args[i], f_params[i], "");
-    }
+    if(!vararg)
+      f_args[i] = cast_ffi_arg(c, f_args[i], f_params[i]);
 
     if(f_args[i] == NULL)
     {
@@ -657,9 +725,6 @@ LLVMValueRef gencall_alloc(compile_t* c, reach_type_t* t)
 LLVMValueRef gencall_allocstruct(compile_t* c, reach_type_t* t)
 {
   // We explicitly want a boxed version.
-  // Get the size of the structure.
-  size_t size = (size_t)LLVMABISizeOfType(c->target_data, t->structure);
-
   // Allocate the object.
   LLVMValueRef args[3];
   args[0] = codegen_ctx(c);
@@ -668,29 +733,23 @@ LLVMValueRef gencall_allocstruct(compile_t* c, reach_type_t* t)
 
   if(t->final_fn == NULL)
   {
-    if(size <= HEAP_MAX)
+    if(t->abi_size <= HEAP_MAX)
     {
-      uint32_t index = ponyint_heap_index(size);
+      uint32_t index = ponyint_heap_index(t->abi_size);
       args[1] = LLVMConstInt(c->i32, index, false);
       result = gencall_runtime(c, "pony_alloc_small", args, 2, "");
     } else {
-      args[1] = LLVMConstInt(c->intptr, size, false);
+      args[1] = LLVMConstInt(c->intptr, t->abi_size, false);
       result = gencall_runtime(c, "pony_alloc_large", args, 2, "");
     }
   } else {
-    args[1] = LLVMConstInt(c->intptr, size, false);
+    args[1] = LLVMConstInt(c->intptr, t->abi_size, false);
     args[2] = LLVMConstBitCast(t->final_fn, c->final_fn);
     result = gencall_runtime(c, "pony_alloc_final", args, 3, "");
   }
 
   result = LLVMBuildBitCast(c->builder, result, t->structure_ptr, "");
-
-  // Set the descriptor.
-  if(t->underlying != TK_STRUCT)
-  {
-    LLVMValueRef desc_ptr = LLVMBuildStructGEP(c->builder, result, 0, "");
-    LLVMBuildStore(c->builder, t->desc, desc_ptr);
-  }
+  set_descriptor(c, t, result);
 
   return result;
 }

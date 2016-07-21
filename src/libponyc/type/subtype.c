@@ -19,6 +19,17 @@ static bool is_isect_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
 
 static __pony_thread_local ast_t* subtype_assume;
 
+static void struct_cant_be_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
+  const char* entity)
+{
+  if(errorf == NULL)
+    return;
+
+  ast_error_frame(errorf, sub,
+    "%s is not a subtype of %s: a struct can't be a subtype of %s",
+    ast_print_type(sub), ast_print_type(super), entity);
+}
+
 static bool exact_nominal(ast_t* a, ast_t* b, pass_opt_t* opt)
 {
   AST_GET_CHILDREN(a, a_pkg, a_id, a_typeargs, a_cap, a_eph);
@@ -426,8 +437,8 @@ static bool is_x_sub_isect(ast_t* sub, ast_t* super, errorframe_t* errorf,
 static bool is_x_sub_union(ast_t* sub, ast_t* super, errorframe_t* errorf,
   pass_opt_t* opt)
 {
-  // TODO: a tuple may be a subtype of a union of tuples without being a
-  // subtype of any one element of the union.
+  // TODO: a tuple of unions may be a subtype of a union of tuples without
+  // being a subtype of any one element.
 
   // T1 <: T2 or T1 <: T3
   // ---
@@ -765,15 +776,8 @@ static bool is_nominal_sub_interface(ast_t* sub, ast_t* super,
 
   if(ast_id(sub_def) == TK_STRUCT)
   {
+    struct_cant_be_x(sub, super, errorf, "an interface");
     ret = false;
-
-    if(errorf != NULL)
-    {
-      ast_error_frame(errorf, sub,
-        "%s is not a subtype of %s: a struct can't be a subtype of an "
-        "interface",
-        ast_print_type(sub), ast_print_type(super));
-    }
   }
 
   if(!is_sub_cap_and_eph(sub, super, errorf, opt))
@@ -847,13 +851,7 @@ static bool is_struct_sub_trait(ast_t* sub, ast_t* super, errorframe_t* errorf,
   if(check_assume(sub, super, opt))
     return true;
 
-  if(errorf != NULL)
-  {
-    ast_error_frame(errorf, sub,
-      "%s is a struct, so it cannot be a subtype of trait %s",
-      ast_print_type(sub), ast_print_type(super));
-  }
-
+  struct_cant_be_x(sub, super, errorf, "a trait");
   return false;
 }
 
@@ -890,7 +888,7 @@ static bool is_interface_sub_trait(ast_t* sub, ast_t* super,
   if(errorf != NULL)
   {
     ast_error_frame(errorf, sub,
-      "%s is an interface, so it cannot be a subtype of trait %s",
+      "%s is not a subtype of %s: an interface can't be a subtype of a trait",
       ast_print_type(sub), ast_print_type(super));
   }
 
@@ -1011,10 +1009,30 @@ static bool is_nominal_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
   switch(ast_id(super))
   {
     case TK_UNIONTYPE:
+    {
+      ast_t* def = (ast_t*)ast_data(sub);
+
+      if(ast_id(def) == TK_STRUCT)
+      {
+        struct_cant_be_x(sub, super, errorf, "a union type");
+        return false;
+      }
+
       return is_x_sub_union(sub, super, errorf, opt);
+    }
 
     case TK_ISECTTYPE:
+    {
+      ast_t* def = (ast_t*)ast_data(sub);
+
+      if(ast_id(def) == TK_STRUCT)
+      {
+        struct_cant_be_x(sub, super, errorf, "an intersection type");
+        return false;
+      }
+
       return is_x_sub_isect(sub, super, errorf, opt);
+    }
 
     case TK_TUPLETYPE:
       return is_single_sub_tuple(sub, super, errorf, opt);

@@ -478,7 +478,7 @@ void genprim_vector_trace(compile_t* c, reach_type_t* t)
   // Build the count node.
   lexint_t* size = ast_int(ast_child(num_elems));
   assert(lexint_cmp64(size, UINT32_MAX) <= 0);
-  LLVMValueRef count = LLVMConstInt(c->i32, size->low, false);
+  LLVMValueRef count = LLVMConstInt(c->intptr, size->low, false);
   LLVMBuildBr(c->builder, cond_block);
 
   // While the index is less than the count, trace an element. The initial

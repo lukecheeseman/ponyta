@@ -9,6 +9,7 @@
 #include "../type/reify.h"
 #include "../type/assemble.h"
 #include "../type/lookup.h"
+#include "../type/subtype.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -426,10 +427,13 @@ bool expr_qualify(pass_opt_t* opt, ast_t** astp)
         break;
       }
 
-      type = ast_dup(type);
-      if (!check_constraints(type, typeparams, right, true, opt))
+      // Check the constraints here so that type arguments are coerced to the
+      // correct type in typerefs. This is for coercing integer literals.
+      if(!(is_pointer(type) || is_literal(type, "Array") || is_maybe(type)) &&
+         !check_constraints(left, typeparams, right, true, opt))
         return false;
 
+      type = ast_dup(type);
       ast_t* typeargs = ast_childidx(type, 2);
       ast_replace(&typeargs, right);
       ast_settype(ast, type);

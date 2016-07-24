@@ -955,54 +955,6 @@ static bool embed_fields(ast_t* entity, pass_opt_t* opt)
   return true;
 }
 
-// set the type for the nominal looking up the type for values
-// in value dependent types
-static void nominal_types(ast_t *ast)
-{
-  assert(ast_id(ast) == TK_NOMINAL);
-  AST_GET_CHILDREN(ast, id, type, typeargs);
-
-  const char *name = ast_name(type);
-
-  if(!is_name_type(name) || ast_id(typeargs) == TK_NONE)
-    return;
-
-  sym_status_t status;
-  ast_t* def = ast_get(ast, name, &status);
-  assert(def);
-
-  ast_t* typeparams = ast_childidx(def, 1);
-
-  ast_t* typearg = ast_child(typeargs);
-  ast_t* typeparam = ast_child(typeparams);
-  while(typearg != NULL)
-  {
-    assert(typeparam != NULL);
-
-    if(ast_id(typearg) == TK_VALUEFORMALARG) {
-      assert(ast_id(typeparam) == TK_VALUEFORMALPARAM);
-
-      ast_settype(ast_child(typearg), ast_childidx(typeparam, 1));
-    }
-
-    typearg = ast_sibling(typearg);
-    typeparam = ast_sibling(typeparam);
-  }
-}
-
-static void set_nominal_types(ast_t *ast)
-{
-  ast_t* child = ast_child(ast);
-
-  while (child != NULL)
-  {
-    set_nominal_types(child);
-    child = ast_sibling(child);
-  }
-
-  if(ast_id(ast) == TK_NOMINAL)
-    nominal_types(ast);
-}
 
 // Setup the type, or lack thereof, for local variable declarations.
 // This is not really anything to do with traits, but must be done before the
@@ -1011,10 +963,6 @@ static void set_nominal_types(ast_t *ast)
 static void local_types(ast_t* ast)
 {
   assert(ast != NULL);
-
-  // need to create the type for type arguments so ensure that
-  // they are set here
-  set_nominal_types(ast_childidx(ast, 1));
 
   // Setup type or mark as inferred now to allow calling create on a
   // non-inferred local to initialise itself

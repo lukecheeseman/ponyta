@@ -725,8 +725,11 @@ bool expr_local(pass_opt_t* opt, ast_t* ast)
         "locals must specify a type or be assigned a value");
       return false;
     }
+
+    return true;
   }
-  else if(ast_id(ast) == TK_LET)
+
+  if(ast_id(ast) == TK_LET)
   {
     // Let, check we have a value assigned
     if(!is_assigned_to(ast, false))
@@ -736,6 +739,12 @@ bool expr_local(pass_opt_t* opt, ast_t* ast)
       return false;
     }
   }
+
+  // This overwrites the type of the id and ast with a type which has been
+  // refined for the local during the expr pass. We do this as values and
+  // expressions in types will not be typed otherwise.
+  ast_settype(id, type);
+  ast_settype(ast, type);
 
   return true;
 }

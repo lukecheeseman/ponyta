@@ -189,13 +189,9 @@ static bool is_lvalue(pass_opt_t* opt, ast_t* ast, bool need_value)
   return false;
 }
 
-// TODO: this needs some way of stopping assignments to var outside of a
-// constant expression
 ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant)
 {
   (void) opt;
-  // Return names for only those values which we permit
-  // to appear within compile time expressions
   assert(left != NULL);
   assert(right != NULL);
 
@@ -208,8 +204,7 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
       if(!check_constant)
       {
         const char* name = ast_name(ast_child(left));
-        ast_t* value = ast_update_value(left, name, right);
-        return value;
+        return ast_update_value(left, name, right);
       }
       return NULL;
 
@@ -240,72 +235,8 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
       return NULL;
 
     default: {}
-/*
-    case TK_TUPLE:
-    {
-      ast_t* left_child = ast_child(left);
-      ast_t* right_child = ast_child(right);
-
-      while(left_child != NULL)
-      {
-        map_value(opt, left_child, right_child);
-        left_child = ast_sibling(left_child);
-        right_child = ast_sibling(right_child);
-      }
-
-      return;
-    }
-
-    case TK_SEQ:
-    {
-      if(ast_id(left) == ast_id(right) && ast_id(left) == TK_SEQ)
-        map_value(opt, ast_child(left), ast_child(right));
-      else
-        map_value(opt, ast_child(left), right);
-      return;
-    }
-    case TK_FLETREF:
-    {
-      AST_GET_CHILDREN(ast, left, right);
-
-      if(ast_id(left) != TK_THIS)
-      {
-        ast_error(ast, "can't assign to a let field");
-        return false;
-      }
-
-      if(t->frame->loop_body != NULL)
-      {
-        ast_error(ast, "can't assign to a let field in a loop");
-        return false;
-      }
-
-      return assign_id(t, right, true, need_value);
-    }
-
-    case TK_EMBEDREF:
-    {
-      AST_GET_CHILDREN(ast, left, right);
-
-      if(ast_id(left) != TK_THIS)
-      {
-        ast_error(ast, "can't assign to an embed field");
-        return false;
-      }
-
-      if(t->frame->loop_body != NULL)
-      {
-        ast_error(ast, "can't assign to an embed field in a loop");
-        return false;
-      }
-
-      return assign_id(t, right, true, need_value);
-    }
-
-      ast_error(opt->check.errors, left,
-                "no support for this assignment of compile-time expression");
-*/
   }
+
   return NULL;
 }
 

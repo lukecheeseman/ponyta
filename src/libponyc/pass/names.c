@@ -422,7 +422,7 @@ ast_result_t pass_names(ast_t** astp, pass_opt_t* options)
 
     case TK_REFERENCE:
       if(!names_reference(astp))
-        return AST_ERROR;
+        return AST_FATAL;
       break;
 
     case TK_ARROW:

@@ -693,6 +693,7 @@ static bool check_is_type(pass_opt_t* opt, ast_t* type)
 {
   if(ast_id(type) == TK_ID)
     return check_id_type_param_constraint(opt, type);
+
   if(ast_id(type) == TK_VALUEFORMALARG)
     return true;
 

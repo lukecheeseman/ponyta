@@ -516,8 +516,7 @@ static void make_debug_final(compile_t* c, reach_type_t* t)
   assert(0);
 }
 
-// TODO: we should probably rename this method
-static void make_pointer_methods(compile_t* c, reach_type_t* t)
+static void make_intrinsic_methods(compile_t* c, reach_type_t* t)
 {
   if(ast_id(t->ast) != TK_NOMINAL)
     return;
@@ -533,6 +532,8 @@ static void make_pointer_methods(compile_t* c, reach_type_t* t)
       genprim_pointer_methods(c, t);
     else if(name == c->str_Maybe)
       genprim_maybe_methods(c, t);
+    else if(name == c->str_DoNotOptimise)
+      genprim_donotoptimise_methods(c, t);
     else if(name == c->str_Platform)
       genprim_platform_methods(c, t);
     else if(name == c->str_Vector)
@@ -667,7 +668,7 @@ bool gentypes(compile_t* c)
       t->abi_size = (size_t)LLVMABISizeOfType(c->target_data, t->structure);
 
     make_debug_final(c, t);
-    make_pointer_methods(c, t);
+    make_intrinsic_methods(c, t);
 
     if(!genfun_method_sigs(c, t))
       return false;

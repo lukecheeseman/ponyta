@@ -7,6 +7,7 @@
 #include "gencall.h"
 #include "genopt.h"
 #include "../pkg/package.h"
+#include "../../libponyrt/mem/heap.h"
 #include "../../libponyrt/mem/pool.h"
 
 #include <platform.h>
@@ -118,6 +119,7 @@ static void init_runtime(compile_t* c)
   c->str_F64 = stringtab("F64");
   c->str_Pointer = stringtab("Pointer");
   c->str_Maybe = stringtab("MaybePointer");
+  c->str_DoNotOptimise = stringtab("DoNotOptimise");
   c->str_Array = stringtab("Array");
   c->str_String = stringtab("String");
   c->str_Platform = stringtab("Platform");
@@ -247,6 +249,7 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_create", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+  LLVMSetDereferenceable(value, 0, PONY_ACTOR_PAD_SIZE);
 
   // void ponyint_destroy(__object*)
   params[0] = c->object_ptr;
@@ -269,6 +272,9 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_alloc", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+#if PONY_LLVM >= 307
+  LLVMSetDereferenceableOrNull(value, 0, HEAP_MIN);
+#endif
 
   // i8* pony_alloc_small(i8*, i32)
   params[0] = c->void_ptr;
@@ -277,6 +283,7 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_alloc_small", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+  LLVMSetDereferenceable(value, 0, HEAP_MIN);
 
   // i8* pony_alloc_large(i8*, intptr)
   params[0] = c->void_ptr;
@@ -285,6 +292,7 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_alloc_large", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+  LLVMSetDereferenceable(value, 0, HEAP_MAX + 1);
 
   // i8* pony_realloc(i8*, i8*, intptr)
   params[0] = c->void_ptr;
@@ -294,6 +302,9 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_realloc", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+#if PONY_LLVM >= 307
+  LLVMSetDereferenceableOrNull(value, 0, HEAP_MIN);
+#endif
 
   // i8* pony_alloc_final(i8*, intptr, c->final_fn)
   params[0] = c->void_ptr;
@@ -303,6 +314,9 @@ static void init_runtime(compile_t* c)
   value = LLVMAddFunction(c->module, "pony_alloc_final", type);
   LLVMAddFunctionAttr(value, LLVMNoUnwindAttribute);
   LLVMSetReturnNoAlias(value);
+#if PONY_LLVM >= 307
+  LLVMSetDereferenceableOrNull(value, 0, HEAP_MIN);
+#endif
 
   // $message* pony_alloc_msg(i32, i32)
   params[0] = c->i32;

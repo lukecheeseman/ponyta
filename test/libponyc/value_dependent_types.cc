@@ -565,3 +565,14 @@ TEST_F(VDTTest, TestNestedReifications)
 
   TEST_COMPILE(src);
 }
+
+TEST_F(VDTTest, TestCompileTimeExpressionScope)
+{
+  const char* src =
+    "class C1\n"
+    "  new create() =>\n"
+    "    let x: U32 = # (let y: U32; y + 2)\n"
+    "    let z: U32 = y";
+
+  TEST_ERROR(src);
+}

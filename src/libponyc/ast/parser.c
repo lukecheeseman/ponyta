@@ -92,6 +92,7 @@ DEF(literal);
 DEF(const_expr);
   PRINT_INLINE();
   TOKEN(NULL, TK_CONSTANT);
+  SCOPE();
   RULE("formal argument value", postfix);
   DONE();
 

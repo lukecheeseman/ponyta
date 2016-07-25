@@ -17,110 +17,83 @@ ast_t* evaluate_create_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
   return ast_child(args);
 }
 
-static void lexint_negate(lexint_t* lexint)
+static bool check_operands(ast_t* lhs_arg, ast_t* rhs_arg, pass_opt_t* opt)
 {
-  lexint_t t = *lexint;
-  lexint_zero(lexint);
-  lexint_sub(lexint, lexint, &t);
-  lexint->is_negative = !t.is_negative;
-}
-
-static int lexint_cmp_with_negative(lexint_t* lhs, lexint_t* rhs)
-{
-  if(lhs->is_negative && !rhs->is_negative)
-    return -1;
-
-  if(!lhs->is_negative && rhs->is_negative)
-    return 1;
-
-  return lexint_cmp(lhs, rhs);
-}
-
-static bool get_operands(ast_t* receiver, ast_t* args, ast_t** lhs, ast_t** rhs,
-  pass_opt_t* opt)
-{
-  assert(ast_id(args) == TK_POSITIONALARGS);
-  ast_t* lhs_arg = receiver;
-  ast_t* rhs_arg = ast_child(args);
-  if(!lhs_arg || !rhs_arg)
+  if(lhs_arg == NULL || rhs_arg == NULL)
     return false;
 
   if(!is_ast_integer(lhs_arg))
   {
-    ast_error(opt->check.errors, rhs_arg, "%s is not a compile-time integer expression", ast_get_print(lhs_arg));
+    ast_error(opt->check.errors, rhs_arg,
+      "%s is not a compile-time integer expression", ast_get_print(lhs_arg));
     return false;
   }
 
   if(!is_ast_integer(rhs_arg))
   {
-    ast_error(opt->check.errors, rhs_arg, "%s is not a compile-time integer expression", ast_get_print(rhs_arg));
+    ast_error(opt->check.errors, rhs_arg,
+      "%s is not a compile-time integer expression", ast_get_print(rhs_arg));
     return false;
   }
 
-  *lhs = lhs_arg;
-  *rhs = rhs_arg;
   return true; 
+}
+
+typedef void (*binary_int_operation_t)(lexint_t*, lexint_t*, lexint_t*);
+
+static ast_t* evaluate_binary_int_operation(ast_t* receiver, ast_t* args,
+  binary_int_operation_t operation, pass_opt_t* opt)
+{
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
+    return NULL;
+
+  ast_t* result = ast_dup(lhs_arg);
+  lexint_t* lhs = ast_int(result);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  operation(lhs, lhs, rhs);
+  return result;
 }
 
 ast_t* evaluate_add_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  if(lhs->is_negative && !rhs->is_negative)
-  {
-    lexint_t t = *lhs;
-    lexint_negate(&t);
-    lhs->is_negative = lexint_cmp(&t, rhs) > 0;
-  }
-  else if(!lhs->is_negative && rhs->is_negative)
-  {
-    lexint_t t = *rhs;
-    lexint_negate(&t);
-    lhs->is_negative = lexint_cmp(&t, lhs) > 0;
-  }
-
-  lexint_add(lhs, lhs, rhs);
-  return result;
+  return evaluate_binary_int_operation(receiver, args, &lexint_add, opt);
 }
 
 ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-
-  if(lhs->is_negative && rhs->is_negative)
-    lhs->is_negative = lexint_cmp(lhs, rhs) > 0;
-  else if(!lhs->is_negative && !rhs->is_negative)
-    lhs->is_negative = lexint_cmp(lhs, rhs) < 0;
-
-  lexint_sub(lhs, lhs, rhs);
-  return result;
+  return evaluate_binary_int_operation(receiver, args, &lexint_sub, opt);
 }
 
-typedef void (*lexint_method64_t)(lexint_t*, lexint_t*, uint64_t);
+ast_t* evaluate_and_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  return evaluate_binary_int_operation(receiver, args, &lexint_and, opt);
+}
 
-static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args,
-  lexint_method64_t operation, pass_opt_t* opt)
+ast_t* evaluate_or_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  return evaluate_binary_int_operation(receiver, args, &lexint_or, opt);
+}
+
+ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  return evaluate_binary_int_operation(receiver, args, &lexint_xor, opt);
+}
+
+typedef void (*binary_int64_operation)(lexint_t*, lexint_t*, uint64_t);
+
+static ast_t* evaluate_binary_int64_operation(ast_t* receiver, ast_t* args,
+  binary_int64_operation operation, pass_opt_t* opt)
 {
   // First make both arguments postive, perform the operation and then
   // negate the result if necessary
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -130,10 +103,10 @@ static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args,
   lexint_t rt = *rhs;
   lexint_t lt = *lhs;
   if(rt.is_negative)
-    lexint_negate(&rt);
+    lexint_negate(&rt, &rt);
 
   if(lt.is_negative)
-    lexint_negate(&lt);
+    lexint_negate(&lt, &lt);
 
   if(lexint_cmp64(&rt, 0xffffffffffffffff) == 1)
   {
@@ -147,7 +120,7 @@ static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args,
 
   bool is_negative = lhs->is_negative ^ rhs->is_negative;
   if(is_negative)
-    lexint_negate(lhs);
+    lexint_negate(lhs, lhs);
   lhs->is_negative = is_negative;
 
   return result;
@@ -155,12 +128,12 @@ static ast_t* evaluate_div_mul_int(ast_t* receiver, ast_t* args,
 
 ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_div_mul_int(receiver, args, &lexint_mul64, opt);
+  return evaluate_binary_int64_operation(receiver, args, &lexint_mul64, opt);
 }
 
 ast_t* evaluate_div_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_div_mul_int(receiver, args, &lexint_div64, opt);
+  return evaluate_binary_int64_operation(receiver, args, &lexint_div64, opt);
 }
 
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
@@ -174,7 +147,7 @@ ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 
   lexint_t* result_int = ast_int(result);
 
-  lexint_negate(result_int);
+  lexint_negate(result_int, result_int);
   return result;
 }
 
@@ -183,9 +156,10 @@ typedef bool (*test_equality_t)(lexint_t*, lexint_t*);
 static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args,
   test_equality_t test, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
     return NULL;
 
   lexint_t* lhs = ast_int(lhs_arg);
@@ -201,32 +175,32 @@ static ast_t* evaluate_inequality_int(ast_t* receiver, ast_t* args,
 
 static bool test_eq(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) == 0;
+  return lexint_cmp(lhs, rhs) == 0;
 }
 
 static bool test_ne(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) != 0;
+  return lexint_cmp(lhs, rhs) != 0;
 }
 
 static bool test_lt(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) < 0;
+  return lexint_cmp(lhs, rhs) < 0;
 }
 
 static bool test_le(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) <= 0;
+  return lexint_cmp(lhs, rhs) <= 0;
 }
 
 static bool test_gt(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) > 0;
+  return lexint_cmp(lhs, rhs) > 0;
 }
 
 static bool test_ge(lexint_t* lhs, lexint_t* rhs)
 {
-  return lexint_cmp_with_negative(lhs, rhs) >= 0;
+  return lexint_cmp(lhs, rhs) >= 0;
 }
 
 ast_t* evaluate_eq_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
@@ -262,9 +236,10 @@ ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args,
   test_equality_t test, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
     return NULL;
 
   lexint_t* lhs = ast_int(lhs_arg);
@@ -286,51 +261,6 @@ ast_t* evaluate_max_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
   return evaluate_min_max_int(receiver, args, &test_gt, opt);
 }
 
-ast_t* evaluate_and_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  lexint_and(lhs, lhs, rhs);
-  return result;
-}
-
-ast_t* evaluate_or_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  lexint_or(lhs, lhs, rhs);
-  return result;
-}
-
-ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  lexint_xor(lhs, lhs, rhs);
-  return result;
-}
-
 ast_t* evaluate_not_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_NONE);
@@ -348,9 +278,10 @@ ast_t* evaluate_not_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 
 ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -363,9 +294,10 @@ ast_t* evaluate_shl_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 
 ast_t* evaluate_shr_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  ast_t* lhs_arg;
-  ast_t* rhs_arg;
-  if(!get_operands(receiver, args, &lhs_arg, &rhs_arg, opt))
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
     return NULL;
 
   ast_t* result = ast_dup(lhs_arg);
@@ -548,7 +480,7 @@ static ast_t* cast_int_to_float(ast_t* receiver, const char* type,
   if(evaluated_int->is_negative && is_signed(receiver))
   {
     lexint_t t = *evaluated_int;
-    lexint_negate(&t);
+    lexint_negate(&t, &t);
     result_double = -lexint_double(&t);
   } else {
     result_double = lexint_double(evaluated_int);

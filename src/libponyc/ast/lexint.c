@@ -20,6 +20,12 @@ void lexint_zero(lexint_t* i)
 
 int lexint_cmp(lexint_t* a, lexint_t* b)
 {
+  if(a->is_negative && !b->is_negative)
+    return -1;
+
+  if(!a->is_negative && b->is_negative)
+    return 1;
+
   if(a->high > b->high)
     return 1;
 
@@ -37,6 +43,9 @@ int lexint_cmp(lexint_t* a, lexint_t* b)
 
 int lexint_cmp64(lexint_t* a, uint64_t b)
 {
+  if(a->is_negative)
+    return -1;
+
   if(a->high > 0)
     return 1;
 
@@ -109,24 +118,60 @@ void lexint_setbit(lexint_t* dst, lexint_t* a, uint8_t b)
 
 void lexint_add(lexint_t* dst, lexint_t* a, lexint_t* b)
 {
+  if(a->is_negative && !b->is_negative)
+  {
+    lexint_t t;
+    lexint_negate(&t, a);
+    dst->is_negative = lexint_cmp(&t, b) > 0;
+  }
+  else if(!a->is_negative && b->is_negative)
+  {
+    lexint_t t;
+    lexint_negate(&t, b);
+    dst->is_negative = lexint_cmp(a, &t) < 0;
+  }
+  else
+  {
+    dst->is_negative = a->is_negative;
+  }
+
   dst->high = a->high + b->high + ((a->low + b->low) < a->low);
   dst->low = a->low + b->low;
 }
 
 void lexint_add64(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  if(a->is_negative)
+  {
+    lexint_t t;
+    lexint_negate(&t, a);
+    dst->is_negative = lexint_cmp64(&t, b) > 0;
+  }
+  else
+  {
+    dst->is_negative = false;
+  }
+
   dst->high = a->high + ((a->low + b) < a->low);
   dst->low = a->low + b;
 }
 
 void lexint_sub(lexint_t* dst, lexint_t* a, lexint_t* b)
 {
+  if(a->is_negative && b->is_negative)
+    dst->is_negative = lexint_cmp(a, b) > 0;
+  else if(!a->is_negative && !b->is_negative)
+    dst->is_negative = lexint_cmp(a, b) < 0;
+  else
+    dst->is_negative = a->is_negative;
+
   dst->high = a->high - b->high - ((a->low - b->low) > a->low);
   dst->low = a->low - b->low;
 }
 
 void lexint_sub64(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  dst->is_negative = lexint_cmp64(a, b) < 0;
   dst->high = a->high - ((a->low - b) > a->low);
   dst->low = a->low - b;
 }
@@ -212,9 +257,11 @@ bool lexint_accum(lexint_t* i, uint64_t digit, uint64_t base)
   LEXINT(v2, i);
 #else
   lexint_t v2;
+  lexint_zero(&v2);
   lexint_mul64(&v2, i, base);
 
   lexint_t v3;
+  lexint_zero(&v3);
   lexint_div64(&v3, &v2, base);
 
   if(lexint_cmp(&v3, i) != 0)
@@ -282,6 +329,8 @@ double lexint_double(lexint_t* i)
     else if(sig_bit_count > 55)
     {
       lexint_t t;
+      lexint_zero(&t);
+
       lexint_shr(&t, i, sig_bit_count - 55);
       mantissa = t.low;
       lexint_shl(&t, &t, sig_bit_count - 55);
@@ -351,4 +400,11 @@ void lexint_not(lexint_t* dst, lexint_t* src)
 {
   dst->high =~ src->high;
   dst->low =~ src->low;
+}
+
+void lexint_negate(lexint_t* dst, lexint_t* src)
+{
+  lexint_t t;
+  lexint_zero(&t);
+  lexint_sub(dst, &t, src);
 }

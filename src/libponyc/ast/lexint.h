@@ -62,6 +62,8 @@ void lexint_xor64(lexint_t* dst, lexint_t* a, uint64_t b);
 
 void lexint_not(lexint_t* dst, lexint_t* src);
 
+void lexint_negate(lexint_t* dst, lexint_t* src);
+
 PONY_EXTERN_C_END
 
 #endif

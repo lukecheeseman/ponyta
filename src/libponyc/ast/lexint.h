@@ -38,7 +38,11 @@ void lexint_sub(lexint_t* dst, lexint_t* a, lexint_t* b);
 
 void lexint_sub64(lexint_t* dst, lexint_t* a, uint64_t b);
 
+void lexint_mul(lexint_t* dst, lexint_t* a, lexint_t* b);
+
 void lexint_mul64(lexint_t* dst, lexint_t* a, uint64_t b);
+
+void lexint_div(lexint_t* dst, lexint_t* a, lexint_t* b);
 
 void lexint_div64(lexint_t* dst, lexint_t* a, uint64_t b);
 

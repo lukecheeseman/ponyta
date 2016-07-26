@@ -68,6 +68,38 @@ ast_t* evaluate_sub_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
   return evaluate_binary_int_operation(receiver, args, &lexint_sub, opt);
 }
 
+ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  ast_t* rhs_arg = ast_child(args);
+  lexint_t* rhs =  ast_int(rhs_arg);
+  if(lexint_cmp64(rhs, 0xffffffffffffffff) > 1)
+  {
+    // FIXME: can only print 64 bit integers with ast_get_rpint
+    // token method for printing should probably be changed then
+    ast_error(opt->check.errors, rhs_arg,
+      "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+    return NULL;
+  }
+
+  return evaluate_binary_int_operation(receiver, args, &lexint_mul, opt);
+}
+
+ast_t* evaluate_div_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  ast_t* rhs_arg = ast_child(args);
+  lexint_t* rhs =  ast_int(rhs_arg);
+  if(lexint_cmp64(rhs, 0xffffffffffffffff) > 1)
+  {
+    // FIXME: can only print 64 bit integers with ast_get_rpint
+    // token method for printing should probably be changed then
+    ast_error(opt->check.errors, rhs_arg,
+      "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+    return NULL;
+  }
+
+  return evaluate_binary_int_operation(receiver, args, &lexint_div, opt);
+}
+
 ast_t* evaluate_and_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   return evaluate_binary_int_operation(receiver, args, &lexint_and, opt);
@@ -81,59 +113,6 @@ ast_t* evaluate_or_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 ast_t* evaluate_xor_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   return evaluate_binary_int_operation(receiver, args, &lexint_xor, opt);
-}
-
-typedef void (*binary_int64_operation)(lexint_t*, lexint_t*, uint64_t);
-
-static ast_t* evaluate_binary_int64_operation(ast_t* receiver, ast_t* args,
-  binary_int64_operation operation, pass_opt_t* opt)
-{
-  // First make both arguments postive, perform the operation and then
-  // negate the result if necessary
-  assert(ast_id(args) == TK_POSITIONALARGS);
-  ast_t* lhs_arg = receiver;
-  ast_t* rhs_arg = ast_child(args);
-  if(!check_operands(lhs_arg, rhs_arg, opt))
-    return NULL;
-
-  ast_t* result = ast_dup(lhs_arg);
-  lexint_t* lhs = ast_int(result);
-  lexint_t* rhs = ast_int(rhs_arg);
-
-  lexint_t rt = *rhs;
-  lexint_t lt = *lhs;
-  if(rt.is_negative)
-    lexint_negate(&rt, &rt);
-
-  if(lt.is_negative)
-    lexint_negate(&lt, &lt);
-
-  if(lexint_cmp64(&rt, 0xffffffffffffffff) == 1)
-  {
-    // FIXME: can only print 64 bit integers with ast_get_rpint
-    // token method for printing should probably be changed then
-    ast_error(opt->check.errors, rhs_arg, "Value %s is too large for multiplication", ast_get_print(rhs_arg));
-    return NULL;
-  }
-
-  operation(lhs, &lt, rt.low);
-
-  bool is_negative = lhs->is_negative ^ rhs->is_negative;
-  if(is_negative)
-    lexint_negate(lhs, lhs);
-  lhs->is_negative = is_negative;
-
-  return result;
-}
-
-ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  return evaluate_binary_int64_operation(receiver, args, &lexint_mul64, opt);
-}
-
-ast_t* evaluate_div_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  return evaluate_binary_int64_operation(receiver, args, &lexint_div64, opt);
 }
 
 ast_t* evaluate_neg_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)

@@ -1,6 +1,7 @@
 #include "lexint.h"
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
 
 #if !defined(PLATFORM_IS_ILP32) && !defined(PLATFORM_IS_WINDOWS)
 #define USE_NATIVE128
@@ -60,6 +61,9 @@ int lexint_cmp64(lexint_t* a, uint64_t b)
 
 void lexint_shl(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  //TODO: check this
+  dst->is_negative = a->is_negative;
+
   if(b >= 128)
   {
     lexint_zero(dst);
@@ -80,6 +84,9 @@ void lexint_shl(lexint_t* dst, lexint_t* a, uint64_t b)
 
 void lexint_shr(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  //TODO: check this
+  dst->is_negative = a->is_negative;
+
   if(b >= 128)
   {
     lexint_zero(dst);
@@ -158,9 +165,7 @@ void lexint_add64(lexint_t* dst, lexint_t* a, uint64_t b)
 
 void lexint_sub(lexint_t* dst, lexint_t* a, lexint_t* b)
 {
-  if(a->is_negative && b->is_negative)
-    dst->is_negative = lexint_cmp(a, b) > 0;
-  else if(!a->is_negative && !b->is_negative)
+  if(a->is_negative == b->is_negative)
     dst->is_negative = lexint_cmp(a, b) < 0;
   else
     dst->is_negative = a->is_negative;
@@ -176,8 +181,26 @@ void lexint_sub64(lexint_t* dst, lexint_t* a, uint64_t b)
   dst->low = a->low - b;
 }
 
+// This method is provided only to handle negative multiplications.
+void lexint_mul(lexint_t* dst, lexint_t* a, lexint_t* b)
+{
+  // If the multiplier is negative, negate both operands then multiply.
+  lexint_t lt = *a;
+  lexint_t rt = *b;
+  if(rt.is_negative)
+  {
+    lexint_negate(&lt, &lt);
+    lexint_negate(&rt, &rt);
+  }
+
+  assert(lexint_cmp64(&rt, 0xffffffffffffffff) <= 0);
+  lexint_mul64(dst, &lt, rt.low);
+}
+
 void lexint_mul64(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  dst->is_negative = a->is_negative;
+
 #ifdef USE_NATIVE128
   NATIVE(v1, a);
   __uint128_t v2 = v1 * b;
@@ -197,8 +220,38 @@ void lexint_mul64(lexint_t* dst, lexint_t* a, uint64_t b)
 #endif
 }
 
+// This method is provided only to handle negative divisions.
+void lexint_div(lexint_t* dst, lexint_t* a, lexint_t* b)
+{
+  lexint_t lt = *a;
+  lexint_t rt = *b;
+  bool negate = lt.is_negative ^ rt.is_negative;
+
+  // take the absolute value of both operands and then divide
+  if(lt.is_negative)
+    lexint_negate(&lt, &lt);
+
+  if(rt.is_negative)
+    lexint_negate(&rt, &rt);
+
+  assert(lexint_cmp64(&rt, 0xffffffffffffffff) <= 0);
+  lexint_div64(dst, &lt, rt.low);
+
+  dst->is_negative = false;
+  if(negate)
+    lexint_negate(dst, dst);
+}
+
 void lexint_div64(lexint_t* dst, lexint_t* a, uint64_t b)
 {
+  bool negate = a->is_negative;
+  if(a->is_negative)
+  {
+    lexint_t t;
+    lexint_negate(&t, a);
+    a = &t;
+  }
+
 #ifdef USE_NATIVE128
   NATIVE(v1, a);
   __uint128_t v2 = v1 / b;
@@ -232,6 +285,10 @@ void lexint_div64(lexint_t* dst, lexint_t* a, uint64_t b)
     }
   }
 #endif
+
+  dst->is_negative = false;
+  if(negate)
+    lexint_negate(dst, dst);
 }
 
 void lexint_char(lexint_t* i, int c)

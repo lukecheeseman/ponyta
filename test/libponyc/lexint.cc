@@ -28,22 +28,29 @@ static lexint_t* lexint_neg(lexint_t* i, uint64_t high, uint64_t low)
 
 #define ASSERT_LIEQ(lexint, h, l) \
   { \
+    ASSERT_EQ(lexint.is_negative, false); \
     ASSERT_EQ(l, lexint.low); \
     ASSERT_EQ(h, lexint.high); \
   }
 
+#define ASSERT_NLIEQ(lexint, h, l) \
+  { \
+    ASSERT_EQ(lexint.is_negative, true); \
+    lexint_t t; \
+    lexint_neg(&t, h, l); \
+    ASSERT_EQ((&t)->low, lexint.low); \
+    ASSERT_EQ((&t)->high, lexint.high); \
+  }
 
 TEST_F(LexIntTest, LexIntNegate)
 {
   lexint_t a;
 
   lexint_neg(&a, 0, 1);
-  ASSERT_LIEQ(a, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF);
-  ASSERT_EQ(a.is_negative, true);
+  ASSERT_NLIEQ(a, 0, 1);
 
   lexint_negate(&a, &a);
   ASSERT_LIEQ(a, 0, 1);
-  ASSERT_EQ(a.is_negative, false);
 }
 
 TEST_F(LexIntTest, LexIntCmp)
@@ -281,28 +288,22 @@ TEST_F(LexIntTest, LexIntAdd)
 
 TEST_F(LexIntTest, LexIntAddNegative)
 {
-  lexint_t a, b, c, dst;
+  lexint_t a, b, dst;
 
   lexint_add(&dst, lexint_neg(&a, 0, 1), lexint(&b, 0, 0));
-  ASSERT_EQ(dst.is_negative, true);
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF);
+  ASSERT_NLIEQ(dst, 0, 1);
 
   lexint_add(&dst, lexint(&a, 0, 0), lexint_neg(&b, 0, 1));
-  ASSERT_EQ(dst.is_negative, true);
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF);
+  ASSERT_NLIEQ(dst, 0, 1);
 
   lexint_add(&dst, lexint_neg(&a, 0, 2), lexint(&b, 0, 4));
-  ASSERT_EQ(dst.is_negative, false);
   ASSERT_LIEQ(dst, 0, 2);
 
   lexint_add(&dst, lexint(&a, 0, 4), lexint_neg(&b, 0, 2));
-  ASSERT_EQ(dst.is_negative, false);
   ASSERT_LIEQ(dst, 0, 2);
 
   lexint_add(&dst, lexint_neg(&a, 0, 4), lexint_neg(&b, 0, 2));
-  ASSERT_EQ(dst.is_negative, true);
-  lexint_neg(&c, 0, 6);
-  ASSERT_LIEQ(dst, c.high, c.low);
+  ASSERT_NLIEQ(dst, 0, 6);
 }
 
 TEST_F(LexIntTest, LexIntAdd64)
@@ -337,6 +338,22 @@ TEST_F(LexIntTest, LexIntAdd64)
   ASSERT_LIEQ(dst, 0, 3)
 }
 
+TEST_F(LexIntTest, LexIntAdd64Negative)
+{
+  lexint_t a, dst;
+
+  lexint_add64(&dst, lexint(&a, 0, 0), 0);
+  ASSERT_LIEQ(dst, 0, 0);
+
+  lexint_add64(&dst, lexint_neg(&a, 0, 1), 1);
+  ASSERT_LIEQ(dst, 0, 0);
+
+  lexint_add64(&dst, lexint_neg(&a, 0, 2), 4);
+  ASSERT_LIEQ(dst, 0, 2);
+
+  lexint_add64(&dst, lexint_neg(&a, 0, 4), 2);
+  ASSERT_NLIEQ(dst, 0, 2);
+}
 
 TEST_F(LexIntTest, LexIntSub)
 {
@@ -361,12 +378,28 @@ TEST_F(LexIntTest, LexIntSub)
   ASSERT_LIEQ(dst, 37, 0xFFFFFFFFFFFFFFFC);
 
   lexint_sub(&dst, lexint(&a, 0, 0), lexint(&b, 0, 1));
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF);
+  ASSERT_NLIEQ(dst, 0, 1);
 
   lexint_sub(&dst, lexint(&a, 0, 0), lexint(&b, 3, 0));
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFD, 0);
+  ASSERT_NLIEQ(dst, 3, 0);
 }
 
+TEST_F(LexIntTest, LexIntSubNegative)
+{
+  lexint_t a, b, dst;
+
+  lexint_sub(&dst, lexint(&a, 0, 0), lexint(&b, 0, 0));
+  ASSERT_LIEQ(dst, 0, 0);
+
+  lexint_sub(&dst, lexint(&a, 0, 0), lexint_neg(&b, 0, 2));
+  ASSERT_LIEQ(dst, 0, 2);
+
+  lexint_sub(&dst, lexint_neg(&a, 0, 3), lexint_neg(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 1);
+
+  lexint_sub(&dst, lexint_neg(&a, 0, 2), lexint(&b, 0, 4));
+  ASSERT_NLIEQ(dst, 0, 6);
+}
 
 TEST_F(LexIntTest, LexIntSub64)
 {
@@ -391,10 +424,10 @@ TEST_F(LexIntTest, LexIntSub64)
   ASSERT_LIEQ(dst, 37, 0xFFFFFFFFFFFFFFFC);
 
   lexint_sub64(&dst, lexint(&a, 0, 0), 1);
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF);
+  ASSERT_NLIEQ(dst, 0, 1);
 
   lexint_sub64(&dst, lexint(&a, 0, 0), 0xFFFFFFFFFFFFFFFF);
-  ASSERT_LIEQ(dst, 0xFFFFFFFFFFFFFFFF, 1);
+  ASSERT_NLIEQ(dst, 0, 0xFFFFFFFFFFFFFFFF);
 }
 
 
@@ -434,6 +467,28 @@ TEST_F(LexIntTest, LexIntMul64)
   ASSERT_LIEQ(dst, 0x2334455667788112, 0x2334455667788000);
 }
 
+TEST_F(LexIntTest, LexIntMulNegative)
+{
+  lexint_t a, b, dst;
+
+  lexint_mul(&dst, lexint_neg(&a, 0, 1), lexint(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 2);
+
+  lexint_mul(&dst, lexint_neg(&a, 0, 31), lexint(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 62);
+
+  lexint_mul(&dst, lexint(&a, 0, 1), lexint_neg(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 2);
+
+  lexint_mul(&dst, lexint(&a, 0, 31), lexint_neg(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 62);
+
+  lexint_mul(&dst, lexint_neg(&a, 0, 1), lexint_neg(&b, 0, 2));
+  ASSERT_LIEQ(dst, 0, 2);
+
+  lexint_mul(&dst, lexint_neg(&a, 0, 31), lexint_neg(&b, 0, 2));
+  ASSERT_LIEQ(dst, 0, 62);
+}
 
 TEST_F(LexIntTest, LexIntDiv64)
 {
@@ -468,6 +523,28 @@ TEST_F(LexIntTest, LexIntDiv64)
   ASSERT_LIEQ(dst, 0, 0);
 }
 
+TEST_F(LexIntTest, LexIntDivNegative)
+{
+  lexint_t a, b, dst;
+
+  lexint_div(&dst, lexint_neg(&a, 0, 2), lexint(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 1);
+
+  lexint_div(&dst, lexint_neg(&a, 0, 62), lexint(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 31);
+
+  lexint_div(&dst, lexint(&a, 0, 2), lexint_neg(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 1);
+
+  lexint_div(&dst, lexint(&a, 0, 62), lexint_neg(&b, 0, 2));
+  ASSERT_NLIEQ(dst, 0, 31);
+
+  lexint_div(&dst, lexint_neg(&a, 0, 2), lexint_neg(&b, 0, 2));
+  ASSERT_LIEQ(dst, 0, 1);
+
+  lexint_div(&dst, lexint_neg(&a, 0, 62), lexint_neg(&b, 0, 2));
+  ASSERT_LIEQ(dst, 0, 31);
+}
 
 TEST_F(LexIntTest, LexIntChar)
 {

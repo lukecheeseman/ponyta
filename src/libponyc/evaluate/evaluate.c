@@ -13,10 +13,8 @@
 #include "../type/reify.h"
 #include "../type/alias.h"
 #include "../type/assemble.h"
-#include "../expr/call.h"
 #include "../expr/literal.h"
 #include "../expr/operator.h"
-#include "../expr/postfix.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -481,7 +479,7 @@ static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
   return m2->method;
 }
 
-// look through the types to find the underlying NOMINAL types
+// look through the types to find the unerlying NOMINAL types
 static ast_t* ast_get_base_type(ast_t* ast)
 {
   ast_t* type = ast_type(ast);
@@ -518,6 +516,7 @@ static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
 
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
+// this
 static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* this, int depth)
 {
@@ -535,7 +534,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   ast_t* type = ast_get_base_type(evaluated_receiver);
 
-  // construct a node to use for caching
+  // TODO: construct a better node to be cached
   ast_t* function_call = ast_dup(type);
   ast_append(function_call, ast_dup(func_id));
   ast_append(function_call, ast_dup(args));
@@ -877,6 +876,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       // evaluate the try expression but this may result in a TK_ERROR result,
       // so test if this is the case after evaluation, if so evaluate the else
       // branch
+
       AST_GET_CHILDREN(expression, trybody, elsebody);
       ast_t* evaluated_try = evaluate(opt, trybody, this, depth + 1);
       if(eval_error(evaluated_try))

@@ -212,8 +212,7 @@ ast_t* evaluate_gt_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
   return evaluate_inequality_int(receiver, args, &test_gt, opt);
 }
 
-static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args,
-  test_equality_t test, pass_opt_t* opt)
+ast_t* evaluate_min_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   assert(ast_id(args) == TK_POSITIONALARGS);
   ast_t* lhs_arg = receiver;
@@ -224,20 +223,27 @@ static ast_t* evaluate_min_max_int(ast_t* receiver, ast_t* args,
   lexint_t* lhs = ast_int(lhs_arg);
   lexint_t* rhs = ast_int(rhs_arg);
 
-  if (test(lhs, rhs))
+  if (test_lt(lhs, rhs))
     return ast_dup(lhs_arg);
 
   return ast_dup(rhs_arg);
 }
 
-ast_t* evaluate_min_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
-{
-  return evaluate_min_max_int(receiver, args, &test_lt, opt);
-}
-
 ast_t* evaluate_max_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
-  return evaluate_min_max_int(receiver, args, &test_gt, opt);
+  assert(ast_id(args) == TK_POSITIONALARGS);
+  ast_t* lhs_arg = receiver;
+  ast_t* rhs_arg = ast_child(args);
+  if(!check_operands(lhs_arg, rhs_arg, opt))
+    return NULL;
+
+  lexint_t* lhs = ast_int(lhs_arg);
+  lexint_t* rhs = ast_int(rhs_arg);
+
+  if (test_gt(lhs, rhs))
+    return ast_dup(lhs_arg);
+
+  return ast_dup(rhs_arg);
 }
 
 ast_t* evaluate_not_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
@@ -452,7 +458,7 @@ ast_t* evaluate_usize_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 static ast_t* cast_int_to_float(ast_t* receiver, const char* type,
   pass_opt_t* opt)
 {
-  //FIXME
+  //FIXME: casting of negatives doesn't appear to be correct
   lexint_t* evaluated_int = ast_int(receiver);
 
   double result_double;

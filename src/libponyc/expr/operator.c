@@ -216,6 +216,7 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
       }
       return NULL;
 
+    case TK_MATCH_CAPTURE:
     case TK_PARAM:
     case TK_LET:
       if(!check_constant || ast_checkconstant(right))
@@ -234,7 +235,6 @@ ast_t* map_value(pass_opt_t* opt, ast_t* left, ast_t* right, bool check_constant
         assert(ast_set_value(left, name, right));
       }
       return NULL;
-
 
     default: {}
   }

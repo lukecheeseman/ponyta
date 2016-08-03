@@ -61,7 +61,7 @@ int lexint_cmp64(lexint_t* a, uint64_t b)
 
 void lexint_shl(lexint_t* dst, lexint_t* a, uint64_t b)
 {
-  //TODO: check this
+  //TODO: what should we do with the negative bit when shifting?
   dst->is_negative = a->is_negative;
 
   if(b >= 128)
@@ -84,7 +84,7 @@ void lexint_shl(lexint_t* dst, lexint_t* a, uint64_t b)
 
 void lexint_shr(lexint_t* dst, lexint_t* a, uint64_t b)
 {
-  //TODO: check this
+  //TODO: what should we do with the negative bit when shifting?
   dst->is_negative = a->is_negative;
 
   if(b >= 128)

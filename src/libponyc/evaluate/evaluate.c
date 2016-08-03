@@ -13,8 +13,10 @@
 #include "../type/reify.h"
 #include "../type/alias.h"
 #include "../type/assemble.h"
+#include "../expr/call.h"
 #include "../expr/literal.h"
 #include "../expr/operator.h"
+#include "../expr/postfix.h"
 #include "string.h"
 #include <assert.h>
 #include <inttypes.h>
@@ -717,14 +719,14 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     {
       // TODO: we should be able to remove the check for a capability once we
       // have mutable objects in compile-time expressions.
-      ast_t *type = ast_type(expression);
-      ast_t* cap = ast_childidx(type, 3);
-      if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
-      {
-        ast_error(opt->check.errors, expression,
-                  "compile time expression can only use read-only variables");
-        return NULL;
-      }
+      //ast_t *type = ast_type(expression);
+      //ast_t* cap = ast_childidx(type, 3);
+      //if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
+      //{
+       // ast_error(opt->check.errors, expression,
+       //           "compile time expression can only use read-only variables");
+       // return NULL;
+      //}
 
       ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
       if(eval_error(value))
@@ -907,7 +909,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       // evaluate the try expression but this may result in a TK_ERROR result,
       // so test if this is the case after evaluation, if so evaluate the else
       // branch
-
       AST_GET_CHILDREN(expression, trybody, elsebody);
       ast_t* evaluated_try = evaluate(opt, trybody, this, depth + 1);
       if(eval_error(evaluated_try))
@@ -918,6 +919,105 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
         return evaluate(opt, elsebody, this, depth + 1);
       }
       return evaluated_try;
+    }
+
+    case TK_MATCH:
+    {
+      AST_GET_CHILDREN(expression, matchref, cases, elsebody);
+      ast_t* match = evaluate(opt, matchref, this, depth + 1);
+      if(eval_error(match))
+        return match;
+
+      // Match cases by exhaustion
+      ast_t* match_type = ast_type(match);
+      ast_t* the_case = ast_child(cases);
+      while(the_case != NULL)
+      {
+        AST_GET_CHILDREN(the_case, pattern, guard, body);
+
+        // First test that match is a subtype of the pattern
+        ast_t* pattern_type = ast_type(pattern);
+        if(is_subtype(match_type, pattern_type, NULL, opt))
+        {
+          bool matched = false;
+          if(ast_id(pattern) == TK_MATCH_CAPTURE)
+          {
+            // Test whether the value is captured under a new name
+            map_value(opt, pattern, match, false);
+            matched = true;
+          }
+          else
+          {
+            // Otherwise test if the pattern matches
+            pattern = evaluate(opt, pattern, this, depth + 1);
+            if(eval_error(pattern))
+              return pattern;
+
+            /*
+            BUILD(call, ast,
+              NODE(TK_CALL,
+                NODE(TK_POSITIONALARGS, TREE(size_arg_seq))
+                NONE
+                TREE(dot)));
+
+            // TODO: we need the expr_* passes to transform things and add types
+            // we probably need the qualify for type arguments too actually
+            BUILD(qualify, ast,
+              NODE(TK_QUALIFY,
+                TREE(ref)
+                NODE(TK_TYPEARGS, TREE(a_type))));
+            */
+
+            // FIXME: there is an issue with the parent here
+
+            BUILD(dot, expression,
+              NODE(TK_DOT, TREE(ast_child(matchref)) ID("eq")));
+            BUILD(pattern_seq, expression, NODE(TK_SEQ, TREE(pattern)));
+            ast_settype(pattern_seq, ast_type(pattern));
+
+            BUILD(eq, expression,
+              NODE(TK_CALL,
+                NODE(TK_POSITIONALARGS, TREE(pattern_seq))
+                NONE
+                TREE(dot)));
+
+            //if(!expr_qualify(opt, &qualify))
+            //  return NULL;
+
+            if(!expr_dot(opt, &dot) ||
+              !expr_call(opt, &eq))
+              return NULL;
+
+            (void) eq;
+            // FIXME: this should use the eq method so as to match runtime
+            // behaviour
+            // generate the function node and args
+            // evaluate_method
+            if(ast_equal(pattern, match))
+              matched = true;
+          }
+
+          // if the pattern match proceed to check the guard
+          if(matched)
+          {
+            if(ast_id(guard) != TK_NONE)
+            {
+              guard = evaluate(opt, guard, this, depth + 1);
+              if(eval_error(guard))
+                return guard;
+
+              if(ast_id(guard) == TK_TRUE)
+                return evaluate(opt, body, this, depth + 1);
+            }
+            else
+              return evaluate(opt, body, this, depth + 1);
+          }
+        }
+
+        the_case = ast_sibling(the_case);
+      }
+
+      return evaluate(opt, elsebody, this, depth + 1);
     }
 
     case TK_CONSUME:

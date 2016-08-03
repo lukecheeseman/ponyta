@@ -24,6 +24,13 @@ actor Main is TestList
     test(_TestListsContains)
     test(_TestListsReverse)
     test(_TestHashSetContains)
+    test(_TestSorted)
+    test(_TestQuickSort)
+    test(_TestInsertionSort)
+    test(_TestSelectionSort)
+    test(_TestHeapSort)
+    test(_TestBubbleSort)
+    test(_TestMergeSort)
 
 class iso _TestList is UnitTest
   fun name(): String => "collections/List"
@@ -483,3 +490,83 @@ class iso _TestHashSetContains is UnitTest
     // And resetting an element should cause it to be found again
     a.set(0)
     h.assert_true(a.contains(0), not_found_fail)
+
+class iso _TestSorted is UnitTest
+  fun name(): String => "collections/sort/Sorted"
+
+  fun apply(h: TestHelper) =>
+    try
+      var array: Array[U32] = [7, 3, 2, 10]
+      var vector: Vector[U32, 4] = {7, 3, 2, 10}
+
+      h.assert_false(Sorted[U32](array))
+      h.assert_false(Sorted[U32](vector))
+
+      array = [2, 3, 7, 10]
+      vector = {2, 3, 7, 10}
+
+      h.assert_true(Sorted[U32](array))
+      h.assert_true(Sorted[U32](vector))
+    else
+      h.fail()
+    end
+
+class CheckSort
+  fun apply(h: TestHelper, sort: {(Sortable[U32]) ?} val) =>
+    try
+      let array: Array[U32] = [7, 3, 2, 10]
+      let vector: Vector[U32, 4] = {7, 3, 2, 10}
+
+      sort(array)
+      sort(vector)
+
+      h.assert_eq[U32](array(0), 2)
+      h.assert_eq[U32](vector(0), 2)
+
+      h.assert_eq[U32](array(1), 3)
+      h.assert_eq[U32](vector(1), 3)
+
+      h.assert_eq[U32](array(2), 7)
+      h.assert_eq[U32](vector(2), 7)
+
+      h.assert_eq[U32](array(3), 10)
+      h.assert_eq[U32](vector(3), 10)
+    else
+      h.fail()
+    end
+
+class iso _TestQuickSort is UnitTest
+  fun name(): String => "collections/sort/QuickSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, QuickSort[U32])
+
+class iso _TestInsertionSort is UnitTest
+  fun name(): String => "collections/sort/InsertionSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, InsertionSort[U32])
+
+class iso _TestSelectionSort is UnitTest
+  fun name(): String => "collections/sort/SelectionSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, SelectionSort[U32])
+
+class iso _TestHeapSort is UnitTest
+  fun name(): String => "collections/sort/HeapSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, HeapSort[U32])
+
+class iso _TestBubbleSort is UnitTest
+  fun name(): String => "collections/sort/BubbleSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, BubbleSort[U32])
+
+class iso _TestMergeSort is UnitTest
+  fun name(): String => "collections/sort/MergeSort"
+
+  fun apply(h: TestHelper) =>
+    CheckSort(h, MergeSort[U32])

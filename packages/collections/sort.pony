@@ -1,38 +1,31 @@
+"""
+# Sort package
+
+Provides an interface for data structures which are sortable and a library of
+primitives for in-place sorting algorithms which work on sortable containers.
+"""
+
 interface Sortable[A: Comparable[A] #read ]
   fun size(): USize
   fun apply(i: USize): A ?
   fun ref update(i: USize, value: A): A^ ?
 
-primitive Sort[A: Comparable[A] #read]
-  fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
-    let tmp = data(i)
-    data.update(i, data(j))
-    data.update(j, tmp)
-
-  fun reverse(data: Sortable[A]) ? =>
-    var i: USize = 0
-    var j: USize = data.size() - 1
-    while i < j do
-      _swap(data, i, j)
-      i = i + 1
-      j = j - 1
-    end
-
-  fun sorted(v: ReadSeq[A]): Bool ? =>
-    if v.size() < 2 then
-      true
-    end
-
-    let it = v.values()
-    var prev = it.next()
-    while it.has_next() do
-      let curr = it.next()
-      if prev > curr then
+primitive Sorted[A: Comparable[A] #read]
+  fun apply(data: Sortable[A]): Bool ? =>
+    var i: USize = 1
+    while i < data.size() do
+      if data(i - 1) > data(i) then
         return false
       end
-      prev = curr
+      i = i + 1
     end
     true
+
+primitive QuickSort[A: Comparable[A] #read]
+  fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
+    let tmp = data(i)
+    data(i) = data(j)
+    data(j) = tmp
 
   fun _sub[B: Real[B] val](x: B, y: B): B =>
     if x > y then x - y else x.min_value() end
@@ -40,10 +33,7 @@ primitive Sort[A: Comparable[A] #read]
   fun _add[B: Real[B] val](x: B, y: B): B =>
     if x < (y.max_value() - y) then x + y else x.max_value() end
 
-  fun quick_sort(data: Sortable[A]) ? =>
-    _quick_sort_impl(data, 0, data.size() - 1)
-
-  fun _quick_sort_impl(data: Sortable[A], left: USize, right: USize) ? =>
+  fun _apply(data: Sortable[A], left: USize, right: USize) ? =>
     var i: USize = left
     var j: USize = right
     let pivot: A = data(((left + right) / 2))
@@ -58,14 +48,18 @@ primitive Sort[A: Comparable[A] #read]
     end
 
     if left < j then
-      _quick_sort_impl(data, left, j)
+      _apply(data, left, j)
     end
 
     if i < right then
-      _quick_sort_impl(data, i, right)
+      _apply(data, i, right)
     end
 
-  fun insertion_sort(data: Sortable[A]) ? =>
+  fun apply(data: Sortable[A]) ? =>
+    _apply(data, 0, data.size() - 1)
+
+primitive InsertionSort[A: Comparable[A] #read]
+  fun apply(data: Sortable[A]) ? =>
     var i: USize = 0
     while i < data.size() do
       var elem = data(i)
@@ -73,16 +67,22 @@ primitive Sort[A: Comparable[A] #read]
       while j < i do
         if elem < data(j) then
           let tmp = data(j)
-          data.update(j, elem)
+          data(j) = elem
           elem = tmp
         end
         j = j + 1
       end
-      data.update(j, elem)
+      data(j) = elem
       i = i + 1
     end
 
-  fun selection_sort(data: Sortable[A]) ? =>
+primitive SelectionSort[A: Comparable[A] #read]
+  fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
+    let tmp = data(i)
+    data(i) = data(j)
+    data(j) = tmp
+
+  fun apply(data: Sortable[A]) ? =>
     var head: USize = 0
     while head < data.size() do
       var min: USize = head
@@ -95,6 +95,21 @@ primitive Sort[A: Comparable[A] #read]
         _swap(data, head, min)
       end
       head = head + 1
+    end
+
+primitive HeapSort[A: Comparable[A] #read]
+  fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
+    let tmp = data(i)
+    data(i) = data(j)
+    data(j) = tmp
+
+  fun _reverse(data: Sortable[A]) ? =>
+    var i: USize = 0
+    var j: USize = data.size() - 1
+    while i < j do
+      _swap(data, i, j)
+      i = i + 1
+      j = j - 1
     end
 
   fun _heap_filter_up(data: Sortable[A], k: USize) ? =>
@@ -138,7 +153,7 @@ primitive Sort[A: Comparable[A] #read]
       end
     end
 
-  fun heap_sort(data: Sortable[A]) ? =>
+  fun apply(data: Sortable[A]) ? =>
     var num_nodes: USize = 0
     var i: USize = 0
     while i < data.size() do
@@ -155,9 +170,15 @@ primitive Sort[A: Comparable[A] #read]
       i = i + 1
     end
 
-    reverse(data)
+    _reverse(data)
 
-  fun bubble_sort(data: Sortable[A]) ? =>
+primitive BubbleSort[A: Comparable[A] #read]
+  fun _swap(data: Sortable[A], i: USize, j: USize) ? =>
+    let tmp = data(i)
+    data(i) = data(j)
+    data(j) = tmp
+
+  fun apply(data: Sortable[A]) ? =>
     var swapped = false
     var limit: USize = data.size()
     repeat
@@ -173,25 +194,20 @@ primitive Sort[A: Comparable[A] #read]
       limit = limit - 1
     until not swapped end
 
-  fun merge_sort(data: Sortable[A]) ? =>
-    _merge_sort_impl(data, 0, data.size() - 1)
-
-  fun _merge_sort_impl(data: Sortable[A], first: USize, last: USize) ? =>
-    if first >= last then
-      return
+primitive MergeSort[A: Comparable[A] #read]
+  fun _shift(data: Sortable[A], first: USize, len: USize) ? =>
+    var i: USize = len
+    var loop: USize = 0
+    while i > 0 do
+      data(first + i) = data((first - 1) + i)
+      i = i - 1
     end
-
-    let mid = (first + last) / 2
-    _merge_sort_impl(data, first, mid)
-    _merge_sort_impl(data, mid + 1, last)
-
-    _merge(data, first, last)
 
   fun _merge(data: Sortable[A], first: USize, last: USize) ? =>
     var left = first
     var mid = (first + last) / 2
     var right = mid + 1
-    if data(right - 1) <= data(right) then
+    if data(mid) <= data(right) then
       return
     end
 
@@ -201,16 +217,23 @@ primitive Sort[A: Comparable[A] #read]
       else
         let tmp = data(right)
         _shift(data, left, right - left)
-        data.update(left, tmp)
+        data(left) = tmp
         left = left + 1
         mid = mid + 1
         right = right + 1
       end
     end
 
-  fun _shift(data: Sortable[A], first: USize, len: USize) ? =>
-    var i: USize = 0
-    while i < len do
-      data.update((first + 1) + i, data(first + i))
-      i = i + 1
+  fun _apply(data: Sortable[A], first: USize, last: USize) ? =>
+    if first >= last then
+      return
     end
+
+    let mid = (first + last) / 2
+    _apply(data, first, mid)
+    _apply(data, mid + 1, last)
+
+    _merge(data, first, last)
+
+  fun apply(data: Sortable[A]) ? =>
+    _apply(data, 0, data.size() - 1)

@@ -481,7 +481,7 @@ static method_ptr_t lookup_method(ast_t* receiver, ast_t* type,
   return m2->method;
 }
 
-// look through the types to find the unerlying NOMINAL types
+// look through the types to find the underlying NOMINAL types
 static ast_t* ast_get_base_type(ast_t* ast)
 {
   ast_t* type = ast_type(ast);
@@ -518,7 +518,6 @@ static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
 
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
-// this
 static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* this, int depth)
 {
@@ -536,7 +535,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
   ast_t* type = ast_get_base_type(evaluated_receiver);
 
-  // TODO: construct a better node to be cached
+  // construct a node to use for caching
   ast_t* function_call = ast_dup(type);
   ast_append(function_call, ast_dup(func_id));
   ast_append(function_call, ast_dup(args));
@@ -632,14 +631,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
     }
 
     // get the return type
-    ast_t* ret_type = ast_dup(ast_childidx(ast_type(function), 3));
-    ret_type = recover_type(ret_type, TK_VAL);
-    if(ret_type == NULL)
-    {
-      ast_error(opt->check.errors, function,
-        "can't recover compile-time object to val capability");
-      return NULL;
-    }
+    ast_t* ret_type = ast_childidx(ast_type(function), 3);
 
     BUILD(obj, receiver,
       NODE(TK_CONSTANT_OBJECT, ID(obj_name) NODE(TK_MEMBERS)))
@@ -711,23 +703,11 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_THIS:
       return this == NULL ? expression : this;
 
-    // variable lookups, checking that the variable has the correct capabilities
-    // and that it has been mapped to some value.
+    // variable lookups, checking that the variable has been mapped to a value.
     case TK_VARREF:
     case TK_PARAMREF:
     case TK_LETREF:
     {
-      // TODO: we should be able to remove the check for a capability once we
-      // have mutable objects in compile-time expressions.
-      //ast_t *type = ast_type(expression);
-      //ast_t* cap = ast_childidx(type, 3);
-      //if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
-      //{
-       // ast_error(opt->check.errors, expression,
-       //           "compile time expression can only use read-only variables");
-       // return NULL;
-      //}
-
       ast_t* value = ast_get_value(expression, ast_name(ast_child(expression)));
       if(eval_error(value))
       {
@@ -746,15 +726,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_EMBEDREF:
     case TK_FLETREF:
     {
-      ast_t *type = ast_type(expression);
-      ast_t* cap = ast_childidx(type, 3);
-      if (ast_id(cap) != TK_VAL && ast_id(cap) != TK_BOX)
-      {
-        ast_error(opt->check.errors, expression,
-                  "compile time expression can only use read-only variables");
-        return NULL;
-      }
-
       AST_GET_CHILDREN(expression, receiver, id);
       ast_t* evaluated_receiver = evaluate(opt, receiver, this, depth + 1);
       if(eval_error(evaluated_receiver))
@@ -821,9 +792,6 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
 
       return evaluate_method(opt, function, evaluated_args, this, depth);
     }
-
-    case TK_CONSTANT:
-      return evaluate(opt, ast_child(expression), this, depth + 1);
 
     case TK_VECTOR:
     {
@@ -953,48 +921,16 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
             if(eval_error(pattern))
               return pattern;
 
-            /*
-            BUILD(call, ast,
-              NODE(TK_CALL,
-                NODE(TK_POSITIONALARGS, TREE(size_arg_seq))
-                NONE
-                TREE(dot)));
-
-            // TODO: we need the expr_* passes to transform things and add types
-            // we probably need the qualify for type arguments too actually
-            BUILD(qualify, ast,
-              NODE(TK_QUALIFY,
-                TREE(ref)
-                NODE(TK_TYPEARGS, TREE(a_type))));
-            */
-
-            // FIXME: there is an issue with the parent here
-
-            BUILD(dot, expression,
-              NODE(TK_DOT, TREE(ast_child(matchref)) ID("eq")));
-            BUILD(pattern_seq, expression, NODE(TK_SEQ, TREE(pattern)));
-            ast_settype(pattern_seq, ast_type(pattern));
-
             BUILD(eq, expression,
-              NODE(TK_CALL,
-                NODE(TK_POSITIONALARGS, TREE(pattern_seq))
-                NONE
-                TREE(dot)));
+              NODE(TK_FUNREF, TREE(ast_child(matchref)) ID("eq")));
+            BUILD(args, expression, NODE(TK_POSITIONALARGS, TREE(pattern)));
 
-            //if(!expr_qualify(opt, &qualify))
-            //  return NULL;
+            ast_t* equal = evaluate_method(opt, eq, args, this, depth + 1);
+            if(eval_error(equal))
+              return equal;
 
-            if(!expr_dot(opt, &dot) ||
-              !expr_call(opt, &eq))
-              return NULL;
-
-            (void) eq;
-            // FIXME: this should use the eq method so as to match runtime
-            // behaviour
-            // generate the function node and args
-            // evaluate_method
-            if(ast_equal(pattern, match))
-              matched = true;
+            matched = ast_id(equal) == TK_TRUE;
+            ast_free(equal);
           }
 
           // if the pattern match proceed to check the guard
@@ -1025,6 +961,10 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* consumed = ast_childidx(expression, 1);
       return evaluate(opt, consumed, this, depth + 1);
     }
+
+    case TK_CONSTANT:
+      // TODO: do we want to recover the value to a val here, probably!
+      return evaluate(opt, ast_child(expression), this, depth + 1);
 
     default:
       ast_error(opt->check.errors, expression,

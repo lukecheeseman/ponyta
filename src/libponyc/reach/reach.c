@@ -330,16 +330,6 @@ static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
     fun = r_fun;
   }
 
-  // We evaluate expressions in reachable methods and at this point we have
-  // enough information to ensure that expressions are typesafe. This also means
-  // that we only evaluate expressions in reachable methods.
-  if(!evaluate_expressions(opt, &fun))
-  {
-    //FIXME: this is currently for debugging
-    errors_print(opt->check.errors);
-    assert(0);
-  }
-
   m->r_fun = fun;
   set_method_types(r, m, opt);
   m->mangled_name = make_mangled_name(m);
@@ -1021,7 +1011,7 @@ static void reachable_method(reach_t* r, ast_t* type, const char* name,
   }
 }
 
-static void handle_stack(reach_t* r, pass_opt_t* opt)
+static bool handle_stack(reach_t* r, pass_opt_t* opt)
 {
   while(r->stack != NULL)
   {
@@ -1029,8 +1019,16 @@ static void handle_stack(reach_t* r, pass_opt_t* opt)
     r->stack = reach_method_stack_pop(r->stack, &m);
 
     ast_t* body = ast_childidx(m->r_fun, 6);
+
+    // We evaluate reachable compile-time expressions. At this point we have
+    // enough information to ensure that expressions are typesafe.
+    if(!evaluate_expressions(opt, &body))
+      return false;
+
     reachable_expr(r, body, opt);
   }
+
+  return true;
 }
 
 reach_t* reach_new()
@@ -1051,11 +1049,11 @@ void reach_free(reach_t* r)
   POOL_FREE(reach_t, r);
 }
 
-void reach(reach_t* r, ast_t* type, const char* name, ast_t* typeargs,
+bool reach(reach_t* r, ast_t* type, const char* name, ast_t* typeargs,
   pass_opt_t* opt)
 {
   reachable_method(r, type, name, typeargs, opt);
-  handle_stack(r, opt);
+  return handle_stack(r, opt);
 }
 
 reach_type_t* reach_type(reach_t* r, ast_t* type)

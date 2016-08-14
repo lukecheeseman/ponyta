@@ -24,6 +24,7 @@ Think you've found a bug? Check your understanding first by writing the mailing 
 * Sublime Text: [Pony Language](https://packagecontrol.io/packages/Pony%20Language)
 * Atom: [language-pony](https://atom.io/packages/language-pony)
 * Visual Studio: [VS-pony](https://github.com/ponylang/VS-pony)
+* Visual Studio Code: [vscode-pony](https://marketplace.visualstudio.com/items?itemName=npruehs.pony)
 * Vim:
     - [vim-pony](https://github.com/jakwings/vim-pony)
     - [pony.vim](https://github.com/dleonard0/pony-vim-syntax)
@@ -61,6 +62,53 @@ docker run -v /path/to/my-code:/src/main ponylang/ponyc ./main
 
 If you're using `docker-machine` instead of native docker, make sure you aren't using [an incompatible version of Virtualbox](#virtualbox).
 
+
+## Linux using an RPM package (via Bintray)
+
+For Red Hat, CentOS, or Fedora Linux, the `master` and `release` branches are packaged and availabe on Bintray ([pony-language/ponyc-rpm](https://bintray.com/pony-language/ponyc-rpm)).
+
+To install  release builds via Yum:
+```bash
+wget https://bintray.com/pony-language/ponyc-rpm/rpm -O bintray-pony-language-ponyc-rpm.repo
+sudo mv bintray-pony-language-ponyc-rpm.repo /etc/yum.repos.d/
+
+sudo yum install ponyc-release
+```
+
+Or, for master builds:
+```bash
+yum install ponyc-master
+```
+
+
+## Linux using a DEB package (via Bintray)
+
+For Ubuntu or Debian Linux, the `master` and `release` branches are packaged and availabe on Bintray ([pony-language/ponyc-debian](https://bintray.com/pony-language/ponyc-debian)).
+
+To install release builds via Apt:
+```bash
+echo "deb https://dl.bintray.com/pony-language/ponyc-debian pony-language main" | sudo tee -a /etc/apt/sources.list
+
+sudo apt-get install ponyc-release
+```
+
+Or, for master builds:
+```
+sudo apt-get install ponyc-master
+```
+
+
+## Windows using ZIP (via Bintray)
+
+For Windows, the `master` and `release` branches are packaged and availabe on Bintray ([pony-language/ponyc-win](https://bintray.com/pony-language/ponyc-win)):
+
+```powershell
+Invoke-WebRequest -Uri https://dl.bintray.com/pony-language/ponyc-win/ponyc-VERSION.zip -UseBasicParsing -OutFile ponyc-VERSION.zip
+7z x .\ponyc-VERSION.zip
+.\ponyc-VERSION\ponyc\bin\ponyc.exe --version
+```
+
+
 ## Mac OS X using [Homebrew](http://brew.sh)
 
 The homebrew version is currently woefully out of date. We are transitioning to
@@ -72,15 +120,13 @@ $ brew update
 $ brew install ponyc
 ```
 
-## Linux
-
-### Arch
+## Arch Linux
 
 ```bash
 pacman -S ponyc
 ```
 
-### Gentoo
+## Gentoo Linux
 
 ```bash
 layman -a stefantalpalaru
@@ -91,15 +137,7 @@ A live ebuild is also available in the
 [overlay](https://github.com/stefantalpalaru/gentoo-overlay)
 (dev-lang/pony-9999) and for Vim users there's app-vim/pony-syntax.
 
-### Other distributions
 
-We're transitioning to a new binary release system. For now, please build from source.
-
-## Windows
-
-To run as native Windows binary, you will need to [build from source](#building-ponyc-from-source).
-
-If you are running Windows 10 Anniversary Update, you can install Pony using the [Ubuntu 14.04](#ubuntu-1404-1510-1604) instructions inside [Bash on Ubuntu on Windows](https://msdn.microsoft.com/en-us/commandline/wsl/about). This was tested on build 14372.0.
 
 # Building ponyc from source
 
@@ -163,11 +201,7 @@ You should install prebuilt Clang 3.8 from the [LLVM download page](http://llvm.
 
 ```bash
 $ sudo apt-get update
-$ sudo apt-get install -y build-essential git zlib1g-dev libncurses5-dev libssl-dev
-$ wget <clang-binaries-tarball-url>
-$ tar xvf clang*
-$ cd clang*
-$ sudo cp -r * /usr/local/ && cd ..
+$ sudo apt-get install -y build-essential git zlib1g-dev libncurses5-dev libssl-dev llvm-dev
 ```
 
 Ubuntu and some other Linux distributions don't include pcre2 in their package manager. pcre2 is used by the Pony regex package. To download and build pcre2 from source:
@@ -261,6 +295,8 @@ $ ./build/release/ponyc examples/helloworld
 
 ## Building on Windows
 [![Windows](https://ci.appveyor.com/api/projects/status/kckam0f1a1o0ly2j?svg=true)](https://ci.appveyor.com/project/sylvanc/ponyc)
+
+_Note: it may also be possible (as tested on build 14372.0 of Windows 10) to build Pony using the [Ubuntu 14.04](#ubuntu-1404-1510-1604) instructions inside [Bash on Ubuntu on Windows](https://msdn.microsoft.com/en-us/commandline/wsl/about)._
 
 The LLVM prebuilt binaries for Windows do NOT include the LLVM development tools and libraries. Instead, you will have to build and install LLVM 3.7 or 3.8 from source. You will need to make sure that the path to LLVM/bin (location of llvm-config) is in your PATH variable.
 

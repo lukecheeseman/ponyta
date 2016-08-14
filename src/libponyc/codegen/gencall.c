@@ -235,6 +235,42 @@ static void set_descriptor(compile_t* c, reach_type_t* t, LLVMValueRef value)
   LLVMBuildStore(c->builder, t->desc, desc_ptr);
 }
 
+static void set_method_external_nominal(reach_type_t* t, const char* name)
+{
+  reach_method_name_t* n = reach_method_name(t, name);
+  if(n != NULL)
+  {
+    size_t i = HASHMAP_BEGIN;
+    reach_method_t* m;
+    while((m = reach_methods_next(&n->r_methods, &i)) != NULL)
+    {
+      LLVMSetFunctionCallConv(m->func, LLVMCCallConv);
+      LLVMSetLinkage(m->func, LLVMExternalLinkage);
+    }
+  }
+}
+
+static void set_method_external_interface(reach_type_t* t, const char* name)
+{
+  set_method_external_nominal(t, name);
+
+  size_t i = HASHMAP_BEGIN;
+  reach_type_t* sub;
+  while((sub = reach_type_cache_next(&t->subtypes, &i)) != NULL)
+  {
+    reach_method_name_t* n = reach_method_name(sub, name);
+    if(n == NULL)
+      continue;
+    size_t j = HASHMAP_BEGIN;
+    reach_method_t* m;
+    while((m = reach_methods_next(&n->r_methods, &j)) != NULL)
+    {
+      LLVMSetFunctionCallConv(m->func, LLVMCCallConv);
+      LLVMSetLinkage(m->func, LLVMExternalLinkage);
+    }
+  }
+}
+
 LLVMValueRef gen_funptr(compile_t* c, ast_t* ast)
 {
   assert((ast_id(ast) == TK_FUNREF) || (ast_id(ast) == TK_BEREF));
@@ -261,7 +297,34 @@ LLVMValueRef gen_funptr(compile_t* c, ast_t* ast)
   reach_type_t* t = reach_type(c->reach, type);
   assert(t != NULL);
 
-  return dispatch_function(c, t, type, value, ast_name(method), typeargs);
+  const char* name = ast_name(method);
+  LLVMValueRef funptr = dispatch_function(c, t, type, value, name, typeargs);
+
+  if(c->linkage != LLVMExternalLinkage)
+  {
+    // We must reset the function linkage and calling convention since we're
+    // passing a function pointer to a FFI call.
+    switch(t->underlying)
+    {
+      case TK_PRIMITIVE:
+      case TK_STRUCT:
+      case TK_CLASS:
+      case TK_ACTOR:
+        set_method_external_nominal(t, name);
+        break;
+      case TK_UNIONTYPE:
+      case TK_ISECTTYPE:
+      case TK_INTERFACE:
+      case TK_TRAIT:
+        set_method_external_interface(t, name);
+        break;
+      default:
+        assert(0);
+        break;
+    }
+  }
+
+  return funptr;
 }
 
 LLVMValueRef gen_call(compile_t* c, ast_t* ast)
@@ -329,13 +392,16 @@ LLVMValueRef gen_call(compile_t* c, ast_t* ast)
       case TK_NEWBEREF:
       {
         ast_t* parent = ast_parent(ast);
-        ast_t* sibling = ast_sibling(ast);
+        while((parent != NULL) && (ast_id(parent) != TK_ASSIGN) &&
+          (ast_id(parent) != TK_CALL))
+          parent = ast_parent(parent);
 
         // If we're constructing an embed field, pass a pointer to the field
         // as the receiver. Otherwise, allocate an object.
-        if((ast_id(parent) == TK_ASSIGN) && (ast_id(sibling) == TK_EMBEDREF))
+        if((parent != NULL) && (ast_id(parent) == TK_ASSIGN) &&
+         (ast_id(ast_childidx(parent, 1)) == TK_EMBEDREF))
         {
-          args[0] = gen_fieldptr(c, sibling);
+          args[0] = gen_fieldptr(c, ast_childidx(parent, 1));
           set_descriptor(c, t, args[0]);
         } else {
           args[0] = gencall_alloc(c, t);
@@ -764,4 +830,76 @@ void gencall_throw(compile_t* c)
     LLVMBuildCall(c->builder, func, NULL, 0, "");
 
   LLVMBuildUnreachable(c->builder);
+}
+
+void gencall_memcpy(compile_t* c, LLVMValueRef dst, LLVMValueRef src,
+  LLVMValueRef n)
+{
+  LLVMValueRef func = LLVMMemcpy(c->module, target_is_ilp32(c->opt->triple));
+
+  LLVMValueRef args[5];
+  args[0] = dst;
+  args[1] = src;
+  args[2] = n;
+  args[3] = LLVMConstInt(c->i32, 1, false);
+  args[4] = LLVMConstInt(c->i1, 0, false);
+  LLVMBuildCall(c->builder, func, args, 5, "");
+}
+
+void gencall_memmove(compile_t* c, LLVMValueRef dst, LLVMValueRef src,
+  LLVMValueRef n)
+{
+  LLVMValueRef func = LLVMMemmove(c->module, target_is_ilp32(c->opt->triple));
+
+  LLVMValueRef args[5];
+  args[0] = dst;
+  args[1] = src;
+  args[2] = n;
+  args[3] = LLVMConstInt(c->i32, 1, false);
+  args[4] = LLVMConstInt(c->i1, 0, false);
+  LLVMBuildCall(c->builder, func, args, 5, "");
+}
+
+void gencall_lifetime_start(compile_t* c, LLVMValueRef ptr)
+{
+  LLVMValueRef func = LLVMLifetimeStart(c->module);
+  LLVMTypeRef type = LLVMGetElementType(LLVMTypeOf(ptr));
+  size_t size = (size_t)LLVMABISizeOfType(c->target_data, type);
+
+  LLVMValueRef args[2];
+  args[0] = LLVMConstInt(c->i64, size, false);
+  args[1] = LLVMBuildBitCast(c->builder, ptr, c->void_ptr, "");
+  LLVMBuildCall(c->builder, func, args, 2, "");
+}
+
+void gencall_lifetime_end(compile_t* c, LLVMValueRef ptr)
+{
+  LLVMValueRef func = LLVMLifetimeEnd(c->module);
+  LLVMTypeRef type = LLVMGetElementType(LLVMTypeOf(ptr));
+  size_t size = (size_t)LLVMABISizeOfType(c->target_data, type);
+
+  LLVMValueRef args[2];
+  args[0] = LLVMConstInt(c->i64, size, false);
+  args[1] = LLVMBuildBitCast(c->builder, ptr, c->void_ptr, "");
+  LLVMBuildCall(c->builder, func, args, 2, "");
+}
+
+void gencall_invariant_start(compile_t* c, LLVMValueRef ptr)
+{
+  LLVMValueRef func = LLVMInvariantStart(c->module);
+  LLVMTypeRef type = LLVMGetElementType(LLVMTypeOf(ptr));
+  size_t size = (size_t)LLVMABISizeOfType(c->target_data, type);
+
+  LLVMValueRef args[2];
+  // Check if we were passed a Pony Pointer. If so, the object is variable
+  // sized.
+  if(LLVMTypeOf(ptr) == c->void_ptr)
+  {
+    args[0] = LLVMConstInt(c->i64, -1, true);
+    args[1] = ptr;
+  } else {
+    args[0] = LLVMConstInt(c->i64, size, false);
+    args[1] = LLVMBuildBitCast(c->builder, ptr, c->void_ptr, "");
+  }
+  LLVMBuildCall(c->builder, func, args, 2, "");
 }

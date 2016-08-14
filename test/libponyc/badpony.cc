@@ -205,3 +205,46 @@ TEST_F(BadPonyTest, MainActorFunCreate)
 
   TEST_ERRORS_1(src, "the create method of a Main actor must be a constructor");
 }
+
+TEST_F(BadPonyTest, ParenthesisedReturn)
+{
+  // From issue #1050
+  const char* src =
+    "actor Main\n"
+    "  new create(env: Env) =>\n"
+    "    (return)";
+
+  TEST_ERRORS_1(src, "use return only to exit early from a method");
+}
+
+TEST_F(BadPonyTest, ParenthesisedReturn2)
+{
+  // From issue #1050
+  const char* src =
+    "actor Main\n"
+    "  new create(env: Env) =>\n"
+    "    foo()\n"
+
+    "  fun foo(): U64 =>\n"
+    "    (return 0)\n"
+    "    2";
+
+  TEST_ERRORS_1(src, "Unreachable code");
+}
+
+TEST_F(BadPonyTest, MatchUncalledMethod)
+{
+  // From issue #903
+  const char* src =
+    "actor Main\n"
+    "  new create(env: Env) =>\n"
+    "    match foo\n"
+    "    | None => None\n"
+    "    end\n"
+
+    "  fun foo() =>\n"
+    "    None";
+
+  TEST_ERRORS_2(src, "can't reference a method without calling it",
+                     "this pattern can never match");
+}

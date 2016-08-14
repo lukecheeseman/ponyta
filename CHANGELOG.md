@@ -43,6 +43,10 @@ All notable changes to the Pony compiler and standard library will be documented
 - Compiler bug where `as` operator with a lambda literal caused seg fault.
 - String.read_int failure on lowest number in the range of signed integers.
 - Regex incorrect of len variable when PCRE2_ERROR_NOMEMORY is encountered.
+- No longer silently ignores lib paths containing parens on Windows.
+- Fix issue with creating hex and octal strings if precision was specified.
+- Correctly parses Windows 10 SDK versions, and includes new UCRT library when linking with Windows 10 SDK.
+- Performance of Array.append and Array.concat (no unnecessary calls to push).
 
 ### Added
 
@@ -87,6 +91,11 @@ All notable changes to the Pony compiler and standard library will be documented
 - `DoNotOptimise` primitive
 - `compact` method for `Array` and `String`
 - `String.push_utf32()` method.
+- Allow the use of a LLVM bitcode file for the runtime instead of a static library.
+- add iterators to persistent/Map (`keys()`, `values()`, and `pairs()`)
+- add notification of terminal resize
+- `trim` and `trim_in_place` methods for `Array` and `String`.
+- `is_null_terminated` and `null_terminated` methods for `String`.
 
 ### Changed
 
@@ -102,12 +111,15 @@ All notable changes to the Pony compiler and standard library will be documented
 - Parameterized Array.find and Array.rfind with a comparator.
 - `this->` adapted types check match on the upper bounds.
 - Renamed `identityof` to `digestof`.
-- Renamed `net/Buffer` to `net/ReadBuffer`
+- Moved and renamed `net/Buffer` to `buffered/Reader` and `buffered/Writer`.
 - Print compiler error and info messages to stderr instead of stdout.
 - `Hashmap.concat` now returns `this` rather than `None`
 - Only allow single, internal underscores in numeric literals.
 - `ponyc --version` now includes the build type (debug/release) in its output.
 - Strings now grow and shrink geometrically.
+- Embedded fields can now be constructed from complex expressions containing constructors
+- Sendable members of non-sendable objects can be used in recover expressions in certain cases.
+- ProcessNotify functions are passed a reference to ProcessMonitor.
 
 ## [0.2.1] - 2015-10-06
 

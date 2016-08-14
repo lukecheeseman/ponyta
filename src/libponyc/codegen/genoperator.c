@@ -1,4 +1,5 @@
 #include "genoperator.h"
+#include "gencall.h"
 #include "genexpr.h"
 #include "genreference.h"
 #include "genname.h"
@@ -374,8 +375,11 @@ static LLVMValueRef assign_rvalue(compile_t* c, ast_t* left, ast_t* r_type,
     case TK_VARREF:
     {
       // The result is the previous value of the local.
-      LLVMValueRef l_value = gen_localptr(c, left);
-      return assign_one(c, l_value, r_value, r_type);
+      const char* name = ast_name(ast_child(left));
+      codegen_local_lifetime_start(c, name);
+      LLVMValueRef l_value = codegen_getlocal(c, name);
+      LLVMValueRef ret = assign_one(c, l_value, r_value, r_type);
+      return ret;
     }
 
     case TK_TUPLE:
@@ -397,8 +401,10 @@ static LLVMValueRef assign_rvalue(compile_t* c, ast_t* left, ast_t* r_type,
     {
       // We may have recursed here from a VAR or LET or arrived directly.
       const char* name = ast_name(left);
+      codegen_local_lifetime_start(c, name);
       LLVMValueRef l_value = codegen_getlocal(c, name);
-      return assign_one(c, l_value, r_value, r_type);
+      LLVMValueRef ret = assign_one(c, l_value, r_value, r_type);
+      return ret;
     }
 
     default: {}

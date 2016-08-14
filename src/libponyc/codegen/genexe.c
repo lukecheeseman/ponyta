@@ -189,6 +189,13 @@ static bool link_exe(compile_t* c, ast_t* program,
 {
   errors_t* errors = c->opt->check.errors;
 
+  const char* ponyrt = c->opt->runtimebc ? "" :
+#if defined(PLATFORM_IS_WINDOWS)
+    "ponyrt.lib";
+#else
+    "-lponyrt";
+#endif
+
 #if defined(PLATFORM_IS_MACOSX)
   char* arch = strchr(c->opt->triple, '-');
 
@@ -216,8 +223,8 @@ static bool link_exe(compile_t* c, ast_t* program,
   // Avoid incorrect ld, eg from macports.
   snprintf(ld_cmd, ld_len,
     "/usr/bin/ld -execute -no_pie -dead_strip -arch %.*s "
-    "-macosx_version_min 10.8 -o %s %s %s -lponyrt -lSystem",
-    (int)arch_len, c->opt->triple, file_exe, file_o, lib_args
+    "-macosx_version_min 10.8 -o %s %s %s %s -lSystem",
+    (int)arch_len, c->opt->triple, file_exe, file_o, lib_args, ponyrt
     );
 
   if(c->opt->verbosity >= VERBOSITY_TOOL_INFO)
@@ -274,12 +281,12 @@ static bool link_exe(compile_t* c, ast_t* program,
 #ifdef PLATFORM_IS_LINUX
     "-fuse-ld=gold "
 #endif
-    "%s %s -lponyrt -lpthread "
+    "%s %s %s -lpthread "
 #ifdef PLATFORM_IS_LINUX
     "-ldl "
 #endif
     "-lm",
-    file_exe, file_o, lib_args
+    file_exe, file_o, lib_args, ponyrt
     );
 
   if(c->opt->verbosity >= VERBOSITY_TOOL_INFO)
@@ -311,6 +318,12 @@ static bool link_exe(compile_t* c, ast_t* program,
     "/LIBPATH:", NULL, "", "", "", ".lib");
   const char* lib_args = program_lib_args(program);
 
+  char ucrt_lib[MAX_PATH + 12];
+  if (strlen(vcvars.ucrt) > 0)
+    snprintf(ucrt_lib, MAX_PATH + 12, "/LIBPATH:\"%s\"", vcvars.ucrt);
+  else
+    ucrt_lib[0] = '\0';
+
   size_t ld_len = 256 + strlen(file_exe) + strlen(file_o) +
     strlen(vcvars.kernel32) + strlen(vcvars.msvcrt) + strlen(lib_args);
   char* ld_cmd = (char*)ponyint_pool_alloc_size(ld_len);
@@ -320,11 +333,12 @@ static bool link_exe(compile_t* c, ast_t* program,
     int num_written = snprintf(ld_cmd, ld_len,
       "cmd /C \"\"%s\" /DEBUG /NOLOGO /MACHINE:X64 "
       "/OUT:%s "
-      "%s "
+      "%s %s "
       "/LIBPATH:\"%s\" "
       "/LIBPATH:\"%s\" "
-      "%s kernel32.lib msvcrt.lib Ws2_32.lib vcruntime.lib legacy_stdio_definitions.lib ponyrt.lib \"",
-      vcvars.link, file_exe, file_o, vcvars.kernel32, vcvars.msvcrt, lib_args
+      "%s %s %s \"",
+      vcvars.link, file_exe, file_o, ucrt_lib, vcvars.kernel32, 
+      vcvars.msvcrt, lib_args, vcvars.default_libs, ponyrt
     );
 
     if (num_written < ld_len)
@@ -372,7 +386,7 @@ bool genexe(compile_t* c, ast_t* program)
   ast_t* main_ast = type_builtin(c->opt, main_def, main_actor);
   ast_t* env_ast = type_builtin(c->opt, main_def, env_class);
 
-  if(lookup(NULL, main_ast, main_ast, c->str_create) == NULL)
+  if(lookup(c->opt, main_ast, main_ast, c->str_create) == NULL)
     return false;
 
   if(c->opt->verbosity >= VERBOSITY_INFO)
@@ -404,8 +418,20 @@ bool genexe(compile_t* c, ast_t* program)
 
   gen_main(c, t_main, t_env);
 
-  if(!genopt(c))
+  if(!genopt(c, true))
     return false;
+
+  if(c->opt->runtimebc)
+  {
+    if(!codegen_merge_runtime_bitcode(c))
+      return false;
+
+    // Rerun the optimiser without the Pony-specific optimisation passes.
+    // Inlining runtime functions can screw up these passes so we can't
+    // run the optimiser only once after merging.
+    if(!genopt(c, false))
+      return false;
+  }
 
   const char* file_o = genobj(c);
 

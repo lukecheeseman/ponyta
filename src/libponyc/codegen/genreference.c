@@ -3,8 +3,9 @@
 #include "genname.h"
 #include "gencall.h"
 #include "../expr/literal.h"
-#include "../type/subtype.h"
 #include "../type/cap.h"
+#include "../type/subtype.h"
+#include "../type/viewpoint.h"
 #include <string.h>
 #include <assert.h>
 
@@ -85,9 +86,45 @@ LLVMValueRef gen_fieldload(compile_t* c, ast_t* ast)
   if(field == NULL)
     return NULL;
 
+  assert((ast_id(l_type) == TK_NOMINAL) || (ast_id(l_type) == TK_TUPLETYPE));
+
   // Don't load if we're reading from a tuple.
   if(ast_id(l_type) != TK_TUPLETYPE)
+  {
     field = LLVMBuildLoad(c->builder, field, "");
+    if((ast_id(ast) == TK_FLETREF) || (cap_single(l_type) == TK_VAL))
+    {
+      LLVMValueRef metadata = LLVMMDNodeInContext(c->context, NULL, 0);
+      const char id[] = "invariant.load";
+      LLVMSetMetadata(field, LLVMGetMDKindID(id, sizeof(id) - 1), metadata);
+    }
+  }
+
+  ast_t* f_type = ast_type(ast);
+
+  if((ast_id(f_type) == TK_NOMINAL) && (cap_single(f_type) == TK_VAL))
+  {
+    if(LLVMGetTypeKind(LLVMTypeOf(field)) == LLVMPointerTypeKind)
+      gencall_invariant_start(c, field);
+  }
+
+  return field;
+}
+
+LLVMValueRef gen_fieldembed(compile_t* c, ast_t* ast)
+{
+  LLVMValueRef field = gen_fieldptr(c, ast);
+
+  if(field == NULL)
+    return NULL;
+
+  ast_t* f_type = ast_type(ast);
+
+  if((ast_id(f_type) == TK_NOMINAL) && (cap_single(f_type) == TK_VAL))
+  {
+    if(LLVMGetTypeKind(LLVMTypeOf(field)) == LLVMPointerTypeKind)
+      gencall_invariant_start(c, field);
+  }
 
   return field;
 }
@@ -195,7 +232,24 @@ LLVMValueRef gen_localload(compile_t* c, ast_t* ast)
   if(local_ptr == NULL)
     return NULL;
 
-  return LLVMBuildLoad(c->builder, local_ptr, "");
+  LLVMValueRef local = LLVMBuildLoad(c->builder, local_ptr, "");
+
+  if(ast_id(ast) == TK_LETREF)
+  {
+    LLVMValueRef metadata = LLVMMDNodeInContext(c->context, NULL, 0);
+    const char id[] = "invariant.load";
+    LLVMSetMetadata(local, LLVMGetMDKindID(id, sizeof(id) - 1), metadata);
+  }
+
+  ast_t* l_type = ast_type(ast);
+
+  if((ast_id(l_type) == TK_NOMINAL) && (cap_single(l_type) == TK_VAL))
+  {
+    if(LLVMGetTypeKind(LLVMTypeOf(local)) == LLVMPointerTypeKind)
+      gencall_invariant_start(c, local);
+  }
+
+  return local;
 }
 
 LLVMValueRef gen_addressof(compile_t* c, ast_t* ast)
@@ -345,120 +399,4 @@ LLVMValueRef gen_string(compile_t* c, ast_t* ast)
   LLVMSetLinkage(g_inst, LLVMPrivateLinkage);
 
   return g_inst;
-}
-
-static LLVMValueRef gen_constant_vector(compile_t* c, ast_t* ast)
-{
-  AST_GET_CHILDREN(ast, name, members);
-  const char* obj_name = ast_name(name);
-  LLVMValueRef obj = LLVMGetNamedGlobal(c->module, obj_name);
-  if(obj != NULL)
-    return obj;
-
-  ast_t* type = ast_type(ast);
-  AST_GET_CHILDREN(type, package, id, typeargs);
-
-  reach_type_t* t = reach_type(c->reach, type);
-  reach_type_t* elem_t = reach_type(c->reach, ast_child(typeargs));
-
-  uint32_t elem_count = (uint32_t)ast_childcount(members);
-  LLVMValueRef elems[elem_count];
-
-  uint32_t elem = 0;
-  for(ast_t* member = ast_child(members);
-      member != NULL;
-      member = ast_sibling(member))
-  {
-    elems[elem++] = gen_expr(c, member);
-  }
-
-  LLVMValueRef array = LLVMConstArray(elem_t->use_type, elems, elem_count);
-
-  LLVMValueRef args[2] = {t->desc, array};
-  LLVMValueRef inst = LLVMConstNamedStruct(t->structure, args, 2);
-  LLVMValueRef g_inst = LLVMAddGlobal(c->module, t->structure, obj_name);
-  LLVMSetInitializer(g_inst, inst);
-  LLVMSetGlobalConstant(g_inst, true);
-  LLVMSetLinkage(g_inst, LLVMInternalLinkage);
-  return g_inst;
-}
-
-LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
-{
-  ast_t* type = ast_type(ast);
-  if(is_vector(type))
-    return gen_constant_vector(c, ast);
-
-  AST_GET_CHILDREN(ast, name, members);
-  const char* obj_name = ast_name(name);
-  LLVMValueRef obj = LLVMGetNamedGlobal(c->module, obj_name);
-  if(obj != NULL)
-    return obj;
-
-  AST_GET_CHILDREN(type, package, id);
-  reach_type_t* t = reach_type(c->reach, type);
-
-  uint32_t field_count = t->field_count + 1;
-  LLVMValueRef args[field_count];
-  args[0] = t->desc;
-
-  uint32_t field = 0;
-  for(ast_t* member = ast_child(members);
-      member != NULL;
-      field++, member = ast_sibling(member))
-  {
-    // All field objects must also be compile time objects.
-    // When we assign to an embedded field we know we must have
-    // constructed it in the constructor so we get the initializer and then
-    // construct the field in the construction of the compile time object
-    // then we remove the old global that we no longer require.
-    if(t->fields[field].embed)
-    {
-      LLVMValueRef constant = gen_expr(c, member);
-      args[field + 1] = LLVMGetInitializer(constant);
-      LLVMDeleteGlobal(constant);
-    }
-    else
-    {
-      args[field + 1] = gen_expr(c, member);
-    }
-  }
-
-  LLVMValueRef inst = LLVMConstNamedStruct(t->structure, args, field_count);
-  LLVMValueRef g_inst = LLVMAddGlobal(c->module, t->structure, obj_name);
-  LLVMSetInitializer(g_inst, inst);
-  LLVMSetGlobalConstant(g_inst, true);
-  LLVMSetLinkage(g_inst, LLVMInternalLinkage);
-  return g_inst;
-}
-
-LLVMValueRef gen_vector(compile_t* c, ast_t* ast)
-{
-  ast_t* type = ast_type(ast);
-  reach_type_t* t = reach_type(c->reach, type);
-
-  // Static or virtual dispatch.
-  token_id cap = cap_dispatch(type);
-  LLVMValueRef func = reach_method(t, cap, stringtab("_update"), NULL)->func;
-
-  LLVMTypeRef f_type = LLVMGetElementType(LLVMTypeOf(func));
-  LLVMTypeRef params[3];
-  LLVMGetParamTypes(f_type, params);
-
-  LLVMValueRef args[3];
-  args[0] = gencall_alloc(c, t);
-
-  size_t index = 0;
-  ast_t* elem = ast_child(ast);
-  elem = ast_sibling(elem);
-  while(elem != NULL)
-  {
-    args[1] = LLVMConstInt(c->i64, index++, false);
-    args[2] = gen_assign_cast(c, params[2], gen_expr(c, elem), ast_type(elem));
-    codegen_call(c, func, args, 3);
-    codegen_debugloc(c, NULL);
-    elem = ast_sibling(elem);
-  }
-
-  return args[0];
 }

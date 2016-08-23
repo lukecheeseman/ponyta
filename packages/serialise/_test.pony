@@ -16,6 +16,7 @@ actor Main is TestList
     test(_TestArrays)
     test(_TestFailures)
     test(_TestBoxedMachineWord)
+    test(_TestVectors)
 
 class _MachineWords
   var bool1: Bool = true
@@ -231,3 +232,63 @@ class iso _TestBoxedMachineWord is UnitTest
     let y = sx(deserialise) as _BoxedWord
     h.assert_true(x isnt y)
     h.assert_true((y.f as U64) == 7)
+
+class iso _TestVectors is UnitTest
+  """
+  Test serialising vectors.
+  """
+  fun name(): String => "serialise/Vectors"
+
+  fun apply(h: TestHelper) ? =>
+    let ambient = h.env.root as AmbientAuth
+    let serialise = SerialiseAuth(ambient)
+    let deserialise = DeserialiseAuth(ambient)
+
+    let x1: Vector[U128, 3] = {1, 2, 3}
+    var sx = Serialised(serialise, x1)
+    let y1 = sx(deserialise) as Vector[U128, 3]
+    h.assert_true(x1 isnt y1)
+    h.assert_array_eq[U128](x1, y1)
+
+    let x2: Vector[Bool, 3] = {true, false, true}
+    sx = Serialised(serialise, x2)
+    let y2 = sx(deserialise) as Vector[Bool, 3]
+    h.assert_true(x2 isnt y2)
+    h.assert_array_eq[Bool](x2, y2)
+
+    let x3: Vector[U32, 3] = {1, 2, 3}
+    sx = Serialised(serialise, x3)
+    let y3 = sx(deserialise) as Vector[U32, 3]
+    h.assert_true(x3 isnt y3)
+    h.assert_array_eq[U32](x3, y3)
+
+    let x4: Vector[(U16, Bool), 3] = {(1, true), (2, false), (78, true)}
+    sx = Serialised(serialise, x4)
+    let y4 = sx(deserialise) as Vector[(U16, Bool), 3]
+    h.assert_true(x4 isnt y4)
+
+    var i = USize(0)
+    while i < x4.size() do
+      h.assert_eq[U16](x4(i)._1, y4(i)._1)
+      h.assert_eq[Bool](x4(i)._2, y4(i)._2)
+      i = i + 1
+    end
+
+    let x5: Vector[String, 3] = {"hi", "there", "folks"}
+    sx = Serialised(serialise, x5)
+    let y5 = sx(deserialise) as Vector[String, 3]
+    h.assert_true(x5 isnt y5)
+    h.assert_array_eq[String](x5, y5)
+
+    let x6: Vector[_StructWords, 3] =
+      {as _StructWords: _StructWords, _StructWords, _StructWords}
+    sx = Serialised(serialise, x6)
+    let y6 = sx(deserialise) as Vector[_StructWords, 3]
+    h.assert_true(x6 isnt y6)
+
+    i = 0
+    while i < x6.size() do
+      h.assert_true(x6(i) isnt y6(i))
+      h.assert_true(x6(i) == y6(i))
+      i = i + 1
+    end

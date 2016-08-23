@@ -296,6 +296,16 @@ bool genserialise(compile_t* c, reach_type_t* t)
           return true;
         }
 
+        if(name == c->str_Vector)
+        {
+          // Use the trace function as the serialise_trace function.
+          t->serialise_trace_fn = t->trace_fn;
+
+          genprim_vector_serialise(c, t);
+          genprim_vector_deserialise(c, t);
+          return true;
+        }
+
         if(name == c->str_String)
         {
           genprim_string_serialise_trace(c, t);

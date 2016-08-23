@@ -690,7 +690,7 @@ void gentrace_prototype(compile_t* c, reach_type_t* t)
   bool need_trace = false;
 
   // Vectors and matrices don't have fields but may need tracing
-  if(is_vector(t->ast) || is_matrix(t->ast))
+  if(is_vector(t->ast))
   {
     ast_t* typeargs = ast_childidx(t->ast, 2);
     need_trace = gentrace_needed(ast_child(typeargs));

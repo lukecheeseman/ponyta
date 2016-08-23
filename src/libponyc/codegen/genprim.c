@@ -550,9 +550,10 @@ void genprim_vector_methods(compile_t* c, reach_type_t* t)
   vector_update(c, t, t_elem);
 }
 
-void genprim_vector_trace(compile_t* c, reach_type_t* t)
+static void trace_vector_elements(compile_t* c, reach_type_t* t,
+  LLVMValueRef ctx, LLVMValueRef vector)
 {
-  // Get the type argument for the array. This will be used to generate the
+  // Get the type argument for the vector. This will be used to generate the
   // per-element trace call.
   ast_t* typeargs = ast_childidx(t->ast, 2);
   AST_GET_CHILDREN(typeargs, elem_type, num_elems);
@@ -560,14 +561,6 @@ void genprim_vector_trace(compile_t* c, reach_type_t* t)
   // If the elements don't need tracing then we can stop here
   if(!gentrace_needed(elem_type))
     return;
-
-  codegen_startfun(c, t->trace_fn, NULL, NULL);
-  LLVMSetFunctionCallConv(t->trace_fn, LLVMCCallConv);
-
-  LLVMValueRef ctx = LLVMGetParam(t->trace_fn, 0);
-
-  LLVMValueRef arg = LLVMGetParam(t->trace_fn, 1);
-  LLVMValueRef vector = LLVMBuildBitCast(c->builder, arg, t->use_type, "vector");
 
   LLVMBasicBlockRef entry_block = LLVMGetInsertBlock(c->builder);
   LLVMBasicBlockRef cond_block = codegen_block(c, "cond");
@@ -596,8 +589,8 @@ void genprim_vector_trace(compile_t* c, reach_type_t* t)
   index[0] = LLVMConstInt(c->i32, 0, false);
   index[1] = LLVMConstInt(c->i32, 1, false);
   index[2] = phi;
-  LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP(c->builder, vector, index, 3, "elem");
-  LLVMValueRef elem = LLVMBuildLoad(c->builder, elem_ptr, "");
+  LLVMValueRef elem = LLVMBuildInBoundsGEP(c->builder, vector, index, 3, "");
+  elem = LLVMBuildLoad(c->builder, elem, "");
   gentrace(c, ctx, elem, elem_type);
 
   // Add one to the phi node and branch back to the cond block.
@@ -608,7 +601,193 @@ void genprim_vector_trace(compile_t* c, reach_type_t* t)
   LLVMBuildBr(c->builder, cond_block);
 
   LLVMPositionBuilderAtEnd(c->builder, post_block);
+}
+
+void genprim_vector_trace(compile_t* c, reach_type_t* t)
+{
+  codegen_startfun(c, t->trace_fn, NULL, NULL);
+  LLVMSetFunctionCallConv(t->trace_fn, LLVMCCallConv);
+  LLVMSetLinkage(t->trace_fn, LLVMExternalLinkage);
+
+  LLVMValueRef ctx = LLVMGetParam(t->trace_fn, 0);
+  LLVMValueRef arg = LLVMGetParam(t->trace_fn, 1);
+  LLVMValueRef vector = LLVMBuildBitCast(c->builder, arg, t->use_type, "");
+
+  trace_vector_elements(c, t, ctx, vector);
   LLVMBuildRetVoid(c->builder);
+  codegen_finishfun(c);
+}
+
+void genprim_vector_serialise(compile_t* c, reach_type_t* t)
+{
+  // Generate the serialise function.
+  t->serialise_fn = codegen_addfun(c, genname_serialise(t->name),
+    c->serialise_type);
+
+  codegen_startfun(c, t->serialise_fn, NULL, NULL);
+  LLVMSetFunctionCallConv(t->serialise_fn, LLVMCCallConv);
+  LLVMSetLinkage(t->serialise_fn, LLVMExternalLinkage);
+
+  LLVMValueRef ctx = LLVMGetParam(t->serialise_fn, 0);
+  LLVMValueRef arg = LLVMGetParam(t->serialise_fn, 1);
+  LLVMValueRef addr = LLVMGetParam(t->serialise_fn, 2);
+  LLVMValueRef offset = LLVMGetParam(t->serialise_fn, 3);
+  LLVMValueRef mut = LLVMGetParam(t->serialise_fn, 4);
+
+  LLVMValueRef object = LLVMBuildBitCast(c->builder, arg, t->structure_ptr,
+    "");
+  LLVMValueRef offset_addr = LLVMBuildInBoundsGEP(c->builder, addr, &offset, 1,
+    "");
+
+  genserialise_typeid(c, t, offset_addr);
+
+  // Don't serialise our contents if we are opaque.
+  LLVMBasicBlockRef body_block = codegen_block(c, "body");
+  LLVMBasicBlockRef post_block = codegen_block(c, "post");
+
+  LLVMValueRef test = LLVMBuildICmp(c->builder, LLVMIntNE, mut,
+    LLVMConstInt(c->i32, PONY_TRACE_OPAQUE, false), "");
+  LLVMBuildCondBr(c->builder, test, body_block, post_block);
+  LLVMPositionBuilderAtEnd(c->builder, body_block);
+
+  // Serialise elements.
+  ast_t* typeargs = ast_childidx(t->ast, 2);
+  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
+  reach_type_t* t_elem = reach_type(c->reach, elem_type);
+
+  lexint_t* lex_size = ast_int(ast_child(num_elems));
+  assert(lexint_cmp64(lex_size, UINT32_MAX) <= 0);
+  size_t abisize = (size_t)LLVMABISizeOfType(c->target_data, t_elem->use_type);
+  LLVMValueRef size = LLVMConstInt(c->intptr, lex_size->low * abisize, false);
+
+  LLVMValueRef elems_loc = field_loc(c, offset_addr, t->structure,
+    t_elem->use_type, 1);
+  elems_loc = LLVMBuildBitCast(c->builder, elems_loc, c->void_ptr, "");
+
+  if((t_elem->underlying == TK_PRIMITIVE) && (t_elem->primitive != NULL))
+  {
+    // memcpy machine words
+    LLVMValueRef index[3];
+    index[0] = LLVMConstInt(c->i32, 0, false);
+    index[1] = LLVMConstInt(c->i32, 1, false);
+    index[2] = LLVMConstInt(c->i32, 0, false);
+    LLVMValueRef elems = LLVMBuildInBoundsGEP(c->builder, object, index, 3, "");
+    elems = LLVMBuildBitCast(c->builder, elems, c->void_ptr, "");
+    gencall_memcpy(c, elems_loc, elems, size);
+
+  } else {
+    LLVMBasicBlockRef entry_block = LLVMGetInsertBlock(c->builder);
+    LLVMBasicBlockRef cond_block = codegen_block(c, "cond");
+    LLVMBasicBlockRef body_block = codegen_block(c, "body");
+    LLVMBasicBlockRef post_block = codegen_block(c, "post");
+
+    LLVMBuildBr(c->builder, cond_block);
+
+    // While the index is less than the size, serialise an element. The
+    // initial index when coming from the entry block is zero.
+    LLVMPositionBuilderAtEnd(c->builder, cond_block);
+    LLVMValueRef phi = LLVMBuildPhi(c->builder, c->intptr, "");
+    LLVMValueRef zero = LLVMConstInt(c->intptr, 0, false);
+    LLVMAddIncoming(phi, &zero, &entry_block, 1);
+    LLVMValueRef test = LLVMBuildICmp(c->builder, LLVMIntULT, phi,
+      LLVMConstInt(c->intptr, lex_size->low, false), "");
+    LLVMBuildCondBr(c->builder, test, body_block, post_block);
+
+    // The phi node is the index. Get the element and serialise it.
+    LLVMPositionBuilderAtEnd(c->builder, body_block);
+    LLVMValueRef index[3];
+    index[0] = LLVMConstInt(c->i32, 0, false);
+    index[1] = LLVMConstInt(c->i32, 1, false);
+    index[2] = phi;
+    LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP(c->builder, object, index, 3,
+      "");
+
+    LLVMValueRef l_size = LLVMConstInt(c->intptr, abisize, false);
+    LLVMValueRef elem_offset = LLVMBuildMul(c->builder, phi, l_size, "");
+    LLVMValueRef elem_loc = LLVMBuildInBoundsGEP(c->builder, elems_loc,
+      &elem_offset, 1, "");
+    genserialise_element(c, t_elem, false, ctx, elem_ptr, elem_loc);
+
+    // Add one to the phi node and branch back to the cond block.
+    LLVMValueRef one = LLVMConstInt(c->intptr, 1, false);
+    LLVMValueRef inc = LLVMBuildAdd(c->builder, phi, one, "");
+    body_block = LLVMGetInsertBlock(c->builder);
+    LLVMAddIncoming(phi, &inc, &body_block, 1);
+    LLVMBuildBr(c->builder, cond_block);
+
+    LLVMPositionBuilderAtEnd(c->builder, post_block);
+  }
+
+  LLVMBuildBr(c->builder, post_block);
+  LLVMPositionBuilderAtEnd(c->builder, post_block);
+  LLVMBuildRetVoid(c->builder);
+  codegen_finishfun(c);
+}
+
+void genprim_vector_deserialise(compile_t* c, reach_type_t* t)
+{
+  // Generate the deserisalise function.
+  t->deserialise_fn = codegen_addfun(c, genname_serialise(t->name),
+    c->trace_type);
+
+  codegen_startfun(c, t->deserialise_fn, NULL, NULL);
+  LLVMSetFunctionCallConv(t->deserialise_fn, LLVMCCallConv);
+  LLVMSetLinkage(t->deserialise_fn, LLVMExternalLinkage);
+
+  LLVMValueRef ctx = LLVMGetParam(t->deserialise_fn, 0);
+  LLVMValueRef arg = LLVMGetParam(t->deserialise_fn, 1);
+
+  LLVMValueRef object = LLVMBuildBitCast(c->builder, arg, t->structure_ptr,
+    "");
+  gendeserialise_typeid(c, t, object);
+
+  ast_t* typeargs = ast_childidx(t->ast, 2);
+  AST_GET_CHILDREN(typeargs, elem_type, num_elems);
+
+  reach_type_t* t_elem = reach_type(c->reach, elem_type);
+
+  if(t_elem->underlying != TK_PRIMITIVE)
+  {
+    lexint_t* lex_size = ast_int(ast_child(num_elems));
+    assert(lexint_cmp64(lex_size, UINT32_MAX) <= 0);
+    LLVMValueRef size = LLVMConstInt(c->intptr, lex_size->low, false);
+
+    LLVMBasicBlockRef entry_block = LLVMGetInsertBlock(c->builder);
+    LLVMBasicBlockRef cond_block = codegen_block(c, "cond");
+    LLVMBasicBlockRef body_block = codegen_block(c, "body");
+    LLVMBasicBlockRef post_block = codegen_block(c, "post");
+
+    LLVMBuildBr(c->builder, cond_block);
+
+    // While the index is less than the size, deserialise an element. The
+    // initial index when coming from the entry block is zero.
+    LLVMPositionBuilderAtEnd(c->builder, cond_block);
+    LLVMValueRef phi = LLVMBuildPhi(c->builder, c->intptr, "");
+    LLVMValueRef zero = LLVMConstInt(c->intptr, 0, false);
+    LLVMAddIncoming(phi, &zero, &entry_block, 1);
+    LLVMValueRef test = LLVMBuildICmp(c->builder, LLVMIntULT, phi, size, "");
+    LLVMBuildCondBr(c->builder, test, body_block, post_block);
+
+    // The phi node is the index. Get the element and deserialise it.
+    LLVMPositionBuilderAtEnd(c->builder, body_block);
+    LLVMValueRef index[3];
+    index[0] = LLVMConstInt(c->i32, 0, false);
+    index[1] = LLVMConstInt(c->i32, 1, false);
+    index[2] = phi;
+    LLVMValueRef elem = LLVMBuildInBoundsGEP(c->builder, object, index, 3, "");
+    gendeserialise_element(c, t_elem, false, ctx, elem);
+
+    // Add one to the phi node and branch back to the cond block.
+    LLVMValueRef one = LLVMConstInt(c->intptr, 1, false);
+    LLVMValueRef inc = LLVMBuildAdd(c->builder, phi, one, "");
+    body_block = LLVMGetInsertBlock(c->builder);
+    LLVMAddIncoming(phi, &inc, &body_block, 1);
+    LLVMBuildBr(c->builder, cond_block);
+
+    LLVMPositionBuilderAtEnd(c->builder, post_block);
+  }
+  LLVMBuildRetVoid(c->builder);
+
   codegen_finishfun(c);
 }
 

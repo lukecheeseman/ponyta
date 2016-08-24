@@ -377,6 +377,70 @@ TEST_F(VDTTest, BadParamFuctionReturnType)
   TEST_ERROR(src);
 }
 
+TEST_F(VDTTest, ReificationWithReversedOrder)
+{
+  const char* src =
+    "class C1[n: (U32 | U64), m: (U32 | U64)]\n"
+
+    "class C2[n: (U32 | U64), m: (U32 | U64)]\n"
+    "  let c: C1[m, n] = C1[m, n]\n";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, TestReifiedConstraint)
+{
+  const char* src =
+    "class C1[A, n: A]\n"
+
+    "class C2\n"
+    "  let c: C1[U32, 2] = C1[U32, 2]";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, TestBadConstraint)
+{
+  const char* src =
+    "class C1[n: U32, m: n]";
+
+  TEST_ERROR(src);
+}
+
+TEST_F(VDTTest, TestMultipleTraitInstantiationWithMethod)
+{
+  const char* src =
+    "trait T1[n: U32]\n"
+    "  fun foo(): U32 => n\n"
+    "class C1 is (T1[2] & T1[68])";
+
+  TEST_ERROR(src);
+}
+
+TEST_F(VDTTest, TestNestedReifications)
+{
+  const char* src =
+    "class C1[n: U32]\n"
+    "  fun apply(): U32 => n\n"
+    "class C2\n"
+    "  fun foo[m: U32](c: C1[#m]): U32 => c()\n"
+    "  fun bar[n: U32](c: C1[#n]): U32 => foo[#n](c)\n"
+    "  new create() => bar[12](C1[12])";
+
+  TEST_COMPILE(src);
+}
+
+TEST_F(VDTTest, TestCompileTimeExpressionScope)
+{
+  const char* src =
+    "class C1\n"
+    "  new create() =>\n"
+    "    let x: U32 = # (let y: U32; y + 2)\n"
+    "    let z: U32 = y";
+
+  TEST_ERROR(src);
+}
+
 // FIXME: these tests fails as the operations cannot be found due to builtin
 // not being included -- fail in dot_or_tilde, these do not fail when
 // run outside of the testing framework
@@ -475,14 +539,12 @@ TEST_F(VDTTest, DISABLED_DefaultDictionaryClass)
 
 TEST_F(VDTTest, DISABLED_VDTClassInheritsFromInterface)
 {
-  // This fails as size will be redeclared
   const char* src =
     "class Vector[A, size: USize] is Seq[A]";
   TEST_ERROR(src);
 }
 
 
-// TODO: ADD TESTS FOR COMPILE CONSTANTS
 TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstant)
 {
   const char* src =
@@ -513,66 +575,3 @@ TEST_F(VDTTest, DISABLED_VDTTypeWithCompileTimeConstantError)
   TEST_ERROR(src);
 }
 
-TEST_F(VDTTest, ReificationWithReversedOrder)
-{
-  const char* src =
-    "class C1[n: (U32 | U64), m: (U32 | U64)]\n"
-
-    "class C2[n: (U32 | U64), m: (U32 | U64)]\n"
-    "  let c: C1[m, n] = C1[m, n]\n";
-
-  TEST_COMPILE(src);
-}
-
-TEST_F(VDTTest, TestReifiedConstraint)
-{
-  const char* src =
-    "class C1[A, n: A]\n"
-
-    "class C2\n"
-    "  let c: C1[U32, 2] = C1[U32, 2]";
-
-  TEST_COMPILE(src);
-}
-
-TEST_F(VDTTest, TestBadConstraint)
-{
-  const char* src =
-    "class C1[n: U32, m: n]";
-
-  TEST_ERROR(src);
-}
-
-TEST_F(VDTTest, TestMultipleTraitInstantiationWithMethod)
-{
-  const char* src =
-    "trait T1[n: U32]\n"
-    "  fun foo(): U32 => n\n"
-    "class C1 is (T1[2] & T1[68])";
-
-  TEST_ERROR(src);
-}
-
-TEST_F(VDTTest, TestNestedReifications)
-{
-  const char* src =
-    "class C1[n: U32]\n"
-    "  fun apply(): U32 => n\n"
-    "class C2\n"
-    "  fun foo[m: U32](c: C1[#m]): U32 => c()\n"
-    "  fun bar[n: U32](c: C1[#n]): U32 => foo[#n](c)\n"
-    "  new create() => bar[12](C1[12])";
-
-  TEST_COMPILE(src);
-}
-
-TEST_F(VDTTest, TestCompileTimeExpressionScope)
-{
-  const char* src =
-    "class C1\n"
-    "  new create() =>\n"
-    "    let x: U32 = # (let y: U32; y + 2)\n"
-    "    let z: U32 = y";
-
-  TEST_ERROR(src);
-}

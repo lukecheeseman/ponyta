@@ -713,7 +713,8 @@ static reach_type_t* add_nominal(reach_t* r, ast_t* type, pass_opt_t* opt)
 static reach_type_t* add_type(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
   // evaluate any expressions we see in the type
-  evaluate_expressions(opt, &type);
+  if(!evaluate_expressions(opt, &type))
+    return NULL;
 
   switch(ast_id(type))
   {

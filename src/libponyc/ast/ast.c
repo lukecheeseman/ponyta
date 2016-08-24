@@ -1471,54 +1471,8 @@ static void print_type(printbuf_t* buffer, ast_t* type)
       break;
 
     case TK_CONSTANT:
-    {
       printbuf(buffer, ast_get_print(ast_child(type)));
       break;
-      // TODO: write/find an expression pretty printer
-      // Instead of writing a printer for all expressions
-      // for now we just steal the source code
-      source_t* source = ast_source(type);
-      size_t line = ast_line(type);
-      char buf[1024];
-
-      if((source != NULL) && (line != 0))
-      {
-        size_t tline = 1;
-        size_t tpos = 0;
-
-        while((tline < line) && (tpos < source->len))
-        {
-          if(source->m[tpos] == '\n')
-            tline++;
-
-          tpos++;
-        }
-
-        tpos = tpos + ast_pos(type) - 1;
-        size_t start = tpos;
-
-        size_t br_count = 1;
-        while(br_count != 0 && tpos < source->len)
-        {
-          if(source->m[tpos] == ']')
-            br_count--;
-          if(source->m[tpos] == '[')
-            br_count++;
-          tpos++;
-        }
-        tpos--;
-
-        size_t len = tpos - start;
-
-        if(len >= sizeof(buf))
-          len = sizeof(buf) - 1;
-
-        memcpy(buf, &source->m[start], len);
-        buf[len] = '\0';
-        printbuf(buffer, buf);
-      }
-      break;
-    }
 
     case TK_CONSTANT_OBJECT:
       // FIXME: this is really that useful for error messages but what more can

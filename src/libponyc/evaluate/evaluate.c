@@ -24,37 +24,6 @@
 static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* scope,
                        int depth);
 
-bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
-{
-  ast_t* ast = *astp;
-  ast_t* type = ast_type(ast);
-  if(type != NULL)
-    if(!evaluate_expressions(opt, &type))
-      return false;
-
-  if(ast_id(ast) == TK_CONSTANT)
-    return evaluate_expression(opt, astp);
-
-  ast_t* child = ast_child(ast);
-  while(child != NULL)
-  {
-    if(!evaluate_expressions(opt, &child))
-      return false;
-
-    child = ast_sibling(child);
-  }
-
-  // If we see an assignment then map it as we may be evaluating expressions on
-  // a reified method
-  if(ast_id(ast) == TK_ASSIGN)
-  {
-    AST_GET_CHILDREN(ast, right, left);
-    map_value(opt, left, right, true);
-  }
-
-  return true;
-}
-
 bool ast_equal(ast_t* left, ast_t* right)
 {
   if(left == NULL || right == NULL)
@@ -670,7 +639,6 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   return evaluated;
 }
 
-//TODO: can we remove the this parameter and simply use the type in the options
 static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
   int depth)
 {
@@ -964,7 +932,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     }
 
     case TK_CONSTANT:
-      // TODO: do we want to recover the value to a val here, probably!
+      // TODO: do we want to recover the value to a val here?
       return evaluate(opt, ast_child(expression), this, depth + 1);
 
     default:

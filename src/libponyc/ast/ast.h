@@ -150,6 +150,7 @@ void ast_printverbose(ast_t* ast);
 void ast_fprint(FILE* fp, ast_t* ast);
 void ast_fprintverbose(FILE* fp, ast_t* ast);
 const char* ast_print_type(ast_t* type);
+const char* ast_print_expr(ast_t* type);
 void ast_setwidth(size_t w);
 
 void ast_error(errors_t* errors, ast_t* ast, const char* fmt, ...)

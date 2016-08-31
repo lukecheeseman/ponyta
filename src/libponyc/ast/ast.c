@@ -1463,21 +1463,8 @@ static void print_type(printbuf_t* buffer, ast_t* type)
       break;
 
     case TK_VALUEFORMALARG:
-      printbuf(buffer, ast_print_type(ast_child(type)));
-      break;
-
-    case TK_VALUEFORMALPARAMREF:
-      printbuf(buffer, ast_name(ast_child(type)));
-      break;
-
-    case TK_CONSTANT:
-      printbuf(buffer, ast_get_print(ast_child(type)));
-      break;
-
-    case TK_CONSTANT_OBJECT:
-      // FIXME: this is really that useful for error messages but what more can
-      // we do?
-      printbuf(buffer, ast_name(ast_child(type)));
+      printbuf(buffer, "# ");
+      printbuf(buffer, ast_print_expr(ast_child(type)));
       break;
 
     case TK_NONE:
@@ -1492,6 +1479,98 @@ const char* ast_print_type(ast_t* type)
 {
   printbuf_t* buffer = printbuf_new();
   print_type(buffer, type);
+
+  const char* s = stringtab(buffer->m);
+  printbuf_free(buffer);
+
+  return s;
+}
+
+static void print_expr(printbuf_t* buffer, ast_t* expr)
+{
+  switch(ast_id(expr))
+  {
+    case TK_ID:
+    case TK_INT:
+    case TK_STRING:
+    case TK_FLOAT:
+    case TK_TRUE:
+    case TK_FALSE:
+      printbuf(buffer, token_print(expr->t));
+      break;
+
+    case TK_CONSTANT_OBJECT:
+      printbuf(buffer, ast_name(ast_child(expr)));
+      break;
+
+    case TK_CONSTANT:
+      printbuf(buffer, ast_print_expr(ast_child(expr)));
+      break;
+
+    case TK_VALUEFORMALPARAMREF:
+      printbuf(buffer, ast_name(ast_child(expr)));
+      break;
+
+    case TK_CALL:
+    {
+      AST_GET_CHILDREN(expr, positional, named, function);
+      print_expr(buffer, function);
+      printbuf(buffer, "(");
+      print_expr(buffer, positional);
+      printbuf(buffer, ")");
+      break;
+    }
+
+    case TK_POSITIONALARGS:
+    {
+      ast_t* arg = ast_child(expr);
+      bool first = true;
+      while(arg != NULL)
+      {
+        if(!first)
+          printbuf(buffer, ", ");
+
+        first = false;
+        print_expr(buffer, arg);
+        arg = ast_sibling(arg);
+      }
+      break;
+    }
+
+    case TK_SEQ:
+    {
+      ast_t* arg = ast_child(expr);
+      bool first = true;
+      while(arg != NULL)
+      {
+        if(!first)
+          printbuf(buffer, "; ");
+
+        first = false;
+        print_expr(buffer, arg);
+        arg = ast_sibling(arg);
+      }
+      break;
+    }
+
+    case TK_FUNREF:
+    {
+      AST_GET_CHILDREN(expr, receiver, func_id);
+      print_expr(buffer, receiver);
+      printbuf(buffer, ".");
+      print_expr(buffer, func_id);
+      break;
+    }
+
+    default:
+      printbuf(buffer, ast_get_print(expr));
+  }
+}
+
+const char* ast_print_expr(ast_t* expr)
+{
+  printbuf_t* buffer = printbuf_new();
+  print_expr(buffer, expr);
 
   const char* s = stringtab(buffer->m);
   printbuf_free(buffer);

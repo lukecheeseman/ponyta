@@ -24,8 +24,6 @@
 static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* scope,
                        int depth);
 
-static bool evaluate_expression(pass_opt_t* opt, ast_t** astp);
-
 bool evaluate_expressions(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
@@ -260,7 +258,7 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   return true;
 }
 
-static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
+bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
   ast_t* cached = search_cache(ast);
@@ -291,6 +289,7 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
     ast_error(opt->check.errors, expression,
               "could not evaluate compile time expression");
+    opt->evaluation_error = true;
     return false;
   }
 
@@ -304,6 +303,7 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
               "unresolved error occurred during evaluation");
     ast_error_continue(opt->check.errors, evaluated,
               "error originated from here");
+    opt->evaluation_error = true;
     return false;
   }
 
@@ -323,6 +323,7 @@ static bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     {
       ast_error(opt->check.errors, expression,
         "can't recover compile-time object to val capability");
+      opt->evaluation_error = true;
       return false;
     }
   }

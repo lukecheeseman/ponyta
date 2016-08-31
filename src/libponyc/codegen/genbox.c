@@ -9,7 +9,7 @@ LLVMValueRef gen_box(compile_t* c, ast_t* type, LLVMValueRef value)
   if(LLVMGetTypeKind(l_type) == LLVMPointerTypeKind)
     return value;
 
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
 
   if(l_type != t->primitive)
@@ -32,7 +32,7 @@ LLVMValueRef gen_unbox(compile_t* c, ast_t* type, LLVMValueRef object)
   if(LLVMGetTypeKind(l_type) != LLVMPointerTypeKind)
     return object;
 
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
 
   if(t->primitive == NULL)

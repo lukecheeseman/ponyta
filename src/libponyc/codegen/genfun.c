@@ -565,7 +565,7 @@ static bool genfun_forward(compile_t* c, reach_type_t* t,
 {
   assert(m->func != NULL);
 
-  reach_method_t* m2 = reach_method(t, m->cap, n->name, m->typeargs);
+  reach_method_t* m2 = reach_method(t, m->cap, n->name, m->typeargs, c->opt);
   assert(m2 != NULL);
   assert(m2 != m);
 

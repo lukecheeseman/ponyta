@@ -8,6 +8,7 @@
 #include "../type/subtype.h"
 #include "../../libponyrt/mem/pool.h"
 #include "../evaluate/evaluate.h"
+#include "../expr/operator.h"
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -301,7 +302,7 @@ static void add_rmethod_to_subtypes(reach_t* r, reach_type_t* t,
 static reach_method_t* add_rmethod(reach_t* r, reach_type_t* t,
   reach_method_name_t* n, token_id cap, ast_t* typeargs, pass_opt_t* opt)
 {
-  const char* name = genname_fun(cap, n->name, typeargs);
+  const char* name = genname_fun(cap, n->name, typeargs, opt);
   reach_method_t* m = reach_rmethod(n, name);
 
   if(m != NULL)
@@ -527,12 +528,12 @@ static void add_special(reach_t* r, reach_type_t* t, ast_t* type,
   }
 }
 
-static reach_type_t* add_reach_type(reach_t* r, ast_t* type)
+static reach_type_t* add_reach_type(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
   reach_type_t* t = POOL_ALLOC(reach_type_t);
   memset(t, 0, sizeof(reach_type_t));
 
-  t->name = genname_type(type);
+  t->name = genname_type(type, opt);
   t->mangle = "o";
   t->ast = set_cap_and_ephemeral(type, TK_REF, TK_NONE);
   t->type_id = (uint32_t)-1;
@@ -547,12 +548,12 @@ static reach_type_t* add_reach_type(reach_t* r, ast_t* type)
 static reach_type_t* add_isect_or_union(reach_t* r, ast_t* type,
   pass_opt_t* opt)
 {
-  reach_type_t* t = reach_type(r, type);
+  reach_type_t* t = reach_type(r, type, opt);
 
   if(t != NULL)
     return t;
 
-  t = add_reach_type(r, type);
+  t = add_reach_type(r, type, opt);
   t->underlying = ast_id(t->ast);
   t->type_id = r->next_type_id++;
 
@@ -572,12 +573,12 @@ static reach_type_t* add_tuple(reach_t* r, ast_t* type, pass_opt_t* opt)
   if(contains_dontcare(type))
     return NULL;
 
-  reach_type_t* t = reach_type(r, type);
+  reach_type_t* t = reach_type(r, type, opt);
 
   if(t != NULL)
     return t;
 
-  t = add_reach_type(r, type);
+  t = add_reach_type(r, type, opt);
   t->underlying = TK_TUPLETYPE;
   t->type_id = r->next_type_id++;
 
@@ -608,12 +609,12 @@ static reach_type_t* add_tuple(reach_t* r, ast_t* type, pass_opt_t* opt)
 
 static reach_type_t* add_nominal(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
-  reach_type_t* t = reach_type(r, type);
+  reach_type_t* t = reach_type(r, type, opt);
 
   if(t != NULL)
     return t;
 
-  t = add_reach_type(r, type);
+  t = add_reach_type(r, type, opt);
   ast_t* def = (ast_t*)ast_data(type);
   t->underlying = ast_id(def);
 
@@ -712,10 +713,6 @@ static reach_type_t* add_nominal(reach_t* r, ast_t* type, pass_opt_t* opt)
 
 static reach_type_t* add_type(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
-  // evaluate any expressions we see in the type
-  if(!evaluate_expressions(opt, &type))
-    return NULL;
-
   switch(ast_id(type))
   {
     case TK_UNIONTYPE:
@@ -954,6 +951,29 @@ static void reachable_expr(reach_t* r, ast_t* ast, pass_opt_t* opt)
       break;
     }
 
+    case TK_ASSIGN:
+    {
+      // visit the children, right may be a compile time expression. Then
+      // map the value to the left hand side identifier.
+      AST_GET_CHILDREN(ast, right, left);
+      reachable_expr(r, right, opt);
+      reachable_expr(r, left, opt);
+
+      // right may have been changed due to compile-time expression
+      right = ast_child(ast);
+
+      // map the rhs value(s) to the lhs identifier(s). We do this as the rhs
+      // value may have been evaluated and we need the new mapping for later
+      // variable lookups.
+      map_value(opt, left, right, true);
+      return;
+    }
+
+    case TK_CONSTANT:
+      add_type(r, ast_type(ast), opt);
+      evaluate_expression(opt, &ast);
+      return;
+
     default: {}
   }
 
@@ -1020,12 +1040,6 @@ static bool handle_stack(reach_t* r, pass_opt_t* opt)
     r->stack = reach_method_stack_pop(r->stack, &m);
 
     ast_t* body = ast_childidx(m->r_fun, 6);
-
-    // We evaluate reachable compile-time expressions. At this point we have
-    // enough information to ensure that expressions are typesafe.
-    if(!evaluate_expressions(opt, &body))
-      return false;
-
     reachable_expr(r, body, opt);
   }
 
@@ -1054,13 +1068,13 @@ bool reach(reach_t* r, ast_t* type, const char* name, ast_t* typeargs,
   pass_opt_t* opt)
 {
   reachable_method(r, type, name, typeargs, opt);
-  return handle_stack(r, opt);
+  return handle_stack(r, opt) && !opt->evaluation_error;
 }
 
-reach_type_t* reach_type(reach_t* r, ast_t* type)
+reach_type_t* reach_type(reach_t* r, ast_t* type, pass_opt_t* opt)
 {
   reach_type_t k;
-  k.name = genname_type(type);
+  k.name = genname_type(type, opt);
   return reach_types_get(&r->types, &k);
 }
 
@@ -1072,7 +1086,7 @@ reach_type_t* reach_type_name(reach_t* r, const char* name)
 }
 
 reach_method_t* reach_method(reach_type_t* t, token_id cap,
-  const char* name, ast_t* typeargs)
+  const char* name, ast_t* typeargs, pass_opt_t* opt)
 {
   reach_method_name_t* n = reach_method_name(t, name);
 
@@ -1100,7 +1114,7 @@ reach_method_t* reach_method(reach_type_t* t, token_id cap,
     cap = n->cap;
   }
 
-  name = genname_fun(cap, n->name, typeargs);
+  name = genname_fun(cap, n->name, typeargs, opt);
   return reach_rmethod(n, name);
 }
 
@@ -1111,9 +1125,9 @@ reach_method_name_t* reach_method_name(reach_type_t* t, const char* name)
   return reach_method_names_get(&t->methods, &k);
 }
 
-uint32_t reach_vtable_index(reach_type_t* t, const char* name)
+uint32_t reach_vtable_index(reach_type_t* t, const char* name, pass_opt_t* opt)
 {
-  reach_method_t* m = reach_method(t, TK_NONE, name, NULL);
+  reach_method_t* m = reach_method(t, TK_NONE, name, NULL, opt);
 
   if(m == NULL)
     return (uint32_t)-1;

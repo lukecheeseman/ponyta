@@ -291,7 +291,7 @@ static bool make_vector_struct(compile_t* c, reach_type_t* t)
   // Create the type descriptor as element 0.
   elements[0] = LLVMPointerType(t->desc_type, 0);
 
-  reach_type_t* elem_reach_type = reach_type(c->reach, elem_type);
+  reach_type_t* elem_reach_type = reach_type(c->reach, elem_type, c->opt);
 
   assert(lexint_cmp64(size_val, UINT32_MAX) <= 0);
   elements[1] = LLVMArrayType(elem_reach_type->use_type,

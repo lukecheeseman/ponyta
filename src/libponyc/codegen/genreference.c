@@ -142,7 +142,7 @@ LLVMValueRef gen_tuple(compile_t* c, ast_t* ast)
   if(contains_dontcare(type))
     return GEN_NOTNEEDED;
 
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   LLVMValueRef tuple = LLVMGetUndef(t->primitive);
   int i = 0;
 
@@ -180,7 +180,7 @@ LLVMValueRef gen_localdecl(compile_t* c, ast_t* ast)
   if(value != NULL)
     return GEN_NOVALUE;
 
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   // All alloca should happen in the entry block of a function.
   LLVMBasicBlockRef this_block = LLVMGetInsertBlock(c->builder);
@@ -341,7 +341,7 @@ LLVMValueRef gen_digestof(compile_t* c, ast_t* ast)
 LLVMValueRef gen_int(compile_t* c, ast_t* ast)
 {
   ast_t* type = ast_type(ast);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   lexint_t* value = ast_int(ast);
   LLVMValueRef vlow = LLVMConstInt(c->i128, value->low, false);
@@ -362,7 +362,7 @@ LLVMValueRef gen_int(compile_t* c, ast_t* ast)
 LLVMValueRef gen_float(compile_t* c, ast_t* ast)
 {
   ast_t* type = ast_type(ast);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   return LLVMConstReal(t->primitive, ast_float(ast));
 }
@@ -385,7 +385,7 @@ LLVMValueRef gen_string(compile_t* c, ast_t* ast)
   LLVMSetGlobalConstant(g_str, true);
   LLVMValueRef str_ptr = LLVMConstInBoundsGEP(g_str, args, 2);
 
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   args[0] = t->desc;
   args[1] = LLVMConstInt(c->intptr, len, false);

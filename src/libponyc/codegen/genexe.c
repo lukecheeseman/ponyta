@@ -48,7 +48,7 @@ static void primitive_call(compile_t* c, const char* method)
     if(t->underlying != TK_PRIMITIVE)
       continue;
 
-    reach_method_t* m = reach_method(t, TK_NONE, method, NULL);
+    reach_method_t* m = reach_method(t, TK_NONE, method, NULL, c->opt);
 
     if(m == NULL)
       continue;
@@ -108,7 +108,7 @@ static void gen_main(compile_t* c, reach_type_t* t_main,
   LLVMValueRef main_actor = create_main(c, t_main, ctx);
 
   // Create an Env on the main actor's heap.
-  reach_method_t* m = reach_method(t_env, TK_NONE, c->str__create, NULL);
+  reach_method_t* m = reach_method(t_env, TK_NONE, c->str__create, NULL, c->opt);
 
   LLVMValueRef env_args[4];
   env_args[0] = gencall_alloc(c, t_env);
@@ -131,7 +131,7 @@ static void gen_main(compile_t* c, reach_type_t* t_main,
   LLVMTypeRef msg_type_ptr = LLVMPointerType(msg_type, 0);
 
   // Allocate the message, setting its size and ID.
-  uint32_t index = reach_vtable_index(t_main, c->str_create);
+  uint32_t index = reach_vtable_index(t_main, c->str_create, c->opt);
   size_t msg_size = (size_t)LLVMABISizeOfType(c->target_data, msg_type);
   args[0] = LLVMConstInt(c->i32, ponyint_pool_index(msg_size), false);
   args[1] = LLVMConstInt(c->i32, index, false);
@@ -412,8 +412,8 @@ bool genexe(compile_t* c, ast_t* program)
   if(c->opt->verbosity >= VERBOSITY_ALL)
     reach_dump(c->reach);
 
-  reach_type_t* t_main = reach_type(c->reach, main_ast);
-  reach_type_t* t_env = reach_type(c->reach, env_ast);
+  reach_type_t* t_main = reach_type(c->reach, main_ast, c->opt);
+  reach_type_t* t_env = reach_type(c->reach, env_ast, c->opt);
 
   if((t_main == NULL) || (t_env == NULL))
     return false;

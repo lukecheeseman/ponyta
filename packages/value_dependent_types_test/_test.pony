@@ -28,6 +28,7 @@ actor Main is TestList
     test(_TestTraitValueType)
     test(_TestCompileTimeVector)
     test(_TestCompileTimeVariable)
+    test(_TestCompileTimeObjectValueDependentType)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -314,3 +315,14 @@ class iso _TestCompileTimeVariable is UnitTest
     //FIXME: the following isn't returning the correct value
     // it's grabbed the earlier C2 with 48 as the field
     //h.assert_eq[U32](c(), # c())
+
+class C8[b: Bool]
+class C9[c: C8[true] val]
+
+class iso _TestCompileTimeObjectValueDependentType is UnitTest
+
+  fun name(): String => "VDT/CompileTimeObjectValueDependentType"
+
+  fun apply(h: TestHelper) =>
+    let c1 = # C8[true]
+    let c2 = C9[# c1 ]

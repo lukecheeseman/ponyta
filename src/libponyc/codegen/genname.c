@@ -2,13 +2,15 @@
 #include "../pkg/package.h"
 #include "../ast/stringtab.h"
 #include "../ast/lexer.h"
+#include "../evaluate/evaluate.h"
 #include "../../libponyrt/mem/pool.h"
 #include <string.h>
 #include <assert.h>
 
-static void types_append(printbuf_t* buf, ast_t* elements);
+static void types_append(printbuf_t* buf, ast_t* elements, pass_opt_t* opt);
 
-static void type_append(printbuf_t* buf, ast_t* type, bool first)
+static void type_append(printbuf_t* buf, ast_t* type, bool first,
+  pass_opt_t* opt)
 {
   switch(ast_id(type))
   {
@@ -16,7 +18,7 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
     {
       // 3u_Arg1_Arg2_Arg3
       printbuf(buf, "%du", ast_childcount(type));
-      types_append(buf, type);
+      types_append(buf, type, opt);
       return;
     }
 
@@ -24,7 +26,7 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
     {
       // 3i_Arg1_Arg2_Arg3
       printbuf(buf, "%di", ast_childcount(type));
-      types_append(buf, type);
+      types_append(buf, type, opt);
       return;
     }
 
@@ -32,7 +34,7 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
     {
       // 3t_Arg1_Arg2_Arg3
       printbuf(buf, "%dt", ast_childcount(type));
-      types_append(buf, type);
+      types_append(buf, type, opt);
       return;
     }
 
@@ -49,7 +51,7 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
         printbuf(buf, "%s_", pkg_name);
 
       printbuf(buf, "%s", ast_name(name));
-      types_append(buf, typeargs);
+      types_append(buf, typeargs, opt);
 
       if(!first)
         printbuf(buf, "_%s", ast_get_print(cap));
@@ -58,7 +60,7 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
     }
 
     case TK_VALUEFORMALARG:
-      type_append(buf, ast_child(type), false);
+      type_append(buf, ast_child(type), false, opt);
       return;
 
     case TK_TRUE:
@@ -72,13 +74,22 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first)
       printbuf(buf, ast_name(ast_child(type)));
       return;
 
+    case TK_CONSTANT:
+    {
+      // FIXME: this needs the correct optitons and to handle the failure of
+      // evaluation
+      evaluate_expression(opt, &type);
+      type_append(buf, type, false, opt);
+      return;
+    }
+
     default: {}
   }
 
   assert(0);
 }
 
-static void types_append(printbuf_t* buf, ast_t* elements)
+static void types_append(printbuf_t* buf, ast_t* elements, pass_opt_t* opt)
 {
   // _Arg1_Arg2
   if(elements == NULL)
@@ -89,7 +100,7 @@ static void types_append(printbuf_t* buf, ast_t* elements)
   while(elem != NULL)
   {
     printbuf(buf, "_");
-    type_append(buf, elem, false);
+    type_append(buf, elem, false, opt);
     elem = ast_sibling(elem);
   }
 }
@@ -112,11 +123,11 @@ static const char* stringtab_two(const char* a, const char* b)
   return stringtab_buf(buf);
 }
 
-const char* genname_type(ast_t* ast)
+const char* genname_type(ast_t* ast, pass_opt_t* opt)
 {
   // package_Type[_Arg1_Arg2]
   printbuf_t* buf = printbuf_new();
-  type_append(buf, ast, true);
+  type_append(buf, ast, true, opt);
   return stringtab_buf(buf);
 }
 
@@ -170,12 +181,13 @@ const char* genname_instance(const char* type)
   return stringtab_two(type, "Inst");
 }
 
-const char* genname_fun(token_id cap, const char* name, ast_t* typeargs)
+const char* genname_fun(token_id cap, const char* name, ast_t* typeargs, 
+  pass_opt_t* opt)
 {
   // cap_name[_Arg1_Arg2]
   printbuf_t* buf = printbuf_new();
   printbuf(buf, "%s_%s", lexer_print(cap), name);
-  types_append(buf, typeargs);
+  types_append(buf, typeargs, opt);
   return stringtab_buf(buf);
 }
 

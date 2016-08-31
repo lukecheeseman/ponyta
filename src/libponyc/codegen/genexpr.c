@@ -315,8 +315,8 @@ static LLVMValueRef gen_constant_vector(compile_t* c, ast_t* ast)
   ast_t* type = ast_type(ast);
   AST_GET_CHILDREN(type, package, id, typeargs);
 
-  reach_type_t* t = reach_type(c->reach, type);
-  reach_type_t* elem_t = reach_type(c->reach, ast_child(typeargs));
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
+  reach_type_t* elem_t = reach_type(c->reach, ast_child(typeargs), c->opt);
 
   uint32_t elem_count = (uint32_t)ast_childcount(members);
   LLVMValueRef elems[elem_count];
@@ -353,7 +353,7 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
     return obj;
 
   AST_GET_CHILDREN(type, package, id);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   uint32_t field_count = t->field_count + 1;
   LLVMValueRef args[field_count];
@@ -389,11 +389,12 @@ LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
 LLVMValueRef gen_vector(compile_t* c, ast_t* ast)
 {
   ast_t* type = ast_type(ast);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   // Static or virtual dispatch.
   token_id cap = cap_dispatch(type);
-  LLVMValueRef func = reach_method(t, cap, stringtab("_update"), NULL)->func;
+  LLVMValueRef func =
+    reach_method(t, cap, stringtab("_update"), NULL, c->opt)->func;
 
   LLVMTypeRef f_type = LLVMGetElementType(LLVMTypeOf(func));
   LLVMTypeRef params[3];

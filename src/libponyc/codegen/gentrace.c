@@ -378,7 +378,7 @@ static void trace_maybe(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
 static void trace_known(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
   ast_t* type, int mutability)
 {
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   LLVMValueRef args[4];
   args[0] = ctx;

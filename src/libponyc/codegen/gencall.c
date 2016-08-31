@@ -170,7 +170,7 @@ static LLVMValueRef dispatch_function(compile_t* c, reach_type_t* t,
   ast_t* type, LLVMValueRef l_value, const char* method_name, ast_t* typeargs)
 {
   token_id cap = cap_dispatch(type);
-  reach_method_t* m = reach_method(t, cap, method_name, typeargs);
+  reach_method_t* m = reach_method(t, cap, method_name, typeargs, c->opt);
   assert(m != NULL);
 
   switch(t->underlying)
@@ -294,7 +294,7 @@ LLVMValueRef gen_funptr(compile_t* c, ast_t* ast)
 
   // Get the receiver type.
   ast_t* type = ast_type(receiver);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
 
   const char* name = ast_name(method);
@@ -356,7 +356,7 @@ LLVMValueRef gen_call(compile_t* c, ast_t* ast)
   // Get the receiver type.
   const char* method_name = ast_name(method);
   ast_t* type = ast_type(receiver);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
 
   // Generate the arguments.
@@ -503,7 +503,7 @@ LLVMValueRef gen_pattern_eq(compile_t* c, ast_t* pattern, LLVMValueRef r_value)
 
   // Generate the receiver.
   LLVMValueRef l_value = gen_expr(c, pattern);
-  reach_type_t* t = reach_type(c->reach, pattern_type);
+  reach_type_t* t = reach_type(c->reach, pattern_type, c->opt);
   assert(t != NULL);
 
   // Static or virtual dispatch.
@@ -559,7 +559,7 @@ static LLVMValueRef declare_ffi(compile_t* c, const char* f_name,
     if(p_type == NULL)
       p_type = ast_childidx(arg, 1);
 
-    reach_type_t* pt = reach_type(c->reach, p_type);
+    reach_type_t* pt = reach_type(c->reach, p_type, c->opt);
     assert(pt != NULL);
 
     // An intrinsic that takes a Bool should be i1, not ibool.
@@ -665,7 +665,7 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
 
   // Get the return type.
   ast_t* type = ast_type(ast);
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
 
   // Get the function.

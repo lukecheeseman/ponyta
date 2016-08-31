@@ -15,12 +15,12 @@
 
 #define FIND_METHOD(name) \
   const char* strtab_name = stringtab(name); \
-  reach_method_t* m = reach_method(t, TK_NONE, strtab_name, NULL); \
+  reach_method_t* m = reach_method(t, TK_NONE, strtab_name, NULL, c->opt); \
   if(m == NULL) return; \
   m->intrinsic = true;
 
 #define BOX_FUNCTION() \
-  box_function(t, m, strtab_name);
+  box_function(t, m, strtab_name, c->opt);
 
 static void start_function(compile_t* c, reach_type_t* t, reach_method_t* m,
   LLVMTypeRef result, LLVMTypeRef* params, unsigned count)
@@ -31,12 +31,13 @@ static void start_function(compile_t* c, reach_type_t* t, reach_method_t* m,
   codegen_startfun(c, m->func, NULL, NULL);
 }
 
-static void box_function(reach_type_t* t, reach_method_t* m, const char* name)
+static void box_function(reach_type_t* t, reach_method_t* m, const char* name,
+  pass_opt_t* opt)
 {
   if((m->cap != TK_BOX) && (m->cap != TK_TAG))
     return;
 
-  reach_method_t* m_ref = reach_method(t, TK_REF, name, NULL);
+  reach_method_t* m_ref = reach_method(t, TK_REF, name, NULL, opt);
 
   if(m_ref != NULL)
   {
@@ -45,7 +46,7 @@ static void box_function(reach_type_t* t, reach_method_t* m, const char* name)
     m_ref->intrinsic = true;
   }
 
-  reach_method_t* m_val = reach_method(t, TK_VAL, name, NULL);
+  reach_method_t* m_val = reach_method(t, TK_VAL, name, NULL, opt);
 
   if(m_val != NULL)
   {
@@ -56,7 +57,7 @@ static void box_function(reach_type_t* t, reach_method_t* m, const char* name)
 
   if(m->cap == TK_TAG)
   {
-    reach_method_t* m_box = reach_method(t, TK_BOX, name, NULL);
+    reach_method_t* m_box = reach_method(t, TK_BOX, name, NULL, opt);
 
     if(m_box != NULL)
     {
@@ -471,7 +472,7 @@ void genprim_pointer_methods(compile_t* c, reach_type_t* t)
 {
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
 
   pointer_create(c, t);
   pointer_alloc(c, t, t_elem);
@@ -544,7 +545,7 @@ void genprim_vector_methods(compile_t* c, reach_type_t* t)
 {
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
 
   vector_apply(c, t, t_elem);
   vector_update(c, t, t_elem);
@@ -653,7 +654,7 @@ void genprim_vector_serialise(compile_t* c, reach_type_t* t)
   // Serialise elements.
   ast_t* typeargs = ast_childidx(t->ast, 2);
   AST_GET_CHILDREN(typeargs, elem_type, num_elems);
-  reach_type_t* t_elem = reach_type(c->reach, elem_type);
+  reach_type_t* t_elem = reach_type(c->reach, elem_type, c->opt);
 
   lexint_t* lex_size = ast_int(ast_child(num_elems));
   assert(lexint_cmp64(lex_size, UINT32_MAX) <= 0);
@@ -744,7 +745,7 @@ void genprim_vector_deserialise(compile_t* c, reach_type_t* t)
   ast_t* typeargs = ast_childidx(t->ast, 2);
   AST_GET_CHILDREN(typeargs, elem_type, num_elems);
 
-  reach_type_t* t_elem = reach_type(c->reach, elem_type);
+  reach_type_t* t_elem = reach_type(c->reach, elem_type, c->opt);
 
   if(t_elem->underlying != TK_PRIMITIVE)
   {
@@ -866,7 +867,7 @@ void genprim_maybe_methods(compile_t* c, reach_type_t* t)
 {
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
 
   maybe_create(c, t, t_elem);
   maybe_none(c, t);
@@ -881,7 +882,7 @@ static void donotoptimise_apply(compile_t* c, reach_type_t* t,
   m->intrinsic = true;
 
   ast_t* typearg = ast_child(m->typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
   LLVMTypeRef params[2];
   params[0] = t->use_type;
   params[1] = t_elem->use_type;
@@ -949,7 +950,7 @@ static void trace_array_elements(compile_t* c, reach_type_t* t,
   if(!gentrace_needed(typearg))
     return;
 
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
   pointer = LLVMBuildBitCast(c->builder, pointer,
     LLVMPointerType(t_elem->use_type, 0), "");
 
@@ -1031,7 +1032,7 @@ void genprim_array_serialise_trace(compile_t* c, reach_type_t* t)
   // Calculate the size of the element type.
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
 
   size_t abisize = (size_t)LLVMABISizeOfType(c->target_data, t_elem->use_type);
   LLVMValueRef l_size = LLVMConstInt(c->intptr, abisize, false);
@@ -1116,7 +1117,7 @@ void genprim_array_serialise(compile_t* c, reach_type_t* t)
   // Serialise elements.
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
 
   size_t abisize = (size_t)LLVMABISizeOfType(c->target_data, t_elem->use_type);
   LLVMValueRef l_size = LLVMConstInt(c->intptr, abisize, false);
@@ -1200,7 +1201,7 @@ void genprim_array_deserialise(compile_t* c, reach_type_t* t)
   ast_t* typeargs = ast_childidx(t->ast, 2);
   ast_t* typearg = ast_child(typeargs);
 
-  reach_type_t* t_elem = reach_type(c->reach, typearg);
+  reach_type_t* t_elem = reach_type(c->reach, typearg, c->opt);
   size_t abisize = (size_t)LLVMABISizeOfType(c->target_data, t_elem->use_type);
   LLVMValueRef l_size = LLVMConstInt(c->intptr, abisize, false);
 

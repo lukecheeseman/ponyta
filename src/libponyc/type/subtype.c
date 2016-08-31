@@ -1350,6 +1350,7 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
       if(!is_eqtype(sub_type, super_type, errorf, opt))
         return false;
 
+      // FIXME: replace this call to non-recursive version
       if(!evaluate_expressions(opt, &sub_value))
         return false;
 
@@ -1360,11 +1361,9 @@ static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
       {
         if(errorf != NULL)
         {
-          ast_error(opt->check.errors, sub_value, "values may not be the same");
-          ast_error_continue(opt->check.errors, sub_value, "sub value");
-          ast_error_continue(opt->check.errors, sub, "sub value used in type");
-          ast_error_continue(opt->check.errors, super_value, "super value");
-          ast_error_continue(opt->check.errors, super, "super value used in type");
+          ast_error_frame(errorf, sub_value,
+            "%s may not be the same as %s",
+            ast_get_print(sub_value), ast_get_print(super_value));
         }
         return false;
       }

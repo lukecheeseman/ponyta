@@ -91,6 +91,7 @@ void pass_opt_init(pass_opt_t* options)
   options->limit = PASS_ALL;
   options->verbosity = VERBOSITY_INFO;
   options->evaluation_depth = 512;
+  options->evaluation_error = false;
   options->check.errors = errors_alloc();
   frame_push(&options->check, NULL);
 }

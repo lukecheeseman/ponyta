@@ -408,7 +408,8 @@ void gendesc_init(compile_t* c, reach_type_t* t)
     return;
 
   // Initialise the global descriptor.
-  uint32_t event_notify_index = reach_vtable_index(t, c->str__event_notify);
+  uint32_t event_notify_index = reach_vtable_index(t, c->str__event_notify,
+    c->opt);
   uint32_t trait_count = 0;
   LLVMValueRef trait_list = make_trait_list(c, t, &trait_count);
 
@@ -588,7 +589,7 @@ LLVMValueRef gendesc_isnominal(compile_t* c, LLVMValueRef desc, ast_t* type)
 LLVMValueRef gendesc_istrait(compile_t* c, LLVMValueRef desc, ast_t* type)
 {
   // Get the trait identifier.
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
   assert(t != NULL);
   LLVMValueRef trait_id = LLVMConstInt(c->i32, t->type_id, false);
 
@@ -641,7 +642,7 @@ LLVMValueRef gendesc_istrait(compile_t* c, LLVMValueRef desc, ast_t* type)
 
 LLVMValueRef gendesc_isentity(compile_t* c, LLVMValueRef desc, ast_t* type)
 {
-  reach_type_t* t = reach_type(c->reach, type);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
 
   if(t == NULL)
     return GEN_NOVALUE;

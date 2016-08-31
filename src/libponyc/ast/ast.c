@@ -1490,8 +1490,29 @@ static void print_expr(printbuf_t* buffer, ast_t* expr)
 {
   switch(ast_id(expr))
   {
-    case TK_ID:
     case TK_INT:
+    {
+      token_t* tok = expr->t;
+      lexint_t* value = token_int(tok);
+
+      if(value->is_negative)
+      {
+        printbuf(buffer, "-");
+        lexint_t t;
+        lexint_negate(&t, value);
+
+        tok = token_new(TK_INT);
+        token_set_int(tok, &t);
+        printbuf(buffer, token_print(tok));
+        token_free(tok);
+      }
+      else
+        printbuf(buffer, token_print(tok));
+
+      break;
+    }
+
+    case TK_ID:
     case TK_STRING:
     case TK_FLOAT:
     case TK_TRUE:

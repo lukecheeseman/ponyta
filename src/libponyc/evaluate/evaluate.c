@@ -356,7 +356,11 @@ void methodtab_init()
 
   // integer operations
   add_method(stringtab("integer"), stringtab("create"), &evaluate_create_int);
-  add_method(stringtab("integer"), stringtab("create"), &evaluate_create_int);
+  add_method(stringtab("integer"), stringtab("min_value"),
+    &evaluate_min_value_int);
+  add_method(stringtab("integer"), stringtab("max_value"),
+    &evaluate_max_value_int);
+
   add_method(stringtab("integer"), stringtab("add"), &evaluate_add_int);
   add_method(stringtab("integer"), stringtab("sub"), &evaluate_sub_int);
   add_method(stringtab("integer"), stringtab("mul"), &evaluate_mul_int);

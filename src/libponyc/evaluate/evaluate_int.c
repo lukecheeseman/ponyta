@@ -17,6 +17,92 @@ ast_t* evaluate_create_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
   return ast_child(args);
 }
 
+ast_t* evaluate_min_value_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  (void) opt;
+  (void) args;
+  // for all the unsigned values the minimum is zero
+  ast_t* result = ast_from_int(receiver, 0);
+  lexint_t* value = ast_int(result);
+
+  ast_t* type = ast_type(receiver);
+  ast_settype(result, type);
+
+  const char* name = ast_name(ast_childidx(type, 1));
+  if(name == stringtab("I8"))
+  {
+    value->low = 0x80;
+    lexint_negate(value, value);
+  }
+  else if(name == stringtab("I16"))
+  {
+    value->low = 0x8000;
+    lexint_negate(value, value);
+  }
+  else if(name == stringtab("I32"))
+  {
+    value->low = 0x80000000;
+    lexint_negate(value, value);
+  }
+  else if(name == stringtab("I64") ||
+          name == stringtab("ILong") ||
+          name == stringtab("ISize"))
+  {
+    value->low = 0x8000000000000000;
+    lexint_negate(value, value);
+  }
+  else if(name == stringtab("I128"))
+  {
+    value->high = 0x8000000000000000;
+    lexint_negate(value, value);
+  }
+  return result;
+}
+
+ast_t* evaluate_max_value_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
+{
+  (void) opt;
+  (void) args;
+  ast_t* result = ast_from_int(receiver, 0);
+  lexint_t* value = ast_int(result);
+
+  ast_t* type = ast_type(receiver);
+  ast_settype(result, type);
+
+  const char* name = ast_name(ast_childidx(type, 1));
+  if(name == stringtab("U8"))
+    value->low = 0xFF;
+  else if(name == stringtab("U16"))
+    value->low = 0xFFFF;
+  else if(name == stringtab("U32"))
+    value->low = 0xFFFFFFFF;
+  else if(name == stringtab("I64") ||
+          name == stringtab("ULong") ||
+          name == stringtab("USize"))
+    value->low = 0xFFFFFFFFFFFFFFFF;
+  else if(name == stringtab("U128"))
+  {
+    value->low = 0XFFFFFFFFFFFFFFFF;
+    value->high = 0XFFFFFFFFFFFFFFFF;
+  }
+  else if(name == stringtab("I8"))
+    value->low = 0x7F;
+  else if(name == stringtab("I16"))
+    value->low = 0x7FFF;
+  else if(name == stringtab("I32"))
+    value->low = 0x7FFFFFFF;
+  else if(name == stringtab("I64") ||
+          name == stringtab("ILong") ||
+          name == stringtab("ISize"))
+    value->low = 0x7FFFFFFFFFFFFFFF;
+  else if(name == stringtab("I128"))
+  {
+    value->low = 0XFFFFFFFFFFFFFFFF;
+    value->high = 0X7FFFFFFFFFFFFFFF;
+  }
+  return result;
+}
+
 static bool check_operands(ast_t* lhs_arg, ast_t* rhs_arg, pass_opt_t* opt)
 {
   if(lhs_arg == NULL || rhs_arg == NULL)

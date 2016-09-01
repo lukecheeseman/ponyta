@@ -76,8 +76,6 @@ static void type_append(printbuf_t* buf, ast_t* type, bool first,
 
     case TK_CONSTANT:
     {
-      // FIXME: this needs the correct optitons and to handle the failure of
-      // evaluation
       evaluate_expression(opt, &type);
       type_append(buf, type, false, opt);
       return;

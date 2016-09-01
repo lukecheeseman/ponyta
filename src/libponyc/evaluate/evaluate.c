@@ -21,7 +21,7 @@
 #include "../../libponyrt/mem/pool.h"
 #include "../../libponyrt/ds/hash.h"
 
-static ast_t* evaluate(pass_opt_t* opt, errorframe_t*, ast_t* expression,
+static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
   ast_t* scope, int depth);
 
 bool ast_equal(ast_t* left, ast_t* right)

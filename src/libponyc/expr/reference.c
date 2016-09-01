@@ -1022,8 +1022,9 @@ bool expr_this(pass_opt_t* opt, ast_t* ast)
   {
     if((ast_id(typearg) == TK_VALUEFORMALARG))
     {
-      // FIXME: this builds the type for when this requires a value
-      // dependent type
+      // For a valueformalarg the argument when constructing the type for this
+      // is a reference to the type parameter. Therefore, calling expr_reference
+      // to correctly build the type argument.
       ast_t *ref = ast_child(typearg);
       if(!expr_reference(opt, &ref)) {
         ast_error(opt->check.errors, ast, "couldn't create a type for 'this'");

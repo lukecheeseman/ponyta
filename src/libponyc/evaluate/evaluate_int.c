@@ -158,7 +158,7 @@ ast_t* evaluate_mul_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* rhs_arg = ast_child(args);
   lexint_t* rhs =  ast_int(rhs_arg);
-  if(lexint_cmp64(rhs, 0xffffffffffffffff) > 1)
+  if(rhs->high != 0)
   {
     // FIXME: can only print 64 bit integers with ast_get_rpint
     // token method for printing should probably be changed then
@@ -174,12 +174,12 @@ ast_t* evaluate_div_int(ast_t* receiver, ast_t* args, pass_opt_t* opt)
 {
   ast_t* rhs_arg = ast_child(args);
   lexint_t* rhs =  ast_int(rhs_arg);
-  if(lexint_cmp64(rhs, 0xffffffffffffffff) > 1)
+  if(rhs->high != 0)
   {
     // FIXME: can only print 64 bit integers with ast_get_rpint
     // token method for printing should probably be changed then
     ast_error(opt->check.errors, rhs_arg,
-      "Value %s is too large for multiplication", ast_get_print(rhs_arg));
+      "Value %s is too large for division", ast_get_print(rhs_arg));
     return NULL;
   }
 

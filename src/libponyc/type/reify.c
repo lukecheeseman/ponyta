@@ -10,9 +10,6 @@
 #include <assert.h>
 #include <string.h>
 
-//FIXME: remove if possible
-#include "../pass/pass.h"
-
 static void reify_typeparamref(ast_t** astp, ast_t* typeparam, ast_t* typearg)
 {
   ast_t* ast = *astp;

@@ -191,7 +191,7 @@ void lexint_mul(lexint_t* dst, lexint_t* a, lexint_t* b)
     lexint_negate(&rt, &rt);
   }
 
-  assert(lexint_cmp64(&rt, 0xffffffffffffffff) <= 0);
+  assert(rt.high == 0);
   lexint_mul64(dst, &lt, rt.low);
 }
 
@@ -232,7 +232,7 @@ void lexint_div(lexint_t* dst, lexint_t* a, lexint_t* b)
   if(rt.is_negative)
     lexint_negate(&rt, &rt);
 
-  assert(lexint_cmp64(&rt, 0xffffffffffffffff) <= 0);
+  assert(rt.high == 0);
   lexint_div64(dst, &lt, rt.low);
 
   dst->is_negative = false;

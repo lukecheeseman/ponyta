@@ -755,7 +755,6 @@ static bool coerce_literal_to_type(ast_t** astp, ast_t* target_type,
       return uif_type_from_chain(opt, literal_expr, target_type, chain,
         true, report_errors);
 
-    // FIXME: can this just use CHAIN_CARD_VECTOR
     case TK_VECTOR:
       if(!coerce_group(astp, target_type, chain, CHAIN_CARD_ARRAY, opt,
         report_errors))

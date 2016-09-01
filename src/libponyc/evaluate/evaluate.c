@@ -21,8 +21,8 @@
 #include "../../libponyrt/mem/pool.h"
 #include "../../libponyrt/ds/hash.h"
 
-static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* scope,
-                       int depth);
+static ast_t* evaluate(pass_opt_t* opt, errorframe_t*, ast_t* expression,
+  ast_t* scope, int depth);
 
 bool ast_equal(ast_t* left, ast_t* right)
 {
@@ -249,15 +249,18 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 
   // evaluate the expression passing NULL as 'this' as we aren't
   // evaluating a method on an object
-  ast_t* evaluated = evaluate(opt, expression, NULL, 0);
+  errorframe_t errors = NULL;
+  ast_t* evaluated = evaluate(opt, &errors, expression, NULL, 0);
 
   // We may not have errored in a couple of ways, NULL, is some error that
   // occured as we could not evaluate the expression
   if(eval_error(evaluated) && evaluated == NULL)
   {
     ast_settype(ast, ast_from(ast_type(expression), TK_ERRORTYPE));
-    ast_error(opt->check.errors, expression,
-              "could not evaluate compile time expression");
+    errorframe_t frame = NULL;
+    ast_error_frame(&frame, ast, "could not evaluate compile time expression");
+    errorframe_append(&frame, &errors);
+    errorframe_report(&frame, opt->check.errors);
     opt->evaluation_error = true;
     return false;
   }
@@ -491,8 +494,8 @@ static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
 // more information regarding the arguments and receiver to evaluate
 // this
-static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
-  ast_t* this, int depth)
+static ast_t* evaluate_method(pass_opt_t* opt, errorframe_t* errors,
+  ast_t* function, ast_t* args, ast_t* this, int depth)
 {
   ast_t* typeargs = NULL;
   if(ast_id(ast_childidx(function, 1)) == TK_TYPEARGS)
@@ -502,7 +505,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   }
 
   AST_GET_CHILDREN(function, receiver, func_id);
-  ast_t* evaluated_receiver = evaluate(opt, receiver, this, depth + 1);
+  ast_t* evaluated_receiver = evaluate(opt, errors, receiver, this, depth + 1);
   if(eval_error(evaluated_receiver))
     return evaluated_receiver;
 
@@ -533,7 +536,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   // cannot construct compile-time actors.
   if(ast_id(function) == TK_BEREF)
   {
-    ast_error(opt->check.errors, function,
+    ast_error_frame(errors, function,
               "cannot evaluate compile-time behaviours");
     return NULL;
   }
@@ -574,11 +577,11 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   ast_t* body = ast_childidx(fun, 6);
 
   // push the receiver and evaluate the body
-  ast_t* evaluated = evaluate(opt, body, evaluated_receiver, depth + 1);
+  ast_t* evaluated = evaluate(opt, errors, body, evaluated_receiver, depth + 1);
   if(eval_error(evaluated))
   {
     if(evaluated == NULL)
-      ast_error(opt->check.errors, function,
+      ast_error_frame(errors, function,
                 "function is not a compile time expression");
     return evaluated;
   }
@@ -598,7 +601,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
 
     if(ast_id(class_def) == TK_ACTOR)
     {
-      ast_error(opt->check.errors, function,
+      ast_error_frame(errors, function,
         "cannot construct compile-time actors");
       return NULL;
     }
@@ -619,7 +622,7 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
       switch(ast_id(member))
       {
         case TK_FVAR:
-          ast_error(opt->check.errors, member,
+          ast_error_frame(errors, member,
                     "compile time objects fields must be read-only");
           return NULL;
 
@@ -643,12 +646,12 @@ static ast_t* evaluate_method(pass_opt_t* opt, ast_t* function, ast_t* args,
   return evaluated;
 }
 
-static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
-  int depth)
+static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
+  ast_t* this, int depth)
 {
   if(depth >= opt->evaluation_depth)
   {
-    ast_error(opt->check.errors, expression,
+    ast_error_frame(errors, expression,
       "compile-time expression evaluation depth exceeds maximum of %d",
        opt->evaluation_depth);
     return NULL;
@@ -684,7 +687,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       if(eval_error(value))
       {
         if(value == NULL)
-          ast_error(opt->check.errors, expression,
+          ast_error_frame(errors, expression,
                     "variable is not a compile-time expression");
         return value;
       }
@@ -699,7 +702,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_FLETREF:
     {
       AST_GET_CHILDREN(expression, receiver, id);
-      ast_t* evaluated_receiver = evaluate(opt, receiver, this, depth + 1);
+      ast_t* evaluated_receiver = evaluate(opt, errors, receiver, this, depth + 1);
       if(eval_error(evaluated_receiver))
         return evaluated_receiver;
 
@@ -707,7 +710,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       if(eval_error(field))
       {
         if(field == NULL)
-          ast_error(opt->check.errors, expression,
+          ast_error_frame(errors, expression,
                     "field is not a compile-time expression");
         return field;
       }
@@ -722,7 +725,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     {
       AST_GET_CHILDREN(expression, right, left);
 
-      ast_t* evaluated_right = evaluate(opt, right, this, depth + 1);
+      ast_t* evaluated_right = evaluate(opt, errors, right, this, depth + 1);
       if(eval_error(evaluated_right))
         return evaluated_right;
 
@@ -735,7 +738,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t * evaluated;
       for(ast_t* p = ast_child(expression); p != NULL; p = ast_sibling(p))
       {
-        evaluated = evaluate(opt, p, this, depth + 1);
+        evaluated = evaluate(opt, errors, p, this, depth + 1);
         if(eval_error(evaluated))
           return evaluated;
       }
@@ -754,7 +757,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* argument = ast_child(positional);
       while(argument != NULL)
       {
-        ast_t* evaluated_arg = evaluate(opt, argument, this, depth + 1);
+        ast_t* evaluated_arg = evaluate(opt, errors, argument, this, depth + 1);
         if(eval_error(evaluated_arg))
           return evaluated_arg;
 
@@ -762,7 +765,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
         argument = ast_sibling(argument);
       }
 
-      return evaluate_method(opt, function, evaluated_args, this, depth);
+      return evaluate_method(opt, errors, function, evaluated_args, this, depth);
     }
 
     case TK_VECTOR:
@@ -784,7 +787,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       ast_t* elem = ast_childidx(expression, 1);
       while(elem != NULL)
       {
-        ast_t* evaluated_elem = evaluate(opt, elem, this, depth + 1);
+        ast_t* evaluated_elem = evaluate(opt, errors, elem, this, depth + 1);
         if(eval_error(evaluated_elem))
           return evaluated_elem;
 
@@ -802,19 +805,19 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_ELSEIF:
     {
       AST_GET_CHILDREN(expression, condition, then_branch, else_branch);
-      ast_t* condition_evaluated = evaluate(opt, condition, this, depth + 1);
+      ast_t* condition_evaluated = evaluate(opt, errors, condition, this, depth + 1);
       if(eval_error(condition_evaluated))
         return condition_evaluated;
 
       return ast_id(condition_evaluated) == TK_TRUE ?
-            evaluate(opt, then_branch, this, depth + 1):
-            evaluate(opt, else_branch, this, depth + 1);
+            evaluate(opt, errors, then_branch, this, depth + 1):
+            evaluate(opt, errors, else_branch, this, depth + 1);
     }
 
     case TK_WHILE:
     {
       AST_GET_CHILDREN(expression, cond, thenbody, elsebody);
-      ast_t* evaluated_cond = evaluate(opt, cond, this, depth + 1);
+      ast_t* evaluated_cond = evaluate(opt, errors, cond, this, depth + 1);
       if(eval_error(evaluated_cond))
         return evaluated_cond;
 
@@ -824,18 +827,18 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       // the condition didn't hold on the first iteration so we evaluate the
       // else
       if(ast_id(evaluated_cond) == TK_FALSE)
-        return evaluate(opt, elsebody, this, depth + 1);
+        return evaluate(opt, errors, elsebody, this, depth + 1);
 
       // the condition held so evaluate the while returning the file iteration
       // result as the evaluated result
       ast_t* evaluated_while = NULL;
       while(ast_id(evaluated_cond) == TK_TRUE)
       {
-        evaluated_while = evaluate(opt, thenbody, this, depth + 1);
+        evaluated_while = evaluate(opt, errors, thenbody, this, depth + 1);
         if(eval_error(evaluated_while))
           return evaluated_while;
 
-        evaluated_cond = evaluate(opt, cond, this, depth + 1);
+        evaluated_cond = evaluate(opt, errors, cond, this, depth + 1);
         if(eval_error(evaluated_cond))
           return evaluated_cond;
       }
@@ -851,13 +854,13 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
       // branch
 
       AST_GET_CHILDREN(expression, trybody, elsebody);
-      ast_t* evaluated_try = evaluate(opt, trybody, this, depth + 1);
+      ast_t* evaluated_try = evaluate(opt, errors, trybody, this, depth + 1);
       if(eval_error(evaluated_try))
       {
         if(evaluated_try == NULL || ast_id(evaluated_try) != TK_ERROR)
           return evaluated_try;
 
-        return evaluate(opt, elsebody, this, depth + 1);
+        return evaluate(opt, errors, elsebody, this, depth + 1);
       }
       return evaluated_try;
     }
@@ -865,7 +868,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
     case TK_MATCH:
     {
       AST_GET_CHILDREN(expression, matchref, cases, elsebody);
-      ast_t* match = evaluate(opt, matchref, this, depth + 1);
+      ast_t* match = evaluate(opt, errors, matchref, this, depth + 1);
       if(eval_error(match))
         return match;
 
@@ -890,7 +893,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
           else
           {
             // Otherwise test if the pattern matches
-            pattern = evaluate(opt, pattern, this, depth + 1);
+            pattern = evaluate(opt, errors, pattern, this, depth + 1);
             if(eval_error(pattern))
               return pattern;
 
@@ -898,7 +901,7 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
               NODE(TK_FUNREF, TREE(ast_child(matchref)) ID("eq")));
             BUILD(args, expression, NODE(TK_POSITIONALARGS, TREE(pattern)));
 
-            ast_t* equal = evaluate_method(opt, eq, args, this, depth + 1);
+            ast_t* equal = evaluate_method(opt, errors, eq, args, this, depth + 1);
             if(eval_error(equal))
               return equal;
 
@@ -911,37 +914,37 @@ static ast_t* evaluate(pass_opt_t* opt, ast_t* expression, ast_t* this,
           {
             if(ast_id(guard) != TK_NONE)
             {
-              guard = evaluate(opt, guard, this, depth + 1);
+              guard = evaluate(opt, errors, guard, this, depth + 1);
               if(eval_error(guard))
                 return guard;
 
               if(ast_id(guard) == TK_TRUE)
-                return evaluate(opt, body, this, depth + 1);
+                return evaluate(opt, errors, body, this, depth + 1);
             }
             else
-              return evaluate(opt, body, this, depth + 1);
+              return evaluate(opt, errors, body, this, depth + 1);
           }
         }
 
         the_case = ast_sibling(the_case);
       }
 
-      return evaluate(opt, elsebody, this, depth + 1);
+      return evaluate(opt, errors, elsebody, this, depth + 1);
     }
 
     case TK_CONSUME:
     {
       ast_t* consumed = ast_childidx(expression, 1);
-      return evaluate(opt, consumed, this, depth + 1);
+      return evaluate(opt, errors, consumed, this, depth + 1);
     }
 
     case TK_CONSTANT:
       // TODO: do we want to recover the value to a val here?
-      return evaluate(opt, ast_child(expression), this, depth + 1);
+      return evaluate(opt, errors, ast_child(expression), this, depth + 1);
 
     default:
-      ast_error(opt->check.errors, expression,
-        "cannot evaluate compile time expression");
+      ast_error_frame(errors, expression,
+        "expression interpeter does not support this expression");
       return NULL;
   }
   return NULL;

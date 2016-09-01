@@ -790,81 +790,6 @@ size_t ast_index(ast_t* ast)
   return idx;
 }
 
-ast_t* ast_get(ast_t* ast, const char* name, sym_status_t* status)
-{
-  // Searches all parent scopes, but not the program scope, because the name
-  // space for paths is separate from the name space for all other IDs.
-  // If called directly on the program scope, searches it.
-  if(status != NULL)
-    *status = SYM_NONE;
-
-  do
-  {
-    if(ast->symtab != NULL)
-    {
-      sym_status_t status2;
-      ast_t* value = (ast_t*)symtab_find(ast->symtab, name, &status2);
-
-      if((status != NULL) && (*status == SYM_NONE))
-        *status = status2;
-
-      if(value != NULL)
-        return value;
-    }
-
-    ast = ast->parent;
-  } while((ast != NULL) && (token_get_id(ast->t) != TK_PROGRAM));
-
-  return NULL;
-}
-
-ast_t* ast_get_case(ast_t* ast, const char* name, sym_status_t* status)
-{
-  // Same as ast_get, but is partially case insensitive. That is, type names
-  // are compared as uppercase and other symbols are compared as lowercase.
-  if(status != NULL)
-    *status = SYM_NONE;
-
-  do
-  {
-    if(ast->symtab != NULL)
-    {
-      sym_status_t status2;
-      ast_t* value = (ast_t*)symtab_find_case(ast->symtab, name, &status2);
-
-      if((status != NULL) && (*status == SYM_NONE))
-        *status = status2;
-
-      if(value != NULL)
-        return value;
-    }
-
-    ast = ast->parent;
-  } while((ast != NULL) && (token_get_id(ast->t) != TK_PROGRAM));
-
-  return NULL;
-}
-
-bool ast_set(ast_t* ast, const char* name, ast_t* value, sym_status_t status,
-  bool allow_shadowing)
-{
-  while(ast->symtab == NULL)
-    ast = ast->parent;
-
-  if(allow_shadowing)
-  {
-    // Only check the local scope.
-    if(symtab_find_case(ast->symtab, name, NULL) != NULL)
-      return false;
-  } else {
-    // Check the local scope and all parent scopes.
-    if(ast_get_case(ast, name, NULL) != NULL)
-      return false;
-  }
-
-  return symtab_add(ast->symtab, name, value, status);
-}
-
 typedef ast_t* (symtab_find_t)(symtab_t*, const char*, sym_status_t*);
 
 static ast_t* ast_get_from_symtab(ast_t* ast, const char* name,
@@ -896,6 +821,38 @@ static ast_t* ast_get_from_symtab(ast_t* ast, const char* name,
   return NULL;
 }
 
+ast_t* ast_get(ast_t* ast, const char* name, sym_status_t* status)
+{
+  return ast_get_from_symtab(ast, name, status, &symtab_find);
+}
+
+ast_t* ast_get_case(ast_t* ast, const char* name, sym_status_t* status)
+{
+  // Same as ast_get, but is partially case insensitive. That is, type names
+  // are compared as uppercase and other symbols are compared as lowercase.
+  return ast_get_from_symtab(ast, name, status, &symtab_find_case);
+}
+
+bool ast_set(ast_t* ast, const char* name, ast_t* value, sym_status_t status,
+  bool allow_shadowing)
+{
+  while(ast->symtab == NULL)
+    ast = ast->parent;
+
+  if(allow_shadowing)
+  {
+    // Only check the local scope.
+    if(symtab_find_case(ast->symtab, name, NULL) != NULL)
+      return false;
+  } else {
+    // Check the local scope and all parent scopes.
+    if(ast_get_case(ast, name, NULL) != NULL)
+      return false;
+  }
+
+  return symtab_add(ast->symtab, name, value, status);
+}
+
 bool ast_set_value(ast_t* ast, const char* name, ast_t* value)
 {
   while(ast->symtab == NULL)
@@ -905,7 +862,10 @@ bool ast_set_value(ast_t* ast, const char* name, ast_t* value)
     && symtab_set_value(ast->symtab, name, value);
 }
 
-// TODO: is there anyway of incorporating this into set_value
+// ast_update_value differs from ast_set_value as we are looking for the
+// scope where the variable was declared. We find this by testing whether the
+// variable had an existing value, which is then returned for the destructive
+// read.
 ast_t* ast_update_value(ast_t* ast, const char* name, ast_t* value)
 {
   do

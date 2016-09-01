@@ -407,7 +407,7 @@ void methodtab_init()
   add_method(stringtab("integer"), stringtab("f32"), &evaluate_f32_int);
   add_method(stringtab("integer"), stringtab("f64"), &evaluate_f64_int);
 
-  //float operations
+  // float operations
   add_method(stringtab("float"), stringtab("add"), &evaluate_add_float);
   add_method(stringtab("float"), stringtab("sub"), &evaluate_sub_float);
   add_method(stringtab("float"), stringtab("mul"), &evaluate_mul_float);
@@ -939,7 +939,6 @@ static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
     }
 
     case TK_CONSTANT:
-      // TODO: do we want to recover the value to a val here?
       return evaluate(opt, errors, ast_child(expression), this, depth + 1);
 
     default:

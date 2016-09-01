@@ -192,8 +192,9 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs, pass_opt_t* opt)
   // Duplicate the node.
   ast_t* r_ast = ast_dup(ast);
 
-  // TODO: discuss this with Sylvan
-  // We may need to reify some constraints of the typeparameters as well
+  // We may need to reify some constraints of the typeparameters when we need to
+  // ensure that a value argument satisfies the constraints of another type
+  // parameter.
   typeparams = ast_dup(typeparams);
 
   // Iterate pairwise through the typeparams and typeargs.

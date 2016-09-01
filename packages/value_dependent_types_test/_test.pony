@@ -29,6 +29,8 @@ actor Main is TestList
     test(_TestCompileTimeVector)
     test(_TestCompileTimeVariable)
     test(_TestCompileTimeObjectValueDependentType)
+    test(_TestCompileTimeWhileLoop)
+    test(_TestCompileTimeScoping)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -314,7 +316,7 @@ class iso _TestCompileTimeVariable is UnitTest
     h.assert_eq[U32](c.x, # c.x)
     //FIXME: the following isn't returning the correct value
     // it's grabbed the earlier C2 with 48 as the field
-    //h.assert_eq[U32](c(), # c())
+    // h.assert_eq[U32](c(), # c())
 
 class C8[b: Bool]
 class C9[c: C8[true] val]
@@ -326,3 +328,39 @@ class iso _TestCompileTimeObjectValueDependentType is UnitTest
   fun apply(h: TestHelper) =>
     let c1 = # C8[true]
     let c2 = C9[# c1 ]
+
+class iso _TestCompileTimeWhileLoop is UnitTest
+
+  fun name(): String => "VDT/CompileTimeWhileLoop"
+
+  fun apply(h: TestHelper) =>
+    let x = #(
+      var result: U32 = 1
+      var i: U32 = 1
+      while i < 10 do
+        result = result * (i = i + 1)
+      end
+      result)
+    let y = (
+      var result: U32 = 1
+      var i: U32 = 1
+      while i < 10 do
+        result = result * (i = i + 1)
+      end
+      result)
+    h.assert_eq[U32](x, y)
+
+class iso _TestCompileTimeScoping is UnitTest
+
+  fun name(): String => "VDT/CompileTimeScoping"
+
+  fun apply(h: TestHelper) =>
+    let x = #(
+      var z: U32 = 4
+      if true then z = 5 end
+      z)
+    let y = (
+      var z: U32 = 4
+      if true then z = 5 end
+      z)
+    h.assert_eq[U32](x, y)

@@ -204,8 +204,6 @@ typedef struct pass_opt_t
   typecheck_t check;
 
   int evaluation_depth;
-
-  // TODO: must we have this???
   bool evaluation_error;
 } pass_opt_t;
 

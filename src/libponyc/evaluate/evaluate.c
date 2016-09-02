@@ -1,5 +1,6 @@
 #include "evaluate.h"
 #include "../ast/astbuild.h"
+#include "../ast/printbuf.h"
 #include "../pass/expr.h"
 #include "../pass/pass.h"
 #include "../pkg/package.h"
@@ -474,21 +475,51 @@ static ast_t* ast_get_base_type(ast_t* ast)
   return NULL;
 }
 
+static void construct_object_hygienic_name(printbuf_t* buf,
+  pass_opt_t* opt, ast_t* type)
+{
+  switch(ast_id(type))
+  {
+    case TK_NOMINAL:
+    {
+      const char* type_name = ast_name(ast_childidx(type, 1));
+      ast_t* def = ast_get(type, type_name, NULL);
+
+      frame_push(&opt->check, ast_nearest(def, TK_PACKAGE));
+      const char* s = package_hygienic_id(&opt->check);
+      frame_pop(&opt->check);
+
+      printbuf(buf, "%s_%s", type_name, s);
+      return;
+    }
+
+    case TK_TUPLETYPE:
+    {
+      printbuf(buf, "%dt", ast_childcount(type));
+      ast_t* elem_type = ast_child(type);
+      while (elem_type != NULL)
+      {
+        construct_object_hygienic_name(buf, opt, elem_type);
+        elem_type = ast_sibling(elem_type);
+      }
+      return;
+    }
+
+    default:
+      assert(0);
+      return;
+  }
+
+}
+
 // generate a hygienic name for an object of a given type
 static const char* object_hygienic_name(pass_opt_t* opt, ast_t* type)
 {
-  assert(ast_id(type) == TK_NOMINAL);
-  const char* type_name = ast_name(ast_childidx(type, 1));
-  ast_t* def = ast_get(type, type_name, NULL);
-
-  frame_push(&opt->check, ast_nearest(def, TK_PACKAGE));
-  const char* s = package_hygienic_id(&opt->check);
-  frame_pop(&opt->check);
-
-  size_t buf_size = strlen(type_name) + strlen(s) + 2;
-  char* buffer = (char*)ponyint_pool_alloc_size(buf_size);
-  snprintf(buffer, buf_size, "%s_%s", type_name, s);
-  return stringtab_consume(buffer, buf_size);
+  printbuf_t* buf = printbuf_new();
+  construct_object_hygienic_name(buf, opt, type);
+  const char* r = stringtab(buf->m);
+  printbuf_free(buf);
+  return r;
 }
 
 // This is essentially the evaluate TK_FUN/TK_NEW case however, we require
@@ -706,14 +737,20 @@ static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
       if(eval_error(evaluated_receiver))
         return evaluated_receiver;
 
-      ast_t* field = ast_get_value(evaluated_receiver, ast_name(id));
-      if(eval_error(field))
+      ast_t* type = ast_type(evaluated_receiver);
+      ast_t* field;
+      if(ast_id(type) == TK_TUPLETYPE)
       {
-        if(field == NULL)
-          ast_error_frame(errors, expression,
-                    "field is not a compile-time expression");
-        return field;
+        lexint_t* index = ast_int(id);
+        ast_t* elems = ast_childidx(evaluated_receiver, 1);
+        field = ast_childidx(elems, index->low);
       }
+      else
+        field = ast_get_value(evaluated_receiver, ast_name(id));
+
+      if(eval_error(field) && field == NULL)
+        ast_error_frame(errors, expression,
+          "field is not a compile-time expression");
       return field;
     }
 
@@ -766,35 +803,6 @@ static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
       }
 
       return evaluate_method(opt, errors, function, evaluated_args, this, depth);
-    }
-
-    case TK_VECTOR:
-    {
-      // get the vector type
-      ast_t* type = ast_type(expression);
-
-      // first ensure that the vector class has been type checked
-      ast_t* def = ast_get(expression, stringtab("Vector"), NULL);
-      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
-        return NULL;
-
-      const char* vec_name = object_hygienic_name(opt, type);
-      BUILD(obj, expression,
-        NODE(TK_CONSTANT_OBJECT, ID(vec_name) NODE(TK_MEMBERS)))
-      ast_settype(obj, type);
-
-      ast_t* obj_members = ast_childidx(obj, 1);
-      ast_t* elem = ast_childidx(expression, 1);
-      while(elem != NULL)
-      {
-        ast_t* evaluated_elem = evaluate(opt, errors, elem, this, depth + 1);
-        if(eval_error(evaluated_elem))
-          return evaluated_elem;
-
-        ast_append(obj_members, evaluated_elem);
-        elem = ast_sibling(elem);
-      }
-      return obj;
     }
 
     case TK_VALUEFORMALPARAMREF:
@@ -940,6 +948,58 @@ static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
 
     case TK_CONSTANT:
       return evaluate(opt, errors, ast_child(expression), this, depth + 1);
+
+    case TK_VECTOR:
+    {
+      // get the vector type
+      ast_t* type = ast_type(expression);
+
+      // first ensure that the vector class has been type checked
+      ast_t* def = ast_get(expression, stringtab("Vector"), NULL);
+      if(ast_visit_scope(&def, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
+        return NULL;
+
+      const char* vec_name = object_hygienic_name(opt, type);
+      BUILD(obj, expression,
+        NODE(TK_CONSTANT_OBJECT, ID(vec_name) NODE(TK_MEMBERS)))
+      ast_settype(obj, type);
+
+      ast_t* obj_members = ast_childidx(obj, 1);
+      ast_t* elem = ast_childidx(expression, 1);
+      while(elem != NULL)
+      {
+        ast_t* evaluated_elem = evaluate(opt, errors, elem, this, depth + 1);
+        if(eval_error(evaluated_elem))
+          return evaluated_elem;
+
+        ast_append(obj_members, evaluated_elem);
+        elem = ast_sibling(elem);
+      }
+      return obj;
+    }
+
+    case TK_TUPLE:
+    {
+      ast_t* type = ast_type(expression);
+      const char* tuple_name = object_hygienic_name(opt, type);
+
+      BUILD(obj, expression,
+        NODE(TK_CONSTANT_OBJECT, ID(tuple_name) NODE(TK_MEMBERS)))
+      ast_settype(obj, type);
+
+      ast_t* obj_members = ast_childidx(obj, 1);
+      ast_t* elem = ast_child(expression);
+      while(elem != NULL)
+      {
+        ast_t* evaluated_elem = evaluate(opt, errors, elem, this, depth + 1);
+        if(eval_error(evaluated_elem))
+          return evaluated_elem;
+
+        ast_append(obj_members, evaluated_elem);
+        elem = ast_sibling(elem);
+      }
+      return obj;
+    }
 
     default:
       ast_error_frame(errors, expression,

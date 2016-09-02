@@ -31,6 +31,7 @@ actor Main is TestList
     test(_TestCompileTimeObjectValueDependentType)
     test(_TestCompileTimeWhileLoop)
     test(_TestCompileTimeScoping)
+    test(_TestCompileTimeTuples)
 
 class C1[n: U32]
   fun apply(): U32 => n
@@ -364,3 +365,14 @@ class iso _TestCompileTimeScoping is UnitTest
       if true then z = 5 end
       z)
     h.assert_eq[U32](x, y)
+
+class iso _TestCompileTimeTuples is UnitTest
+
+  fun name(): String => "VDT/CompileTimeTuples"
+
+  fun apply(h: TestHelper) =>
+    let x: (U32, String) = # (12, "Hello")
+    h.assert_eq[U32](# x._1, 12)
+    h.assert_eq[String](# x._2, "Hello")
+    h.assert_eq[U32](# x._1, x._1)
+    h.assert_eq[String](# x._2, x._2)

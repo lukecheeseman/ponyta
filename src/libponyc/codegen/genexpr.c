@@ -340,11 +340,46 @@ static LLVMValueRef gen_constant_vector(compile_t* c, ast_t* ast)
   return g_inst;
 }
 
+static LLVMValueRef gen_constant_tuple(compile_t* c, ast_t* ast)
+{
+  AST_GET_CHILDREN(ast, name, members);
+  const char* obj_name = ast_name(name);
+  LLVMValueRef obj = LLVMGetNamedGlobal(c->module, obj_name);
+  if(obj != NULL)
+    return obj;
+
+  ast_t* type = ast_type(ast);
+  reach_type_t* t = reach_type(c->reach, type, c->opt);
+
+  uint32_t elem_count = (uint32_t)ast_childcount(members);
+  LLVMValueRef elems[elem_count];
+
+  uint32_t elem = 0;
+  for(ast_t* member = ast_child(members);
+      member != NULL;
+      member = ast_sibling(member))
+  {
+    elems[elem++] = gen_expr(c, member);
+  }
+
+  LLVMValueRef elems_struct = LLVMConstStruct(elems, elem_count, false);
+
+  LLVMValueRef args[2] = {t->desc, elems_struct};
+  LLVMValueRef inst = LLVMConstNamedStruct(t->structure, args, 2);
+  LLVMValueRef g_inst = LLVMAddGlobal(c->module, t->structure, obj_name);
+  LLVMSetInitializer(g_inst, inst);
+  LLVMSetGlobalConstant(g_inst, true);
+  LLVMSetLinkage(g_inst, LLVMInternalLinkage);
+  return g_inst;
+}
+
 LLVMValueRef gen_constant_object(compile_t* c, ast_t* ast)
 {
   ast_t* type = ast_type(ast);
   if(is_vector(type))
     return gen_constant_vector(c, ast);
+  else if(ast_id(type) == TK_TUPLETYPE)
+    return gen_constant_tuple(c, ast);
 
   AST_GET_CHILDREN(ast, name, members);
   const char* obj_name = ast_name(name);

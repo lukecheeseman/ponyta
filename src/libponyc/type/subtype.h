@@ -22,8 +22,6 @@ bool is_sub_provides(ast_t* type, ast_t* provides, errorframe_t* errorf,
 
 bool is_vector(ast_t* type);
 
-bool is_matrix(ast_t* type);
-
 bool is_pointer(ast_t* type);
 
 bool is_maybe(ast_t* type);

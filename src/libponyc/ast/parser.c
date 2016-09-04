@@ -115,12 +115,20 @@ DEF(typearg);
   RULE("type argument", type, typeargliteral, typeargconst);
   DONE();
 
+DEF(valueconstraint);
+  AST_NODE(TK_VALUEFORMALCONSTRAINT);
+  SKIP(NULL, TK_LBRACE);
+  RULE("constraint", infix);
+  TERMINATE("type arguments", TK_RBRACE);
+  DONE();
+
 // ID [COLON type] [ASSIGN typearg]
 DEF(typeparam);
   AST_NODE(TK_TYPEPARAM);
   TOKEN("name", TK_ID);
   IF(TK_COLON, RULE("type constraint", type));
   IF(TK_ASSIGN, RULE("default type argument", typearg));
+  OPT RULE("value constraint", valueconstraint);
   DONE();
 
 // param {COMMA param}

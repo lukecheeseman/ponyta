@@ -241,6 +241,7 @@ static const lextoken_t abstract[] =
   { "opliteral", TK_OPERATORLITERAL },
 
   { "valueformalparam", TK_VALUEFORMALPARAM },
+  { "valueformalconstraint", TK_VALUEFORMALCONSTRAINT },
   { "typeparams", TK_TYPEPARAMS },
   { "typeparam", TK_TYPEPARAM },
   { "params", TK_PARAMS },

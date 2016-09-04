@@ -52,7 +52,7 @@ bool ast_equal(ast_t* left, ast_t* right)
     case TK_FLOAT:
       return ast_float(left) == ast_float(right);
 
-    // In this case we only compare the names of the objects using identity
+    // In this case we only compare the names of the objects; giving identity
     // equivalence
     case TK_CONSTANT_OBJECT:
       return ast_equal(ast_child(left), ast_child(right));
@@ -182,7 +182,8 @@ void eval_cache_done()
 
 bool contains_valueparamref(ast_t* ast) {
   while(ast != NULL) {
-    if(ast_id(ast) == TK_VALUEFORMALPARAMREF || contains_valueparamref(ast_child(ast)))
+    if(ast_id(ast) == TK_VALUEFORMALPARAMREF ||
+      contains_valueparamref(ast_child(ast)))
       return true;
     ast = ast_sibling(ast);
   }
@@ -195,7 +196,8 @@ static bool eval_error(ast_t* ast)
           ast_id(ast) == TK_VALUEFORMALPARAMREF);
 }
 
-bool expr_constant(pass_opt_t* opt, ast_t** astp) {
+bool expr_constant(pass_opt_t* opt, ast_t** astp)
+{
   // If we see a compile time expression
   // we first evaluate it then replace this node with the result
   ast_t* ast = *astp;
@@ -228,6 +230,20 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp) {
   return true;
 }
 
+bool expr_valueconstraint(pass_opt_t* opt, ast_t** astp)
+{
+  ast_t* ast = *astp;
+  ast_t* constraint = ast_child(ast);
+  if(!is_bool(ast_type(constraint)))
+  {
+    ast_error(opt->check.errors, ast, "value constraints must be a Bool");
+    return false;
+  }
+  return true;
+}
+
+
+// TODO: go through this methods and try to clean it up
 bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 {
   ast_t* ast = *astp;
@@ -243,7 +259,7 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 
   ast_t* expression = ast_child(ast);
 
-  // We can't evaluate expressions which stil have references to value
+  // We can't evaluate expressions which still have references to value
   // parameters so we simply stop, indicating no error yet.
   if(contains_valueparamref(expression))
     return true;

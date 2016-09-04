@@ -6,6 +6,7 @@
 
 bool evaluate_expression(pass_opt_t* opt, ast_t** astp);
 bool expr_constant(pass_opt_t* opt, ast_t** astp);
+bool expr_valueconstraint(pass_opt_t* opt, ast_t** astp);
 bool contains_valueparamref(ast_t* ast);
 bool ast_equal(ast_t* left, ast_t* right);
 

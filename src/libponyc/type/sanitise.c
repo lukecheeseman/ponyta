@@ -22,6 +22,7 @@ static void collect_type_param(ast_t* orig_param, ast_t* params, ast_t* args)
       NODE(TK_TYPEPARAM,
         ID(name)
         TREE(constraint)
+        NONE
         NONE));
 
     ast_append(params, new_param);

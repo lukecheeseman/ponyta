@@ -127,8 +127,8 @@ DEF(typeparam);
   AST_NODE(TK_TYPEPARAM);
   TOKEN("name", TK_ID);
   IF(TK_COLON, RULE("type constraint", type));
-  IF(TK_ASSIGN, RULE("default type argument", typearg));
   OPT RULE("value constraint", valueconstraint);
+  IF(TK_ASSIGN, RULE("default type argument", typearg));
   DONE();
 
 // param {COMMA param}

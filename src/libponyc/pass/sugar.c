@@ -239,7 +239,7 @@ static ast_result_t sugar_entity(pass_opt_t* opt, ast_t* ast, bool add_create,
 
 static ast_result_t sugar_typeparam(ast_t* ast)
 {
-  AST_GET_CHILDREN(ast, id, constraint);
+  AST_GET_CHILDREN(ast, id, constraint, value_constraint);
   const char* name = ast_name(id);
 
   if(!is_name_type(name)) {
@@ -253,6 +253,15 @@ static ast_result_t sugar_typeparam(ast_t* ast)
         NONE
         NONE
         NONE));
+  }
+
+  if(ast_id(value_constraint) != TK_NONE)
+  {
+    value_constraint = ast_child(value_constraint);
+    BUILD(constant_value_constraint, value_constraint,
+      NODE(TK_CONSTANT,
+        TREE(value_constraint)));
+    ast_replace(&value_constraint, constant_value_constraint);
   }
 
   return AST_OK;

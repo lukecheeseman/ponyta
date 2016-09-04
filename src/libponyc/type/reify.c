@@ -334,6 +334,41 @@ bool check_constraints(ast_t* orig, ast_t* typeparams, ast_t* typeargs,
 
     ast_free_unattached(r_constraint);
 
+    // TODO: this will probably (definetly) not work completely for the same
+    // reason we can't evaluate expressions in type checking. May have to be
+    // moved later
+    ast_t* value_constraint = ast_childidx(typeparam, 2);
+    if(ast_id(value_constraint) != TK_NONE)
+    {
+      ast_t* r_vconstraint = reify(value_constraint, typeparams, typeargs, opt);
+      r_vconstraint = ast_child(r_vconstraint);
+      if(!contains_valueparamref(r_vconstraint))
+      {
+        evaluate_expression(opt, &r_vconstraint);
+        if(r_vconstraint == NULL)
+          return false;
+
+        if(ast_id(r_vconstraint) == TK_FALSE)
+        {
+          if(report_errors)
+          {
+            ast_error(opt->check.errors, orig,
+              "type argument is outside its constraint");
+            ast_error_continue(opt->check.errors, typearg,
+              "argument: %s", ast_print_expr(ast_child(typearg)));
+            ast_error_continue(opt->check.errors, value_constraint,
+              "constraint: %s", ast_print_expr(ast_child(value_constraint)));
+          }
+
+          ast_free_unattached(r_vconstraint);
+          return false;
+        }
+
+        assert(ast_id(r_vconstraint) == TK_TRUE);
+      }
+      ast_free_unattached(r_vconstraint);
+    }
+
     // A constructable constraint can only be fulfilled by a concrete typearg.
     if(is_constructable(constraint) && !is_concrete(typearg))
     {

@@ -151,7 +151,7 @@ bool reify_defaults(ast_t* typeparams, ast_t* typeargs, bool errors,
 
   while(typeparam != NULL)
   {
-    ast_t* defarg = ast_childidx(typeparam, 3);
+    ast_t* defarg = ast_childidx(typeparam, 2);
 
     if(ast_id(defarg) == TK_NONE)
       break;

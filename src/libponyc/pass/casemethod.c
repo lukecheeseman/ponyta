@@ -85,7 +85,7 @@ static ast_t* make_match_wrapper(ast_t* case_method, pass_opt_t* opt)
   for(ast_t* p = ast_child(t_params); p != NULL; p = ast_sibling(p))
   {
     // Set all type parameter info to none now and fill it in later.
-    BUILD(new_t_param, p, NODE(TK_TYPEPARAM, NONE NONE NONE NONE));
+    BUILD(new_t_param, p, NODE(TK_TYPEPARAM, NONE NONE NONE));
     ast_list_append(new_t_params, &t_param_list_end, new_t_param);
     ast_setid(new_t_params, TK_TYPEPARAMS);
   }
@@ -408,12 +408,10 @@ static bool process_t_param(ast_t* case_param, ast_t* match_param,
   assert(case_param != NULL);
   assert(match_param != NULL);
 
-  AST_GET_CHILDREN(case_param, case_id, case_constraint, case_val_constraint,
-    case_def_type);
+  AST_GET_CHILDREN(case_param, case_id, case_constraint, case_def_type);
   assert(ast_id(case_id) == TK_ID);
 
-  AST_GET_CHILDREN(match_param, match_id, match_constraint,
-    match_val_constraint, match_def_type);
+  AST_GET_CHILDREN(match_param, match_id, match_constraint, match_def_type);
   assert(ast_id(match_id) == TK_ID || ast_id(match_id) == TK_NONE);
 
   if(ast_id(match_id) == TK_NONE)

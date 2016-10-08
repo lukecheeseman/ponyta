@@ -180,19 +180,6 @@ bool expr_constant(pass_opt_t* opt, ast_t** astp)
   return true;
 }
 
-bool expr_valueconstraint(pass_opt_t* opt, ast_t** astp)
-{
-  ast_t* ast = *astp;
-  ast_t* constraint = ast_child(ast);
-  if(!is_bool(ast_type(constraint)))
-  {
-    ast_error(opt->check.errors, ast, "value constraints must be a Bool");
-    return false;
-  }
-  return true;
-}
-
-
 // TODO: go through this methods and try to clean it up
 bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
 {

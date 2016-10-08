@@ -201,6 +201,8 @@ ast_t* reify(ast_t* ast, ast_t* typeparams, ast_t* typeargs, pass_opt_t* opt)
   while((typeparam != NULL) && (typearg != NULL))
   {
     reify_one(&r_ast, typeparam, typearg);
+    // we reify the type parameter for values which depend on other supplied
+    // types
     reify_one(&typeparams, typeparam, typearg);
     typeparam = ast_sibling(typeparam);
     typearg = ast_sibling(typearg);

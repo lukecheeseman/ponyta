@@ -8,6 +8,7 @@
 #include "../type/subtype.h"
 #include "../../libponyrt/mem/pool.h"
 #include "../evaluate/evaluate.h"
+#include "../evaluate/equality.h"
 #include "../expr/operator.h"
 #include <stdio.h>
 #include <string.h>
@@ -25,6 +26,8 @@ static void reachable_method(reach_t* r, ast_t* type, const char* name,
   ast_t* typeargs, pass_opt_t* opt);
 
 static void reachable_expr(reach_t* r, ast_t* ast, pass_opt_t* opt);
+
+static bool check_equality_list(equality_list_t* list, pass_opt_t* opt);
 
 static size_t reach_method_hash(reach_method_t* m)
 {
@@ -1032,7 +1035,42 @@ static void reachable_method(reach_t* r, ast_t* type, const char* name,
   }
 }
 
-static bool handle_stack(reach_t* r, pass_opt_t* opt)
+static bool check_equality_list(equality_list_t* list, pass_opt_t* opt)
+{
+  bool equal = true;
+  while(list != NULL)
+  {
+    ast_t* pos = ast_from(list->lhs, TK_DONTCARE);
+
+    ast_t* lhs = list->lhs;
+    evaluate_expression(opt, &lhs);
+
+    ast_t* rhs = list->rhs;
+    evaluate_expression(opt, &rhs);
+
+    if(!ast_equal(lhs, rhs))
+    {
+      errorframe_t frame = NULL;
+      ast_error_frame(&frame, pos, "Expected values to be equal");
+      ast_error_frame(&frame, lhs, "Expected value: %s", ast_print_expr(lhs));
+      ast_error_frame(&frame, rhs, "Actual value: %s", ast_print_expr(rhs));
+      errorframe_report(&frame, opt->check.errors);
+      equal = false;
+    }
+
+    equality_list_t* curr = list;
+    list = list->next;
+
+    ast_free(lhs);
+    ast_free(rhs);
+    ast_free(pos);
+    POOL_FREE(equality_list_t, curr);
+  }
+
+  return equal;
+}
+
+static void handle_stack(reach_t* r, pass_opt_t* opt)
 {
   while(r->stack != NULL)
   {
@@ -1041,9 +1079,29 @@ static bool handle_stack(reach_t* r, pass_opt_t* opt)
 
     ast_t* body = ast_childidx(m->r_fun, 6);
     reachable_expr(r, body, opt);
-  }
 
-  return true;
+    // After checking the reachble expressions in the body, we will now
+    // have evaluated any expressions which appear in the function
+    // this lets us check equality bewtween expressions used in type
+    // arguements.
+    const char* member_name = ast_name(ast_childidx(m->r_fun, 1));
+    ast_t* type = ast_nearest(m->r_fun, TK_CLASS);
+    //FIXME: get the type in a better way and handle primitves
+    if(type == NULL)
+      type = ast_nearest(m->r_fun, TK_ACTOR);
+
+    if(type != NULL)
+    {
+      const char* type_name = ast_name(ast_child(type));
+      equality_entry_t* entry = search_equality(opt->check.equality_tab,
+                                                type_name, member_name);
+      if(entry != NULL)
+      {
+        opt->check.evaluation_error |= !check_equality_list(entry->head, opt);
+        equality_tab_remove(opt->check.equality_tab, entry);
+      }
+    }
+  }
 }
 
 reach_t* reach_new()
@@ -1068,7 +1126,8 @@ bool reach(reach_t* r, ast_t* type, const char* name, ast_t* typeargs,
   pass_opt_t* opt)
 {
   reachable_method(r, type, name, typeargs, opt);
-  return handle_stack(r, opt) && !opt->evaluation_error;
+  handle_stack(r, opt);
+  return !opt->check.evaluation_error;
 }
 
 reach_type_t* reach_type(reach_t* r, ast_t* type, pass_opt_t* opt)

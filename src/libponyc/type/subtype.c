@@ -8,9 +8,10 @@
 #include "viewpoint.h"
 #include "../ast/astbuild.h"
 #include "../expr/literal.h"
+#include "../evaluate/equality.h"
 #include <string.h>
-#include "../evaluate/evaluate.h"
 #include <assert.h>
+
 
 static bool is_eq_typeargs(ast_t* a, ast_t* b, errorframe_t* errorf,
   pass_opt_t* opt);
@@ -1336,37 +1337,69 @@ static bool is_arrow_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
   return false;
 }
 
+// Unfortunately, this typechecking method relies on many assumptions about how
+// and when it will be called. This is because we can't nicely check values
+// during the type checking phase as we need expressions to be evaluated but the
+// expressions aren't guaranteed to be type safe / legal until after typechecking.
+// As such we delay checking equality of value arguments until after type checking
+// and after evaluation. At the time of writing there are no value constraints
+// so provided the value is of the correct type this is fine.
+// TODO: ammend this comment after value constraints
 static bool is_typevalue_sub_x(ast_t* sub, ast_t* super, errorframe_t* errorf,
   pass_opt_t* opt)
 {
-  ast_t* sub_value = ast_child(sub);
-  switch(ast_id(super)) {
-    case TK_VALUEFORMALARG: {
+  switch(ast_id(super))
+  {
+    case TK_VALUEFORMALARG:
+    {
+      ast_t* sub_value = ast_child(sub);
       ast_t *super_value = ast_child(super);
       ast_t *super_type = ast_type(super_value);
       ast_t *sub_type = ast_type(sub_value);
 
       // The type of these should be equal so we first check this
-      if(!is_eqtype(sub_type, super_type, errorf, opt))
+      if(!is_eqtype(super_type, sub_type, errorf, opt))
         return false;
 
-      if(ast_id(sub_value) == TK_CONSTANT &&
-         !evaluate_expression(opt, &sub_value))
-        return false;
-
-      if(ast_id(super_value) == TK_CONSTANT &&
-         !evaluate_expression(opt, &super_value))
-        return false;
-
-      if(!ast_equal(sub_value, super_value))
+      // If the expressions are not the same then we add them to a list of
+      // expressions which we which check for equality later.
+      if(!ast_equal(super_value, sub_value))
       {
-        if(errorf != NULL)
-        {
-          ast_error_frame(errorf, sub_value,
-            "%s may not be the same as %s",
-            ast_print_expr(sub_value), ast_print_expr(super_value));
-        }
-        return false;
+        // If we are later than type checking then this will have already been handled
+        // TODO: find a nicer way of handling this edge case
+        if(opt->program_pass >= PASS_REACH)
+          return true;
+
+        ast_t* type = opt->check.frame->type;
+
+        // TODO: what is a better way of getting the memeber?
+        ast_t* member = ast_nearest(super_value, TK_FUN);
+        if(member == NULL)
+          member = ast_nearest(super_value, TK_NEW);
+
+        // If member is still NULL it's because we have no
+        // member to attach an equality entry to, this may be
+        // the case when a class inherits from a trait. This
+        // is fine as the entry will have been attached to another
+        // list.
+        if(member == NULL)
+          return true;
+
+        assert(type != NULL);
+        assert(member != NULL);
+
+        const char* type_name = ast_name(ast_child(type));
+        const char* member_name = ast_name(ast_childidx(member, 1));
+
+        equality_entry_t* entry = search_equality(opt->check.equality_tab,
+                                                  type_name, member_name);
+
+        // This condition is a slight optimisation as this method is called
+        // from eq_typeargs so all entries would appear twice. This improves
+        // compilation time and error messages.
+        if(entry == NULL || !ast_equal(sub_value, entry->current->lhs))
+          mark_check_equality(opt->check.equality_tab, type_name, member_name,
+                              super_value, sub_value);
       }
 
       return true;

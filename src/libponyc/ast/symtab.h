@@ -27,9 +27,8 @@ typedef struct symbol_t
   sym_status_t status;
   size_t branch_count;
 
-  // Used to track the value of a value
-  // for the evaluation of compile time
-  // expression
+  // Used to track the value of a variable for the evaluation of compile time
+  // expression.
   ast_t* value;
 } symbol_t;
 

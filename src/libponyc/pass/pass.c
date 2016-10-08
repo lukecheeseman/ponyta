@@ -1,6 +1,7 @@
 #include "pass.h"
 #include "../ast/parser.h"
 #include "../ast/treecheck.h"
+#include "../evaluate/equality.h"
 #include "syntax.h"
 #include "sugar.h"
 #include "scope.h"
@@ -91,8 +92,8 @@ void pass_opt_init(pass_opt_t* options)
   options->limit = PASS_ALL;
   options->verbosity = VERBOSITY_INFO;
   options->evaluation_depth = 512;
-  options->evaluation_error = false;
   options->check.errors = errors_alloc();
+  options->check.equality_tab = equality_tab_new();
   frame_push(&options->check, NULL);
 }
 

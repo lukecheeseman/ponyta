@@ -7,6 +7,8 @@ PONY_EXTERN_C_BEGIN
 
 typedef struct errors_t errors_t;
 
+typedef struct equality_tab_t equality_tab_t;
+
 typedef struct typecheck_frame_t
 {
   ast_t* package;
@@ -49,6 +51,9 @@ typedef struct typecheck_t
   typecheck_frame_t* frame;
   typecheck_stats_t stats;
   errors_t* errors;
+
+  equality_tab_t* equality_tab;
+  bool evaluation_error;
 } typecheck_t;
 
 bool frame_push(typecheck_t* t, ast_t* ast);

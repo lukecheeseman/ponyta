@@ -4,6 +4,7 @@
 #include "../pass/expr.h"
 #include "../pass/pass.h"
 #include "../pkg/package.h"
+#include "../evaluate/equality.h"
 #include "../evaluate/evaluate_bool.h"
 #include "../evaluate/evaluate_float.h"
 #include "../evaluate/evaluate_int.h"
@@ -16,65 +17,14 @@
 #include "../type/assemble.h"
 #include "../expr/literal.h"
 #include "../expr/operator.h"
-#include "string.h"
-#include <assert.h>
-#include <inttypes.h>
 #include "../../libponyrt/mem/pool.h"
 #include "../../libponyrt/ds/hash.h"
+#include <string.h>
+#include <assert.h>
+#include <inttypes.h>
 
 static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
   ast_t* scope, int depth);
-
-bool ast_equal(ast_t* left, ast_t* right)
-{
-  if(left == NULL || right == NULL)
-    return left == NULL && right == NULL;
-
-  // Look through all of the constant expression directives
-  if(ast_id(left) == TK_CONSTANT)
-    return ast_equal(ast_child(left), right);
-
-  if(ast_id(right) == TK_CONSTANT)
-    return ast_equal(left, ast_child(right));
-
-  if(ast_id(left) != ast_id(right))
-    return false;
-
-  switch(ast_id(left))
-  {
-    case TK_ID:
-    case TK_STRING:
-      return ast_name(left) == ast_name(right);
-
-    case TK_INT:
-      return lexint_cmp(ast_int(left), ast_int(right)) == 0;
-
-    case TK_FLOAT:
-      return ast_float(left) == ast_float(right);
-
-    // In this case we only compare the names of the objects; giving identity
-    // equivalence
-    case TK_CONSTANT_OBJECT:
-      return ast_equal(ast_child(left), ast_child(right));
-
-    default:
-      break;
-  }
-
-  ast_t* l_child = ast_child(left);
-  ast_t* r_child = ast_child(right);
-
-  while(l_child != NULL && r_child != NULL)
-  {
-    if(!ast_equal(l_child, r_child))
-      return false;
-
-    l_child = ast_sibling(l_child);
-    r_child = ast_sibling(r_child);
-  }
-
-  return l_child == NULL && r_child == NULL;
-}
 
 static size_t ast_hash(ast_t* ast)
 {
@@ -254,10 +204,8 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     return true;
   }
 
-  assert(ast_id(ast) == TK_CONSTANT);
   ast_setconstant(ast);
-
-  ast_t* expression = ast_child(ast);
+  ast_t* expression = ast;
 
   // We can't evaluate expressions which still have references to value
   // parameters so we simply stop, indicating no error yet.
@@ -278,7 +226,7 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     ast_error_frame(&frame, ast, "could not evaluate compile time expression");
     errorframe_append(&frame, &errors);
     errorframe_report(&frame, opt->check.errors);
-    opt->evaluation_error = true;
+    opt->check.evaluation_error = true;
     return false;
   }
 
@@ -292,7 +240,7 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
               "unresolved error occurred during evaluation");
     ast_error_continue(opt->check.errors, evaluated,
               "error originated from here");
-    opt->evaluation_error = true;
+    opt->check.evaluation_error = true;
     return false;
   }
 
@@ -312,7 +260,7 @@ bool evaluate_expression(pass_opt_t* opt, ast_t** astp)
     {
       ast_error(opt->check.errors, expression,
         "can't recover compile-time object to val capability");
-      opt->evaluation_error = true;
+      opt->check.evaluation_error = true;
       return false;
     }
   }

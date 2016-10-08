@@ -204,7 +204,6 @@ typedef struct pass_opt_t
   typecheck_t check;
 
   int evaluation_depth;
-  bool evaluation_error;
 } pass_opt_t;
 
 /** Limit processing to the specified pass. All passes up to and including the

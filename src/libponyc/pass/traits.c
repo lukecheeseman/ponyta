@@ -3,12 +3,12 @@
 #include "../ast/id.h"
 #include "../ast/token.h"
 #include "../ast/astbuild.h"
+#include "../evaluate/equality.h"
 #include "../pkg/package.h"
 #include "../type/assemble.h"
 #include "../type/subtype.h"
 #include "../type/reify.h"
 #include "../../libponyrt/mem/pool.h"
-#include "../evaluate/evaluate.h"
 #include <assert.h>
 
 

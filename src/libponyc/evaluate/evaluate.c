@@ -22,6 +22,8 @@
 #include <string.h>
 #include <assert.h>
 #include <inttypes.h>
+#include "../../libponyrt/mem/pool.h"
+#include "../../libponyrt/ds/hash.h"
 
 static ast_t* evaluate(pass_opt_t* opt, errorframe_t* errors, ast_t* expression,
   ast_t* scope, int depth);
